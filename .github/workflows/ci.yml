@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        continue-on-error: true
+        with:
+          globs: |
+            **/*.md
+
+  pwa:
+    runs-on: ubuntu-latest
+    if: hashFiles('packages/pwa/package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter pwa typecheck
+      - run: pnpm --filter pwa build
+
+  daemon:
+    runs-on: macos-14
+    if: hashFiles('packages/mac-daemon/go.mod') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - working-directory: packages/mac-daemon
+        run: |
+          go vet ./...
+          go test ./...
+
+  palm-app:
+    runs-on: ubuntu-latest
+    if: hashFiles('packages/palm-app/Makefile') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build .prc via prc-tools-remix Docker image
+        working-directory: packages/palm-app
+        run: |
+          docker run --rm -v "$PWD":/work -w /work jichu4n/prc-tools-remix make

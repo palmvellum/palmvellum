@@ -1,0 +1,56 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+.zed/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Build artifacts
+node_modules/
+dist/
+build/
+.turbo/
+.next/
+.svelte-kit/
+target/
+vendor/
+bin/
+*.prc
+*.bin
+*.pdb
+*.so
+*.dylib
+*.dll
+
+# Go
+*.test
+*.out
+coverage.out
+go-build/
+
+# Caches
+.cache/
+.pnpm-store/
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# OS-specific Palm dev state
+~/.palm-ai/
+.palm-ai/

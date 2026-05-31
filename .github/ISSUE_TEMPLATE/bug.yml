@@ -1,0 +1,60 @@
+name: 🐛 Bug report
+description: Something that should work doesn't
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      placeholder: Describe the bug clearly
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Palm Vellum version
+      placeholder: e.g., 0.1.2 or main@a1b2c3d
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: macOS / Linux / Windows version
+    validations:
+      required: true
+  - type: dropdown
+    id: palm-model
+    attributes:
+      label: Palm model (if relevant)
+      options:
+        - Not applicable
+        - Palm Pilot 1000 / 5000
+        - PalmPilot Personal / Professional
+        - Palm III
+        - Palm IIIe
+        - Palm IIIx
+        - Palm IIIxe
+        - Palm m100
+        - Palm m105
+        - Palm m125
+        - Palm Zire
+        - Palm Zire 21
+        - Handspring Visor / Solo / Deluxe / Platinum / Neo
+        - Sony Clié PEG-SL10

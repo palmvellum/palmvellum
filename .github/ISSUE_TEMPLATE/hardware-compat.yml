@@ -1,0 +1,68 @@
+name: 📱 Hardware compatibility report
+description: Tell us about your Palm hardware experience
+title: "[hw] "
+labels: ["hardware-compat", "triage"]
+body:
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device model
+      options:
+        - Palm Pilot 1000
+        - Palm Pilot 5000
+        - PalmPilot Personal
+        - PalmPilot Professional
+        - Palm III
+        - Palm IIIe
+        - Palm IIIx
+        - Palm IIIxe
+        - Palm m100
+        - Palm m105
+        - Palm m125
+        - Palm Zire
+        - Palm Zire 21
+        - Handspring Visor
+        - Handspring Visor Solo
+        - Handspring Visor Deluxe
+        - Handspring Visor Platinum
+        - Handspring Visor Neo
+        - Sony Clié PEG-SL10
+        - Other (specify in details)
+    validations:
+      required: true
+  - type: input
+    id: rom-version
+    attributes:
+      label: Palm OS version (Prefs → About)
+    validations:
+      required: true
+  - type: checkboxes
+    id: status
+    attributes:
+      label: What worked
+      options:
+        - label: HotSync via FTDI USB-Serial cradle
+        - label: Hello.prc installed and ran
+        - label: AI Oracle round-trip
+        - label: Vault create / read
+        - label: TOTP enrollment + code generation
+        - label: Cold signer (specify algorithm in details)
+        - label: Real Graffiti input
+        - label: Jog dial (Sony only)
+        - label: Hi-res 320×320 rendering (Sony SL10 only)
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup details
+      placeholder: |
+        - FTDI cable: e.g., genuine FT232R from Adafruit
+        - Cradle: e.g., original Palm III HotSync cradle
+        - Mac model + OS: e.g., M2 MacBook Air, macOS 26
+        - Palm Vellum version: e.g., v0.1.2
+        - Anything quirky
+    validations:
+      required: true
+  - type: textarea
+    id: gotchas
+    attributes:
+      label: Gotchas or issues

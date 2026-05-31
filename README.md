@@ -239,7 +239,10 @@ modern endpoints**. The adversary cannot:
 Given those two constraints, **all your `vault` and `sealed`
 records remain confidential.**
 
-Read the full [threat model](docs/threat-model.md).
+- Full [threat model](docs/threat-model.md)
+- Full [cryptographic specification](docs/crypto-spec.md) — KDF
+  parameters, AES-GCM record format, posture enforcement, signer
+  workflows, BIP-39 + Shamir
 
 ## Contributing
 

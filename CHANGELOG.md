@@ -15,3 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Hardware compatibility matrix (19 devices)
 - Competitive landscape analysis
 - Roadmap through v2.0
+- `docs/crypto-spec.md` — v1.0 cryptographic specification covering
+  posture system, KDF parameters, AES-256-GCM record format,
+  Password Vault, TOTP Authenticator, Cold Signer (Ed25519 +
+  ECDSA-secp256k1), BIP-39 + Shamir Secret Sharing, on-device PDB
+  layout, sync-engine enforcement, and Palm IIIe performance
+  budgets

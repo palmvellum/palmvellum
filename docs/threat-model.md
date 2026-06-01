@@ -44,7 +44,7 @@ We do **not** defend against:
 ## Security properties we promise
 
 Given an attacker with the in-scope capabilities and the
-out-of-scope exclusions, Palm Vellum guarantees:
+out-of-scope exclusions, PalmVellum guarantees:
 
 ### P1 — `vault` records are confidential
 
@@ -72,7 +72,7 @@ They are **not** protected against cloud compromise. By choosing
 
 ### P4 — Signatures are unforgeable
 
-Cryptographic signatures produced by Palm Vellum (PGP, age, SSH,
+Cryptographic signatures produced by PalmVellum (PGP, age, SSH,
 Bitcoin, Ethereum) require the master phrase and a physically
 present Palm. They cannot be forged by anyone with only your cloud
 data, your phone, and your laptop.

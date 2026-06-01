@@ -29,7 +29,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Palm Vellum version
+      label: PalmVellum version
       placeholder: e.g., 0.1.2 or main@a1b2c3d
     validations:
       required: true

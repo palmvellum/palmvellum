@@ -1,6 +1,6 @@
 # Hardware Compatibility
 
-Palm Vellum supports exactly **19 devices**: all consumer Palm-OS
+PalmVellum supports exactly **19 devices**: all consumer Palm-OS
 handhelds powered by 2 AAA alkaline batteries, manufactured between
 1996 and 2003, with zero internal radios.
 

@@ -5,7 +5,7 @@
 
 ## Overview
 
-Palm Vellum is a monorepo of four packages plus an `infra/` tree
+PalmVellum is a monorepo of four packages plus an `infra/` tree
 for cloud configuration.
 
 ```

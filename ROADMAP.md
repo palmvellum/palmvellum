@@ -1,6 +1,6 @@
 # Roadmap
 
-Palm Vellum follows semantic versioning. Production cryptographic
+PalmVellum follows semantic versioning. Production cryptographic
 features are gated behind v1.0.
 
 ## v0.1 — "Hello, Vellum" (target: 4 weeks)

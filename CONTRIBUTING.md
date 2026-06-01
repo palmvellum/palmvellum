@@ -1,4 +1,4 @@
-# Contributing to Palm Vellum
+# Contributing to PalmVellum
 
 Welcome. We are a small project with an unusual scope: building
 modern software for hardware that stopped being manufactured in

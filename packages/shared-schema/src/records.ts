@@ -1,5 +1,5 @@
 /**
- * Record schema — the heart of Palm Vellum's data model.
+ * Record schema — the heart of PalmVellum's data model.
  *
  * Every entity (password, todo, AI query, journal entry, signing key)
  * is a record. The posture system determines what may leave the Palm.

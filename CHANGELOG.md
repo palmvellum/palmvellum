@@ -36,3 +36,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Palm OS .prc. 845 bytes. Targets -palmos3.5 (SDK 3.5 baseline;
   -palmos3.1 + Pilot.h variant planned for real Palm IIIe 3.1-ROM
   later).
+
+### Vision restructure (2026-06-01)
+
+- Project rebranded from "Palm Vellum" to single-word **PalmVellum**
+- README now describes the **movement / platform model**:
+  open-source app family (Apache 2.0) + opt-in commercial AI service
+  with non-AI features always free
+- App directory in README listing the planned open-source family:
+  Palm Wallet, QR Card, VellumCN, Dream Diary, News Feed, plus the
+  closed-source PalmVellum AI superapp
+- `docs/apps/palm-wallet.md` — full design spec for the open-source
+  cold signer, including entropy strategy, ECC library choice,
+  QR / BBQr workflow, mandatory seed-phrase backup disclaimers
+- `docs/preservation.md` — 5-tier preservation strategy
+  (GitHub → archive.org → Codeberg mirror → IPFS → community channels)
+  and ROM provenance manifest format
+
+### Mac daemon scaffold (2026-06-01)
+
+- `packages/mac-daemon/` end-to-end Go scaffold
+  - `cmd/palmvellum` with cobra subcommands: serve / doctor / sync / version
+  - `internal/config` — env-driven configuration with ~ expansion
+  - `internal/store` — modernc.org/sqlite + embedded migrations
+    (records / sync_conflicts / sync_state tables)
+  - `internal/api` — local HTTP server on 127.0.0.1:7733
+    (/health, /v1/records, /v1/sync)
+  - `internal/hotsync`, `internal/supa`, `internal/ai` — typed stubs
+    that error cleanly until implemented per issues #2 / #7 / #10 / #14
+- Tested: build → version → doctor → serve → /health / /v1/records → clean shutdown

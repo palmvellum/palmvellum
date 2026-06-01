@@ -58,7 +58,7 @@ body:
         - FTDI cable: e.g., genuine FT232R from Adafruit
         - Cradle: e.g., original Palm III HotSync cradle
         - Mac model + OS: e.g., M2 MacBook Air, macOS 26
-        - Palm Vellum version: e.g., v0.1.2
+        - PalmVellum version: e.g., v0.1.2
         - Anything quirky
     validations:
       required: true

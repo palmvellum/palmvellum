@@ -1,7 +1,7 @@
 # Cryptographic Specification
 
 > Status: **draft / pre-1.0**. This document defines the
-> cryptographic contract Palm Vellum will deliver at v1.0. Until
+> cryptographic contract PalmVellum will deliver at v1.0. Until
 > v1.0, none of this is audit-recommended for production use.
 
 ## Scope
@@ -38,7 +38,7 @@ Out of scope for v1.0 (deferred to v1.x / v2.0):
 2. An adversary with the capabilities listed in
    [`threat-model.md`](threat-model.md) cannot read any `vault` or
    `sealed` record without one of those two factors.
-3. All primitives are well-studied standards. Palm Vellum
+3. All primitives are well-studied standards. PalmVellum
    introduces no novel cryptographic construction.
 4. The on-device portion runs to completion in under 30 seconds on
    a Palm IIIe for any single user-facing operation (unlock,
@@ -57,12 +57,12 @@ Out of scope for v1.0 (deferred to v1.x / v2.0):
    in v2.0 scope.
 4. **Replacing a hardware wallet for very-large-balance crypto.**
    Use a Trezor Safe or Ledger Stax for life-changing balances; use
-   Palm Vellum for daily-use keys, recovery shards, and
+   PalmVellum for daily-use keys, recovery shards, and
    authenticator codes.
 
 ## 1. Three-tier record posture system
 
-Every record in Palm Vellum is assigned one of three postures at
+Every record in PalmVellum is assigned one of three postures at
 creation time. The posture **cannot be downgraded** (a record can
 move from `open` to `sealed` or `vault`, but a `vault` record
 cannot be made `open`). The sync engine enforces posture at every
@@ -471,7 +471,7 @@ Ethereum specifics:
 
 The bridge produces a QR code on the user's modern device containing
 the sign request. The Palm reads it via a partner phone running the
-Palm Vellum companion app (which takes a photo and transmits the
+PalmVellum companion app (which takes a photo and transmits the
 data over USB-OTG to the Palm cradle). The Palm signs, emits the
 result as a QR on its screen, which the phone photographs and
 broadcasts.

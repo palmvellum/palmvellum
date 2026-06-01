@@ -1,6 +1,6 @@
 # Competitive Landscape
 
-A survey of projects adjacent to Palm Vellum's mission, conducted
+A survey of projects adjacent to PalmVellum's mission, conducted
 May 2026. Updated whenever a relevant new project surfaces.
 
 ## Direct competitors
@@ -23,7 +23,7 @@ The 2003-era open-source password manager for Palm OS. Hosted on
 SourceForge, last meaningful update circa 2010. No cloud sync, no
 modern crypto primitives, no AI bridge, no maintained build.
 
-**Relationship to Palm Vellum**: spiritual great-grandparent. Palm
+**Relationship to PalmVellum**: spiritual great-grandparent. Palm
 Vellum rebuilds the same use case on modern crypto, with a sync
 bridge, and supports the same hardware Keyring targeted.
 
@@ -40,7 +40,7 @@ discontinued.
 
 ## Active dependencies (not competitors)
 
-These projects are foundations Palm Vellum builds upon and openly
+These projects are foundations PalmVellum builds upon and openly
 credits.
 
 | Project | Role | Maintainer | 2026 status |
@@ -52,7 +52,7 @@ credits.
 | [PalmDB](https://palmdb.net/) | Community Palm software archive | Community | Maintained |
 
 The entire modern Palm OS developer ecosystem effectively rests on
-the work of a small number of maintainers. Palm Vellum aims to be
+the work of a small number of maintainers. PalmVellum aims to be
 a user of, and contributor back to, this ecosystem.
 
 ## Adjacent: air-gapped crypto signers
@@ -68,7 +68,7 @@ hardware and (mostly) cryptocurrency-only use cases.
 - **Bridge**: QR codes both ways
 - **Cost**: <$50 DIY
 
-**Comparison to Palm Vellum**: same philosophy applied to different
+**Comparison to PalmVellum**: same philosophy applied to different
 hardware. SeedSigner is stateless and Bitcoin-only by design. Palm
 Vellum is stateful and multi-purpose. Both choose commodity vintage
 hardware over premium specialty wallets because the threat model
@@ -93,7 +93,7 @@ rewards obscurity and longevity.
 - **[ELLIPAL Titan 2.0](https://ellipal.com/)** — $169, QR workflow, proprietary
 - **[Keystone](https://keyst.one/)** — multiple price points, proprietary
 
-These are excellent products. They are not what Palm Vellum is.
+These are excellent products. They are not what PalmVellum is.
 
 ## Adjacent: hardware password managers
 
@@ -124,7 +124,7 @@ operate as an AI-bridged notebook. They are tokens, not devices.
   Boox Palma + CloudpilotEmu); proves market interest, but
   emulation-based rather than real hardware
 
-Palm Vellum sits at the security-tooling intersection of these
+PalmVellum sits at the security-tooling intersection of these
 communities, currently empty.
 
 ## Modern Palm-OS revival movement

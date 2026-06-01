@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Palm Vellum is pre-1.0. Only the `main` branch receives security
+PalmVellum is pre-1.0. Only the `main` branch receives security
 patches.
 
 | Version | Supported |

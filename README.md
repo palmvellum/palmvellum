@@ -1,6 +1,6 @@
 <div align="center">
 
-# Palm Vellum
+# PalmVellum
 
 ### Some things deserve to be written down.
 ### Not all of them deserve to be online.
@@ -22,7 +22,7 @@
 Medieval scribes used vellum because parchment outlived their patrons.
 A page written on vellum in 1215 is still legible in 2026.
 
-Palm Vellum is the same idea, made electronic.
+PalmVellum is the same idea, made electronic.
 
 A specific class of handheld computer — Palm Pilot family devices
 manufactured between **1996 and 2003 that run on two AAA alkaline
@@ -36,10 +36,56 @@ satisfies every property below simultaneously:
 - **Real keyboard or stylus input** (real I/O, not a security token)
 - **Costs $15 to acquire in 2026** (eBay, Yahoo Auctions, surplus stores)
 
-That class is exactly **19 devices**. Palm Vellum supports all of them.
+That class is exactly **19 devices**. PalmVellum supports all of them.
 
-We turn them into the strongest password vault, TOTP authenticator,
-cryptocurrency cold signer, and AI-bridged encrypted notebook you can own.
+PalmVellum is **not a single app**. It is a movement and a platform —
+a coordinated effort by lo-fi computing enthusiasts to revive these
+specific devices as useful tools for 2026 daily work.
+
+We ship a small family of focused open-source apps (cold wallet, vCard
+generator, Chinese IME, dream journal, news feed) plus an optional
+commercial AI service that handles the cloud-side heavy lifting (LLM
+calls, document parsing, cross-device sync). The wire format between
+them is open and documented so the community can build alternative
+implementations of either side.
+
+## The manifesto
+
+1. **The Palm hardware is the trust root.** It has no radio. It cannot
+   leak. Everything that matters happens on the device.
+2. **Lo-fi is sustainability.** A working Palm IIIe in 2026 was built
+   in 1999 from materials and labor already spent. Reviving it has
+   lower lifecycle cost than any new device.
+3. **The community owns the foundation.** Every layer that any
+   PalmVellum app depends on — the toolchain, the daemon, the schema,
+   the HotSync engine, the threat model — is Apache 2.0 open source.
+4. **The commercial layer is opt-in.** AI features cost real money to
+   run. We sell a fair-priced subscription to access them. Users who
+   want to self-host AI may do so — the protocol is documented.
+5. **We do not gatekeep the platform.** Anyone may publish a
+   PalmVellum-compatible app, with or without our blessing.
+
+## Apps
+
+### Open source family (Apache 2.0)
+
+| App | Status | Description |
+|---|---|---|
+| **PalmVellum Core** | 🚧 v0.1 (this repo) | Toolchain, Mac daemon, shared schema, HotSync bridge |
+| **Palm Wallet** | 🗓 planned | Cold signer — BTC + ETH offline signing via QR (see [`docs/apps/palm-wallet.md`](docs/apps/palm-wallet.md)) |
+| **QR Card** | 🗓 planned | vCard QR exporter for sharing contacts with iOS / Android |
+| **VellumCN** | 🗓 planned | Chinese localization, IME (Cangjie / Pinyin / Sucheng) |
+| **Dream Diary** | 🗓 planned | Stylus dream notes → AI bedtime stories at next sync |
+| **News Feed** | 🗓 planned | User-curated daily news, AI-summarized, pushed to Palm |
+
+### Commercial app + platform
+
+| Product | Description |
+|---|---|
+| **PalmVellum AI** (Palm app, free download, closed source) | The flagship superapp. Native Datebook / Address / ToDo / Memo integration, AI Oracle, encrypted password vault, AES storage, teleprompter, mind-map generation, AI-generated Palm programs |
+| **PalmVellum Platform** (web, closed source) | The cloud back-end. Stripe-billed subscription with **free quota** for casual use; **only AI-driven features are metered**, non-AI features stay free forever |
+
+Both the closed-source app and the platform speak the same open-protocol wire format as the open apps. A self-hosted AI proxy that targets the open spec is a roadmap item.
 
 ## The unfair advantage
 
@@ -122,7 +168,7 @@ See [`ROADMAP.md`](ROADMAP.md).
 A YubiKey is a token, not a device. It has no screen, no keyboard,
 no UI. It cannot store passwords you can read. It cannot show you a
 Bitcoin transaction before you sign it. It cannot become an
-AI-bridged notebook. Palm Vellum is the YubiKey shaped like a 1998
+AI-bridged notebook. PalmVellum is the YubiKey shaped like a 1998
 Palm Pilot, with all the things a YubiKey gave up.
 
 ### ...a Trezor or ELLIPAL?
@@ -138,7 +184,7 @@ wallets cannot.
 
 The closest spiritual sibling, and a strong inspiration. SeedSigner
 picks a specific Raspberry Pi Zero v1.3 because that revision has
-no radio. Palm Vellum picks 2-AAA Palm OS devices for the same
+no radio. PalmVellum picks 2-AAA Palm OS devices for the same
 reason. SeedSigner is Bitcoin-only and stateless by design. Palm
 Vellum is multi-purpose and stateful, with a real keyboard or
 stylus.
@@ -146,14 +192,14 @@ stylus.
 ### ...the old [Keyring for Palm OS](https://gnukeyring.sourceforge.net/)?
 
 Keyring was a brilliant 2003 password manager for Palm OS,
-abandoned around 2010. Palm Vellum is its great-grandchild, rebuilt
+abandoned around 2010. PalmVellum is its great-grandchild, rebuilt
 on modern crypto primitives, with optional zero-knowledge cloud
 sync for non-secret records, and an AI bridge.
 
 ### ...just install Bitwarden?
 
 Bitwarden is great if your threat model is *credential reuse* or
-*phishing*. Palm Vellum's threat model is *nation-state network
+*phishing*. PalmVellum's threat model is *nation-state network
 surveillance combined with cloud compromise*. Different problem,
 different tool. Use both.
 
@@ -212,7 +258,7 @@ Detailed docs in [`docs/installation/`](docs/installation/).
 
 ## Architecture
 
-Palm Vellum is a monorepo of four packages:
+PalmVellum is a monorepo of four packages:
 
 ```
 palmvellum/
@@ -229,7 +275,7 @@ Deep dive: [`docs/architecture.md`](docs/architecture.md).
 
 ## Security model
 
-Palm Vellum assumes a nation-state-grade adversary with **full
+PalmVellum assumes a nation-state-grade adversary with **full
 network surveillance, compromised cloud providers, and compromised
 modern endpoints**. The adversary cannot:
 
@@ -259,7 +305,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-[Apache License 2.0](LICENSE) © 2026 Palm Vellum contributors.
+[Apache License 2.0](LICENSE) © 2026 PalmVellum contributors.
 
 ## Acknowledgments
 

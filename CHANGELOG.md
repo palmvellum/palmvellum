@@ -21,3 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   ECDSA-secp256k1), BIP-39 + Shamir Secret Sharing, on-device PDB
   layout, sync-engine enforcement, and Palm IIIe performance
   budgets
+
+### Toolchain (2026-06-01)
+
+- `scripts/palm-toolchain.Dockerfile` — Ubuntu 24.04 + Rosetta amd64
+  image carrying m68k-palmos-gcc 2.95.3, PilRC 3.2.90, build-prc 2.3,
+  and Palm OS SDKs 1 through 5r4. Sidesteps macOS Command Line Tools
+  version requirements entirely.
+- `scripts/palm-build.sh` — one-line invoker for the toolchain image.
+- `scripts/bootstrap.sh` — idempotent macOS setup: Homebrew packages,
+  OrbStack, mise, Go, Node 22, pnpm 10, jichu4n/palm-os tap, Docker
+  toolchain image, and a sanity-test compile.
+- `packages/palm-app/src/hello.c` + `Makefile` — first compilable
+  Palm OS .prc. 845 bytes. Targets -palmos3.5 (SDK 3.5 baseline;
+  -palmos3.1 + Pilot.h variant planned for real Palm IIIe 3.1-ROM
+  later).

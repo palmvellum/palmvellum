@@ -54,3 +54,11 @@ logs/
 # OS-specific Palm dev state
 ~/.palm-ai/
 .palm-ai/
+
+# Palm OS build artifacts (linked binary has no extension; .def is generated)
+packages/palm-app/HelloVellum
+packages/palm-app/*.def
+packages/*/build/
+
+# Go daemon build artifacts
+packages/mac-daemon/bin/

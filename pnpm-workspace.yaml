@@ -1,0 +1,13 @@
+packages:
+  - 'packages/shared-schema'
+  - 'packages/pwa'
+
+# packages/mac-daemon is a Go module (go.mod), not pnpm-managed
+# packages/palm-app uses Make + Docker, not pnpm-managed
+
+# pnpm 11 requires explicit allowlist for git-hosted deps with build scripts:
+onlyBuiltDependencies:
+  - palm-sync
+  - "@serialport/bindings-cpp"
+  - esbuild
+  - sharp

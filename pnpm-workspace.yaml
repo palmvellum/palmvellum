@@ -1,9 +1,9 @@
 packages:
   - 'packages/shared-schema'
+  - 'packages/pwa'
 
 # packages/mac-daemon is a Go module (go.mod), not pnpm-managed
 # packages/palm-app uses Make + Docker, not pnpm-managed
-# packages/pwa will be added when the PWA workstream begins
 
 # pnpm 11 requires explicit allowlist for git-hosted deps with build scripts:
 onlyBuiltDependencies:

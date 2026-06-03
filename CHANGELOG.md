@@ -135,3 +135,36 @@ mac-daemon, shared-schema), and the build orchestration scripts.
 - `packages/mac-daemon/.env` (gitignored, chmod 600) now carries the
   real `SUPABASE_SECRET_KEY` so the daemon can stop being a stub for
   Supabase calls when issue #7 is implemented.
+
+### AI worker + PWA scaffold (2026-06-04)
+
+- `packages/mac-daemon/internal/aiworker/worker.go` — polling worker
+  that drains `ai_queue`, claims one row at a time, calls Claude via
+  `internal/ai`, writes the response (capped at 1024 bytes for the
+  Palm IIIe heap) back to `records.ai_response` via `internal/supa`.
+- `internal/supa/client.go` upgraded from stub to real PostgREST
+  client (Enabled / Ping / ClaimNextAIQueueItem / GetRecord /
+  UpdateRecordAI).
+- `internal/ai/claude.go` upgraded from stub to real Anthropic
+  Messages API call with cache_control on the Oracle persona system
+  prompt.
+- `cmd/palmvellum/main.go` wires the worker into `serve`, runs both
+  the HTTP API and the worker as goroutines, propagates context
+  cancellation. `doctor` now pings Supabase and reports whether
+  Anthropic is configured.
+- Built and smoke-tested: `palmvellum doctor` → supabase reachable,
+  anthropic shows idle warning until key is set. `palmvellum serve`
+  starts both subsystems and shuts down cleanly on SIGTERM.
+
+- `packages/pwa` — SvelteKit 2 + Svelte 5 runes scaffold
+  - `@supabase/supabase-js` 2.46 with the publishable key (RLS-safe)
+  - `dexie` 4 for the IndexedDB mirror of records + outbox
+  - `adapter-static` so the build is a portable static site for
+    Cloudflare Pages / Vercel / nginx
+  - Realtime subscription on `records` so the browser list stays
+    live in step with Palm syncs + AI worker writes
+  - Per-posture colored borders (vault red, sealed yellow, open
+    green) matching docs/crypto-spec.md §1
+  - Charcoal grey + accent yellow palette matches the landing page
+  - Static build produces 16 files / ~340 KB total
+- `pnpm-workspace.yaml` reopens packages/pwa

@@ -1,0 +1,59 @@
+/* PalmVellum PWA — base styles.
+ * Palette mirrors the landing page (charcoal grey + accent yellow)
+ * so the brand stays consistent across surfaces.
+ */
+
+:root {
+  --bg: #2d2d2d;
+  --bg-elev: #353535;
+  --surface: #3a3a3a;
+  --surface-lo: #303030;
+  --line: #4a4a4a;
+  --line-soft: #3a3a3a;
+
+  --ink: #f4f4f4;
+  --ink-dim: #c4c4c4;
+  --ink-mute: #8e8e8e;
+
+  --accent: #ffd600;
+  --accent-dim: #c9a700;
+  --green: #69b945;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent-dim);
+}
+a:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 4rem;
+}
+
+code,
+pre {
+  font-family: inherit;
+}

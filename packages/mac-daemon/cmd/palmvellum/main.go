@@ -23,9 +23,12 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/ai"
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/aiworker"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/api"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/config"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/store"
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/supa"
 )
 
 // version is set at build time via -ldflags.
@@ -76,15 +79,28 @@ func serveCmd() *cobra.Command {
 			}
 			defer db.Close()
 
+			sb := supa.New(cfg.SupabaseURL, cfg.SupabaseSecretKey)
+			claude := ai.New(cfg.AnthropicAPIKey)
+			worker := aiworker.New(sb, claude, cfg.DeviceID)
+
 			srv := api.New(cfg, db)
 
 			log.Info().
 				Str("version", version).
 				Str("addr", cfg.HTTPAddr).
 				Str("sqlite", cfg.SQLitePath).
+				Bool("supabase_ready", sb.Enabled()).
+				Bool("claude_ready", claude.Enabled()).
 				Msg("palmvellum daemon starting")
 
-			return srv.ListenAndServe(ctx)
+			// Run the AI worker alongside the HTTP server. Either
+			// returning ends the daemon; ctx cancellation propagates
+			// to both.
+			errCh := make(chan error, 2)
+			go func() { errCh <- worker.Run(ctx) }()
+			go func() { errCh <- srv.ListenAndServe(ctx) }()
+
+			return <-errCh
 		},
 	}
 }
@@ -110,11 +126,31 @@ func doctorCmd() *cobra.Command {
 				fmt.Println("⚠️  OrbStack not installed; the Palm toolchain image needs Docker")
 			}
 
+			// Supabase ping (lightweight — just counts records)
+			sb := supa.New(cfg.SupabaseURL, cfg.SupabaseSecretKey)
+			if sb.Enabled() {
+				if err := sb.Ping(cmd.Context()); err != nil {
+					fmt.Printf("⚠️  supabase ping failed: %v\n", err)
+				} else {
+					fmt.Println("✅ supabase reachable")
+				}
+			} else {
+				fmt.Println("⚠️  supabase not configured (see .env)")
+			}
+
+			// Anthropic readiness — we don't ping (would burn a token);
+			// just verify the key shape.
+			claude := ai.New(cfg.AnthropicAPIKey)
+			if claude.Enabled() {
+				fmt.Println("✅ anthropic key configured")
+			} else {
+				fmt.Println("⚠️  anthropic not configured (ai worker will be idle)")
+			}
+
 			// TODO(v0.5): check Full Disk Access via IOKit
 			// TODO(v0.5): check Removable Media access for serial cradle
-			// TODO(v0.5): verify Supabase + Anthropic credentials by ping
 
-			fmt.Println("✅ doctor finished — manual checks above")
+			fmt.Println("✅ doctor finished")
 			return nil
 		},
 	}
@@ -156,5 +192,6 @@ func setLogLevel(level string) {
 	}
 }
 
-// keep the unused-import linter quiet during the scaffold phase
+// Ensure the context import stays referenced even if no direct call
+// remains in this file after refactors.
 var _ = context.Background

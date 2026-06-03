@@ -27,11 +27,19 @@ File a new issue using the
 
 - Palm OS C app (m68k, Palm OS 3.1 baseline) — `packages/palm-app/`
 - Go daemon — `packages/mac-daemon/`
-- SvelteKit PWA — `packages/pwa/`
 - Schema + migrations — `packages/shared-schema/`
 
-See `docs/development/setup.md` (forthcoming) to get a local
-environment running.
+To get a local environment running:
+
+```bash
+git clone https://github.com/palmvellum/palmvellum.git
+cd palmvellum
+./scripts/bootstrap.sh
+make all
+make doctor
+```
+
+Per-package READMEs live alongside the code.
 
 ### Cryptographic review
 

@@ -9,7 +9,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Hardware](https://img.shields.io/badge/hardware-AAA_powered-orange)](docs/hardware-compatibility.md)
-[![Palm OS](https://img.shields.io/badge/Palm_OS-1.0--4.1-blueviolet)](docs/architecture.md)
+[![Palm OS](https://img.shields.io/badge/Palm_OS-1.0--4.1-blueviolet)](docs/hardware-compatibility.md)
 [![Targets](https://img.shields.io/badge/targets-19_devices-green)](docs/hardware-compatibility.md)
 [![Status](https://img.shields.io/badge/status-pre--alpha-red)](ROADMAP.md)
 
@@ -72,7 +72,7 @@ implementations of either side.
 | App | Status | Description |
 |---|---|---|
 | **PalmVellum Core** | 🚧 v0.1 (this repo) | Toolchain, Mac daemon, shared schema, HotSync bridge |
-| **Palm Wallet** | 🗓 planned | Cold signer — BTC + ETH offline signing via QR (see [`docs/apps/palm-wallet.md`](docs/apps/palm-wallet.md)) |
+| **Palm Wallet** | 🗓 planned | Cold signer — BTC + ETH offline signing via QR. Spec moves to its own repo when work starts. |
 | **QR Card** | 🗓 planned | vCard QR exporter for sharing contacts with iOS / Android |
 | **VellumCN** | 🗓 planned | Chinese localization, IME (Cangjie / Pinyin / Sucheng) |
 | **Dream Diary** | 🗓 planned | Stylus dream notes → AI bedtime stories at next sync |
@@ -203,9 +203,6 @@ Bitwarden is great if your threat model is *credential reuse* or
 surveillance combined with cloud compromise*. Different problem,
 different tool. Use both.
 
-See [`docs/competitive-landscape.md`](docs/competitive-landscape.md)
-for the full analysis.
-
 ## Supported hardware
 
 19 devices across three manufacturers. All powered by 2 AAA alkaline
@@ -254,24 +251,21 @@ palmvellum hotsync         # Test the cradle and serial chain
 palmvellum vault add       # Add your first password
 ```
 
-Detailed docs in [`docs/installation/`](docs/installation/).
-
 ## Architecture
 
-PalmVellum is a monorepo of four packages:
+PalmVellum is a monorepo of three packages:
 
 ```
 palmvellum/
 ├── packages/
 │   ├── shared-schema/    # TypeScript types + Zod + SQL migrations
 │   ├── palm-app/         # Palm OS C app (m68k)
-│   ├── mac-daemon/       # Go daemon (HotSync + AI bridge + crypto)
-│   └── pwa/              # SvelteKit web companion
-├── docs/                 # User and developer documentation
-└── infra/                # Supabase migrations + Cloudflare config
+│   └── mac-daemon/       # Go daemon (HotSync + AI bridge + crypto)
+├── docs/                 # Hardware compatibility, threat model, crypto spec
+└── scripts/              # Build orchestration (Docker toolchain, bootstrap)
 ```
 
-Deep dive: [`docs/architecture.md`](docs/architecture.md).
+The PWA companion will be added when its workstream begins.
 
 ## Security model
 

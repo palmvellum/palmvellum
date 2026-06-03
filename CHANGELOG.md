@@ -81,3 +81,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   three deployment paths (subdirectory rewrite / subdomain / GitHub
   Pages mirror)
 - Local preview: `cd website && python3 -m http.server 8765`
+
+### Repo cleanup (2026-06-03)
+
+- Removed `website/` from this public repository. The landing page
+  source lives in the (separate) `tathome2025/tatlivingio` repo and
+  is deployed at <https://tatliving.dev/palmvellum/>. Keeping a
+  duplicate copy here added maintenance burden and exposed the same
+  files in two public places. Added `website/` to `.gitignore` so
+  future accidental copies won't be committed.
+
+### Repo trim (2026-06-03)
+
+- Trimmed the public repo to the minimum useful open-source surface
+- Removed `docs/architecture.md` (placeholder), `docs/competitive-landscape.md`
+  (internal market positioning), `docs/preservation.md` (internal ops
+  strategy), and `docs/apps/palm-wallet.md` (will live in its own
+  repo when the work starts)
+- Removed empty placeholder dirs: `docs/development/`,
+  `docs/installation/`, `docs/apps/`, `assets/`, `infra/`,
+  `packages/palm-app/build/`, `packages/palm-app/rsc/`,
+  `packages/shared-schema/migrations/`
+- Removed `packages/pwa/` (placeholder README) — workspace entry will
+  be reintroduced when the PWA workstream begins
+- Removed `packages/palm-app/hello.o` (stale build artifact that
+  slipped past `*.o` gitignore when it was originally tracked)
+- Updated `pnpm-workspace.yaml` to drop the empty pwa workspace
+- Fixed all README links pointing at removed docs
+
+Resulting tree is ~45 tracked files: the three meta files
+(LICENSE / README / CONTRIBUTING / etc.), three docs (hardware
+compatibility, threat model, crypto spec), three packages (palm-app,
+mac-daemon, shared-schema), and the build orchestration scripts.

@@ -65,3 +65,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - `internal/hotsync`, `internal/supa`, `internal/ai` — typed stubs
     that error cleanly until implemented per issues #2 / #7 / #10 / #14
 - Tested: build → version → doctor → serve → /health / /v1/records → clean shutdown
+
+### Landing page (2026-06-03)
+
+- `website/` self-contained static landing page for hosting at
+  `tatliving.dev/palmvellum`
+- Y2K-meets-programming aesthetic: dark grey + accent yellow,
+  IBM Plex Mono + Press Start 2P + VT323, CRT-style scanlines,
+  status bar with animated SYNC counter, fake cradle device path
+  poll, blinking cursor
+- 7 sections: hero, counter strip, "what is this" + comparison
+  table, manifesto, apps directory (open / commercial split), 19
+  supported devices, get-involved
+- `vercel.json` with security headers, `DEPLOY.md` documenting
+  three deployment paths (subdirectory rewrite / subdomain / GitHub
+  Pages mirror)
+- Local preview: `cd website && python3 -m http.server 8765`

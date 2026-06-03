@@ -1,0 +1,10 @@
+# PalmVellum Supabase project configuration.
+# The cloud project lives at https://jrkwncplngmznfzzqwee.supabase.co
+# All operational config (Auth providers, Realtime, RLS) is managed
+# in the Supabase Studio UI; this file only carries the local-CLI
+# metadata needed by `supabase link` + `supabase db push`.
+
+project_id = "palmvellum"
+
+[db]
+major_version = 17

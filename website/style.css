@@ -5,26 +5,29 @@
  */
 
 :root {
-  --bg:          #1a1a1a;
-  --bg-elev:    #232323;
-  --bg-deep:    #0f0f0f;
+  /* Dark-grey palette — distinctly grey, not black. */
+  --bg:          #2d2d2d;
+  --bg-elev:    #353535;
+  --bg-deep:    #232323;
 
-  --surface:    #2c2c2c;
-  --surface-lo: #1f1f1f;
+  --surface:    #3a3a3a;
+  --surface-lo: #303030;
 
-  --line:       #3a3a3a;
-  --line-soft:  #2a2a2a;
+  --line:       #4a4a4a;
+  --line-soft:  #3a3a3a;
 
   --ink:        #f4f4f4;
   --ink-dim:    #c4c4c4;
-  --ink-mute:   #888888;
+  --ink-mute:   #8e8e8e;
 
   --accent:     #ffd600;
   --accent-dim: #c9a700;
 
   --green:      #69b945;        /* status LED */
 
-  --shadow-hard: 4px 4px 0 0 #000;
+  /* Hard-shadow uses a darker grey than the bg, not pure black,
+     to stay coherent with the new palette. */
+  --shadow-hard: 4px 4px 0 0 #1a1a1a;
 }
 
 * {
@@ -195,19 +198,19 @@ main {
 }
 .btn:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 0 #000;
+  box-shadow: 6px 6px 0 0 #1a1a1a;
   background: var(--surface);     /* keep grey on hover */
   color: var(--accent);
   border-color: var(--accent);
 }
 .btn:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 0 #000;
+  box-shadow: 1px 1px 0 0 #1a1a1a;
 }
 .btn-primary {
   background: var(--accent);
   color: var(--bg);
-  border-color: #000;
+  border-color: #1a1a1a;
 }
 .btn-primary:hover {
   background: var(--accent);

@@ -113,3 +113,25 @@ Resulting tree is ~45 tracked files: the three meta files
 (LICENSE / README / CONTRIBUTING / etc.), three docs (hardware
 compatibility, threat model, crypto spec), three packages (palm-app,
 mac-daemon, shared-schema), and the build orchestration scripts.
+
+### Supabase migration applied (2026-06-03)
+
+- Migration `supabase/migrations/20260603120000_init.sql` applied to
+  the live PalmVellum project (`jrkwncplngmznfzzqwee`, Singapore
+  region) via psql against the session pooler
+  `aws-1-ap-southeast-1.pooler.supabase.com:5432`.
+- Verified post-apply state:
+  - 3 tables present (records / ai_queue / sync_conflicts)
+  - 8 indexes (5 explicit + 3 primary keys)
+  - 7 RLS policies (all per-user `auth.uid() = user_id`)
+  - 2 triggers (records_enqueue_ai AFTER INSERT,
+    records_touch_updated_at BEFORE UPDATE)
+  - 3 functions (sync_apply_diff, enqueue_ai_request,
+    touch_updated_at)
+  - `ai_queue` added to `supabase_realtime` publication
+  - RLS enabled on all 3 tables (`rowsecurity = t`)
+  - REST `/rest/v1/records` returns 200 + empty array
+  - RPC `/rest/v1/rpc/sync_apply_diff` reachable
+- `packages/mac-daemon/.env` (gitignored, chmod 600) now carries the
+  real `SUPABASE_SECRET_KEY` so the daemon can stop being a stub for
+  Supabase calls when issue #7 is implemented.

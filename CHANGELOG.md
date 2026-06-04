@@ -286,3 +286,44 @@ existing E2E continues to work.
   function to SECURITY DEFINER with an explicit search_path; the
   trigger still only inserts NEW.user_id (which records' own RLS
   has already pinned to auth.uid()), so no privilege escalation.
+
+### v0.2.1 hosted worker: Supabase Edge Function (2026-06-04)
+
+- `supabase/functions/process-ai-queue/index.ts` — Deno Edge Function
+  that processes one ai_queue row per webhook fire. Same contract as
+  the Mac daemon's aiworker (claim → read_user_api_key → call AI →
+  write back records + insert ai_usage), runs on Supabase's edge
+  network so SaaS users no longer need a local machine awake.
+- Deployed via Management API
+  (`POST /v1/projects/{ref}/functions/deploy`) since the Homebrew
+  Supabase CLI shim is missing its supabase-go companion on this
+  Mac. Function id: 823d3b83-43ce-4177-862b-9bb032a236b9.
+- New trigger `ai_queue_webhook` (migration
+  `20260604140000_ai_queue_webhook`) fires AFTER INSERT on
+  `public.ai_queue` and POSTs the row via `net.http_post` to the
+  function URL — pg_net handles the call asynchronously so the
+  inserting transaction never blocks on the HTTP round-trip.
+- Verified end-to-end: an aiquery inserted by `hello@tatliving.dev`
+  is drained in ~3 seconds without any local daemon running. The
+  function reads the user's Vault-encrypted OpenAI key via
+  `read_user_api_key`, calls gpt-4o-mini, writes ai_response,
+  ai_tokens_in/out, and an `ai_usage` row (api_mode=byok,
+  cost_credits=0).
+- The Mac daemon worker stays in the codebase as the local
+  development / power-user fallback.
+
+### v0.2 PWA capture: 3-tab UI (2026-06-04)
+
+- `routes/+page.svelte` capture form replaces the type-dropdown
+  with `[AI mode] [thought] [todo]` tabs. Each tab carries its own
+  placeholder copy + submit-button verb so the form's purpose is
+  obvious. On-disk record type stays `aiquery`/`thought`/`todo`.
+
+### Hotfix: $state proxy not cloneable for IndexedDB (2026-06-04)
+
+- `routes/+page.svelte refreshFromCloud` previously assigned the
+  Supabase result to the reactive `records` $state then handed the
+  same reference to `db.records.bulkPut`, which threw `DataCloneError`
+  because Svelte 5 wraps $state in a Proxy that the IndexedDB
+  structured-clone algorithm cannot serialize. Now we keep the raw
+  rows in a local const and pass that to Dexie.

@@ -59,6 +59,36 @@
   let captureSubmitting = $state(false);
   let captureError = $state<string | null>(null);
 
+  const CAPTURE_MODES: Array<{
+    key: 'aiquery' | 'thought' | 'todo';
+    label: string;
+    placeholder: string;
+    submitLabel: string;
+  }> = [
+    {
+      key: 'aiquery',
+      label: 'AI mode',
+      placeholder: 'Ask the Oracle anything — answers come back in seconds.',
+      submitLabel: 'ask',
+    },
+    {
+      key: 'thought',
+      label: 'thought',
+      placeholder: "What's on your mind? Captured to your Palm — no AI.",
+      submitLabel: 'save',
+    },
+    {
+      key: 'todo',
+      label: 'todo',
+      placeholder: 'A single thing to do later.',
+      submitLabel: 'add',
+    },
+  ];
+
+  function captureMode() {
+    return CAPTURE_MODES.find((m) => m.key === captureType) ?? CAPTURE_MODES[0]!;
+  }
+
   function newUlid(): string {
     // Browser-safe ULID — matches packages/shared-schema/src/ulid.ts
     const ts = BigInt(Date.now());
@@ -293,25 +323,33 @@
 {:else}
   <!-- Authenticated + invited: capture form + records list -->
   <section class="capture-card">
-    <h2>capture</h2>
+    <div class="tabs" role="tablist" aria-label="Capture mode">
+      {#each CAPTURE_MODES as m (m.key)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={captureType === m.key}
+          class:active={captureType === m.key}
+          onclick={() => (captureType = m.key)}
+        >
+          {m.label}
+        </button>
+      {/each}
+    </div>
+
     <form onsubmit={submitCapture}>
       <textarea
         bind:value={captureBody}
         rows="3"
-        placeholder="A thought, a todo, or a question for the Oracle…"
+        placeholder={captureMode().placeholder}
         required
       ></textarea>
       <div class="capture-row">
-        <select bind:value={captureType}>
-          <option value="aiquery">aiquery — ask the Oracle</option>
-          <option value="thought">thought</option>
-          <option value="todo">todo</option>
-        </select>
         {#if captureError}
           <span class="error">{captureError}</span>
         {/if}
         <button type="submit" disabled={captureSubmitting}>
-          {captureSubmitting ? 'sending…' : 'capture'}
+          {captureSubmitting ? 'sending…' : captureMode().submitLabel}
         </button>
       </div>
     </form>
@@ -464,19 +502,52 @@
 
   .capture-card {
     margin-bottom: 1.5rem;
+    padding: 0;
+  }
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--line);
+  }
+  .tabs button {
+    flex: 1;
+    background: transparent;
+    color: var(--ink-mute);
+    border: none;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+    padding: 0.75rem 0.5rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+  }
+  .tabs button:last-child {
+    border-right: none;
+  }
+  .tabs button:hover {
+    color: var(--ink);
+    background: var(--surface);
+  }
+  .tabs button.active {
+    color: var(--accent);
+    background: var(--bg);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .capture-card form {
+    padding: 1rem 1.1rem;
   }
   .capture-row {
     display: flex;
     gap: 0.6rem;
     align-items: center;
     flex-wrap: wrap;
-  }
-  .capture-row select {
-    flex: 1;
-    min-width: 12rem;
+    margin-top: 0.4rem;
   }
   .capture-row button {
     margin-left: auto;
+    min-width: 6rem;
   }
 
   .list-title {

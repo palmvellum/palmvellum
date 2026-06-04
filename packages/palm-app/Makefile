@@ -1,28 +1,52 @@
-APP     = HelloVellum
-CREATOR = PvV1
-PRC     = $(APP).prc
+# Palm-side build. Targets two .prc artifacts:
+#   HelloVellum.prc — minimal toolchain sanity check (no UI resources)
+#   Vellum.prc      — Capture v1 (3 tab + log list, with .rcp resources)
+#
+# Build inside the prc-tools-remix Docker image — the host Mac has none of
+# these tools natively. See packages/palm-app/README.md for the canonical
+# `docker run` command.
+#
+# m68k-palmos-gcc is GCC 2.95.3 (C89). Declare locals at block start.
+
 CC      = m68k-palmos-gcc
 CFLAGS  = -palmos3.5 -Wall
-# NOTE: -palmos3.5 because SDK 3.1 uses the legacy Pilot.h header.
-# When we target real Palm IIIe 3.1-ROM devices (vs IIIxe / m100+), switch to
-# Pilot.h + -palmos3.1. See docs/crypto-spec.md notes on cross-target gating.
-# NOTE: m68k-palmos-gcc is GCC 2.95.3 (C89). Declare locals at block start.
 
-all: $(PRC)
+all: HelloVellum.prc Vellum.prc
 
+# ── HelloVellum (toolchain probe) ─────────────────────────────────────
 hello.o: src/hello.c
 	$(CC) $(CFLAGS) -c src/hello.c -o hello.o
 
-$(APP): hello.o
-	$(CC) hello.o -o $(APP)
+HelloVellum: hello.o
+	$(CC) hello.o -o HelloVellum
 
-$(APP).def:
-	@echo 'application { "$(APP)" $(CREATOR) }' > $(APP).def
+HelloVellum.def:
+	@echo 'application { "HelloVellum" PvV1 }' > HelloVellum.def
 
-$(PRC): $(APP) $(APP).def
-	build-prc $(APP).def $(APP)
+HelloVellum.prc: HelloVellum HelloVellum.def
+	build-prc HelloVellum.def HelloVellum
+
+# ── Vellum Capture v1 (.rcp + .c) ─────────────────────────────────────
+# pilrc emits one .bin per resource. build-prc consumes the linker output
+# plus each .bin to produce the final .prc.
+
+vellum.o: src/vellum.c
+	$(CC) $(CFLAGS) -c src/vellum.c -o vellum.o
+
+Vellum: vellum.o
+	$(CC) vellum.o -o Vellum
+
+Vellum.def:
+	@echo 'application { "Vellum" PvV1 }' > Vellum.def
+
+Vellum.rcp.stamp: src/vellum.rcp
+	pilrc src/vellum.rcp .
+	touch Vellum.rcp.stamp
+
+Vellum.prc: Vellum Vellum.def Vellum.rcp.stamp
+	build-prc Vellum.def Vellum *.bin
 
 clean:
-	rm -f *.o *.def $(APP) $(PRC)
+	rm -f *.o *.bin *.def *.stamp HelloVellum Vellum HelloVellum.prc Vellum.prc
 
 .PHONY: all clean

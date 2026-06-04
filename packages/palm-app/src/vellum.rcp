@@ -1,0 +1,48 @@
+// Vellum Capture v1 — resource definitions for prc-tools/pilrc.
+//
+// Two forms:
+//   1000 = main capture form (tabs + body field + save + log list)
+//   1100 = entry detail (read-only body + answer + delete/done/back)
+//
+// IDs are intentionally tidy and easy to grep from vellum.c.
+
+FORM ID 1000 AT (0 0 160 160)
+USABLE
+BEGIN
+    TITLE "Vellum"
+
+    // Tabs — radio-grouped push buttons
+    PUSHBUTTON "AI"      ID 1001 AT (4   18 38 14) GROUP 1
+    PUSHBUTTON "thought" ID 1002 AT (46  18 56 14) GROUP 1
+    PUSHBUTTON "todo"    ID 1003 AT (106 18 50 14) GROUP 1
+
+    // Body field (editable, multi-line, Graffiti auto-cap)
+    FIELD ID 1010 AT (4 38 152 28)
+        MULTIPLELINES UNDERLINED EDITABLE MAXCHARS 1024 AUTOSHIFT
+
+    BUTTON "save" ID 1020 AT (4 70 36 14)
+    LABEL "" ID 1021 AT (46 72) FONT 0
+
+    LABEL "log" AUTOID AT (4 90) FONT 1
+    LIST "" ID 1030 AT (4 102 152 56) VISIBLEITEMS 5
+END
+
+FORM ID 1100 AT (0 0 160 160)
+USABLE
+BEGIN
+    TITLE "entry"
+
+    LABEL "" ID 1101 AT (4 18) FONT 0      // type chip e.g. "AI"
+    LABEL "" ID 1102 AT (110 18) FONT 0    // status e.g. "draft"
+
+    FIELD ID 1110 AT (4 36 152 50)
+        MULTIPLELINES UNDERLINED MAXCHARS 1024
+
+    LABEL "answer" AUTOID AT (4 92) FONT 1
+    FIELD ID 1111 AT (4 104 152 40)
+        MULTIPLELINES UNDERLINED MAXCHARS 1024
+
+    BUTTON "back"   ID 1120 AT (4   148 36 14)
+    BUTTON "delete" ID 1121 AT (44  148 42 14)
+    BUTTON "done"   ID 1122 AT (118 148 38 14)
+END

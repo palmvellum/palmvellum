@@ -1,29 +1,33 @@
-// Vellum Capture v1 — resource definitions for prc-tools/pilrc.
+// Vellum Capture v1.1 — resource definitions for prc-tools/pilrc.
 //
-// Two forms:
-//   1000 = main capture form (tabs + body field + save + log list)
-//   1100 = entry detail (read-only body + answer + delete/done/back)
+// Form 1000 = main capture (tabs + body field + save + sync banner + log list)
+// Form 1100 = entry detail (read or EDIT body + answer + save/delete/done/back)
 //
-// IDs are intentionally tidy and easy to grep from vellum.c.
+// Both forms now include a GraffitiStateIndicator next to the
+// editable field so pilrc stops warning and the user sees Graffiti
+// shift state during input.
 
 FORM ID 1000 AT (0 0 160 160)
 USABLE
 BEGIN
     TITLE "Vellum"
 
-    // Tabs — radio-grouped push buttons
     PUSHBUTTON "AI"      ID 1001 AT (4   18 38 14) GROUP 1
     PUSHBUTTON "thought" ID 1002 AT (46  18 56 14) GROUP 1
     PUSHBUTTON "todo"    ID 1003 AT (106 18 50 14) GROUP 1
 
-    // Body field (editable, multi-line, Graffiti auto-cap)
     FIELD ID 1010 AT (4 38 152 28)
         MULTIPLELINES UNDERLINED EDITABLE MAXCHARS 1024 AUTOSHIFT
 
     BUTTON "save" ID 1020 AT (4 70 36 14)
     LABEL "" ID 1021 AT (46 72) FONT 0
 
-    LABEL "log" AUTOID AT (4 90) FONT 1
+    GRAFFITISTATEINDICATOR AT (140 70)
+
+    // Pending banner: "log" when 0 pending, "log : N to sync" otherwise.
+    // Initial text reserves bbox width for the longest practical message.
+    LABEL "log : 99 to sync" ID 1022 AT (4 90) FONT 0
+
     LIST "" ID 1030 AT (4 102 152 56) VISIBLEITEMS 5
 END
 
@@ -33,16 +37,19 @@ BEGIN
     TITLE "entry"
 
     LABEL "" ID 1101 AT (4 18) FONT 0      // type chip e.g. "AI"
-    LABEL "" ID 1102 AT (110 18) FONT 0    // status e.g. "draft"
+    LABEL "" ID 1102 AT (90 18) FONT 0     // status e.g. "draft"
 
-    FIELD ID 1110 AT (4 36 152 50)
+    FIELD ID 1110 AT (4 32 152 54)
+        MULTIPLELINES UNDERLINED EDITABLE MAXCHARS 1024 AUTOSHIFT
+
+    LABEL "answer" AUTOID AT (4 90) FONT 1
+    FIELD ID 1111 AT (4 100 152 40)
         MULTIPLELINES UNDERLINED MAXCHARS 1024
 
-    LABEL "answer" AUTOID AT (4 92) FONT 1
-    FIELD ID 1111 AT (4 104 152 40)
-        MULTIPLELINES UNDERLINED MAXCHARS 1024
+    GRAFFITISTATEINDICATOR AT (140 18)
 
-    BUTTON "back"   ID 1120 AT (4   148 36 14)
-    BUTTON "delete" ID 1121 AT (44  148 42 14)
-    BUTTON "done"   ID 1122 AT (118 148 38 14)
+    BUTTON "save"   ID 1123 AT (4   146 36 12)
+    BUTTON "delete" ID 1121 AT (44  146 38 12)
+    BUTTON "done"   ID 1122 AT (86  146 32 12)
+    BUTTON "back"   ID 1120 AT (122 146 36 12)
 END

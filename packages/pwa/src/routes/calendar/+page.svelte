@@ -10,7 +10,6 @@
     startOfMonth,
     startOfNextMonth,
     atMidnight,
-    isoDow,
     monthGridDays,
     monthLabel,
     shortDayLabel,
@@ -22,16 +21,16 @@
     isoToLocalInput,
   } from '$lib/calendar';
 
-  // ── Reactive state ─────────────────────────────────────
+  // ── Calendar state ─────────────────────────────────────
   let viewMonth = $state(startOfMonth(new Date()));
   let selectedDay = $state<Date>(atMidnight(new Date()));
   let events = $state<CalendarEvent[]>([]);
   let loading = $state(false);
   let cloudError = $state<string | null>(null);
 
-  // Form state for both create + edit
+  // Manual create / edit form
   let editing = $state<CalendarEvent | null>(null);
-  let showForm = $state(false);
+  let showManualForm = $state(false);
   let formTitle = $state('');
   let formStart = $state('');
   let formEnd = $state('');
@@ -42,13 +41,39 @@
   let formSubmitting = $state(false);
   let formError = $state<string | null>(null);
 
-  // Derived: events grouped by day for cell badges
+  // AI free-form
+  interface ParsedDraftEvent {
+    title: string;
+    start_at: string;
+    end_at: string | null;
+    all_day: boolean;
+    location: string | null;
+    notes: string | null;
+    alarm_minutes: number | null;
+  }
+  interface EventDraft {
+    id: string;
+    user_id: string;
+    raw_input: string;
+    user_tz: string;
+    parsed_events: ParsedDraftEvent[];
+    status: 'pending' | 'parsing' | 'parsed' | 'confirmed' | 'rejected' | 'error';
+    ai_model: string | null;
+    ai_tokens_in: number | null;
+    ai_tokens_out: number | null;
+    ai_error: string | null;
+    created_at: string;
+  }
+  let aiInput = $state('');
+  let aiSubmitting = $state(false);
+  let aiError = $state<string | null>(null);
+  let drafts = $state<EventDraft[]>([]);
+
   const byDay = $derived(bucketByDay(events));
   const grid = $derived(monthGridDays(viewMonth));
   const selectedDayKey = $derived(ymd(selectedDay));
   const selectedEvents = $derived(byDay.get(selectedDayKey) ?? []);
 
-  // Today reference (re-evaluates if the page is open across midnight)
   let now = $state(new Date());
   onMount(() => {
     const t = setInterval(() => (now = new Date()), 60_000);
@@ -78,14 +103,13 @@
     }
   });
 
-  // ── Load events for the visible month (+ a small buffer) ─
+  // ── Load events ────────────────────────────────────────
   async function loadEvents() {
     if (!authState.userId) return;
     loading = true;
     cloudError = null;
     const from = startOfMonth(viewMonth);
     const to = startOfNextMonth(viewMonth);
-    // Pull a 1-week buffer either side so grid edges render correctly
     from.setDate(from.getDate() - 7);
     to.setDate(to.getDate() + 7);
 
@@ -96,41 +120,61 @@
       .gte('start_at', from.toISOString())
       .lt('start_at', to.toISOString())
       .order('start_at');
-    if (error) {
-      cloudError = error.message;
-    } else if (data) {
-      events = data as CalendarEvent[];
-    }
+    if (error) cloudError = error.message;
+    else if (data) events = data as CalendarEvent[];
     loading = false;
   }
 
-  // Initial + on-month-change + on-auth-ready loads
-  let channelHandle: ReturnType<typeof supabase.channel> | null = null;
+  // ── Load drafts (pending review) ───────────────────────
+  async function loadDrafts() {
+    if (!authState.userId) return;
+    const { data, error } = await supabase
+      .from('event_drafts')
+      .select('*')
+      .in('status', ['pending', 'parsing', 'parsed', 'error'])
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (!error && data) drafts = data as EventDraft[];
+  }
+
+  // ── Live subscriptions ─────────────────────────────────
+  let eventsChannel: ReturnType<typeof supabase.channel> | null = null;
+  let draftsChannel: ReturnType<typeof supabase.channel> | null = null;
+
   $effect(() => {
     if (authState.phase !== 'ready') return;
     void loadEvents();
+    void loadDrafts();
 
-    channelHandle?.unsubscribe();
-    channelHandle = supabase
-      .channel('events-feed')
+    eventsChannel?.unsubscribe();
+    eventsChannel = supabase
+      .channel('cal-events')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
-        async () => {
-          await loadEvents();
-        },
+        async () => { await loadEvents(); },
+      )
+      .subscribe();
+
+    draftsChannel?.unsubscribe();
+    draftsChannel = supabase
+      .channel('cal-drafts')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'event_drafts' },
+        async () => { await loadDrafts(); },
       )
       .subscribe();
 
     return () => {
-      channelHandle?.unsubscribe();
-      channelHandle = null;
+      eventsChannel?.unsubscribe();
+      draftsChannel?.unsubscribe();
+      eventsChannel = null;
+      draftsChannel = null;
     };
   });
 
-  // Trigger reload when viewMonth changes
   $effect(() => {
-    // depend on viewMonth (and authState.phase as gate)
     void viewMonth;
     if (authState.phase === 'ready') void loadEvents();
   });
@@ -151,9 +195,8 @@
     selectedDay = atMidnight(d);
   }
 
-  // ── Form: open / reset / submit / delete ───────────────
+  // ── Manual form ───────────────────────────────────────
   function defaultStart(): string {
-    // Default to the selected day at the next round hour
     const d = new Date(selectedDay);
     const h = new Date().getHours();
     d.setHours(h + 1, 0, 0, 0);
@@ -176,7 +219,7 @@
     formNotes = '';
     formAlarm = '';
     formError = null;
-    showForm = true;
+    showManualForm = true;
   }
 
   function openEdit(e: CalendarEvent) {
@@ -189,15 +232,15 @@
     formNotes = e.notes ?? '';
     formAlarm = e.alarm_minutes != null ? String(e.alarm_minutes) : '';
     formError = null;
-    showForm = true;
+    showManualForm = true;
   }
 
-  function closeForm() {
-    showForm = false;
+  function closeManualForm() {
+    showManualForm = false;
     editing = null;
   }
 
-  async function submitForm(ev: Event) {
+  async function submitManual(ev: Event) {
     ev.preventDefault();
     if (!authState.userId) return;
     if (!formTitle.trim() || !formStart) {
@@ -209,7 +252,7 @@
 
     const alarm =
       formAlarm.trim() === '' ? null : Math.max(0, Number.parseInt(formAlarm, 10));
-    const payload: Partial<CalendarEvent> = {
+    const payload = {
       title: formTitle.trim(),
       start_at: localInputToISO(formStart),
       end_at: formEnd ? localInputToISO(formEnd) : null,
@@ -220,10 +263,7 @@
     };
 
     if (editing) {
-      const { error } = await supabase
-        .from('events')
-        .update(payload)
-        .eq('id', editing.id);
+      const { error } = await supabase.from('events').update(payload).eq('id', editing.id);
       formSubmitting = false;
       if (error) {
         formError = error.message;
@@ -242,7 +282,7 @@
         return;
       }
     }
-    closeForm();
+    closeManualForm();
     await loadEvents();
   }
 
@@ -256,8 +296,139 @@
       alert('Delete failed: ' + error.message);
       return;
     }
-    if (editing?.id === e.id) closeForm();
+    if (editing?.id === e.id) closeManualForm();
     await loadEvents();
+  }
+
+  // ── AI submit + draft handling ─────────────────────────
+  async function submitAI(ev: Event) {
+    ev.preventDefault();
+    if (!authState.userId) return;
+    const raw = aiInput.trim();
+    if (!raw) {
+      aiError = 'Type something for the AI to parse.';
+      return;
+    }
+    aiError = null;
+    aiSubmitting = true;
+    const tz =
+      authState.settings?.preferred_provider /* trick: keep linter quiet */ &&
+      authState.settings &&
+      'timezone' in (authState.settings as Record<string, unknown>)
+        ? String((authState.settings as Record<string, unknown>)['timezone'] ?? 'UTC')
+        : Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    const { error } = await supabase.from('event_drafts').insert({
+      id: newUlid(),
+      user_id: authState.userId,
+      raw_input: raw,
+      user_tz: tz,
+      status: 'pending',
+    });
+    aiSubmitting = false;
+    if (error) {
+      aiError = error.message;
+      return;
+    }
+    aiInput = '';
+    // Realtime will surface the draft as it parses.
+  }
+
+  async function acceptOneDraftEvent(draft: EventDraft, idx: number) {
+    if (!authState.userId) return;
+    const e = draft.parsed_events[idx];
+    if (!e) return;
+    const { error } = await supabase.from('events').insert({
+      id: newUlid(),
+      user_id: authState.userId,
+      source: 'ai',
+      title: e.title,
+      start_at: e.start_at,
+      end_at: e.end_at,
+      all_day: e.all_day,
+      location: e.location,
+      notes: e.notes,
+      alarm_minutes: e.alarm_minutes,
+    });
+    if (error) {
+      alert(`Insert failed: ${error.message}`);
+      return;
+    }
+    // Remove the accepted item from the draft's parsed_events list
+    const remaining = draft.parsed_events.filter((_, i) => i !== idx);
+    const newStatus = remaining.length === 0 ? 'confirmed' : 'parsed';
+    const patch: { parsed_events: ParsedDraftEvent[]; status: string; confirmed_at?: string } = {
+      parsed_events: remaining,
+      status: newStatus,
+    };
+    if (newStatus === 'confirmed') patch.confirmed_at = new Date().toISOString();
+    await supabase.from('event_drafts').update(patch).eq('id', draft.id);
+    await loadDrafts();
+    await loadEvents();
+  }
+
+  async function acceptAllDrafts(draft: EventDraft) {
+    if (!authState.userId || draft.parsed_events.length === 0) return;
+    const rows = draft.parsed_events.map((e) => ({
+      id: newUlid(),
+      user_id: authState.userId,
+      source: 'ai',
+      title: e.title,
+      start_at: e.start_at,
+      end_at: e.end_at,
+      all_day: e.all_day,
+      location: e.location,
+      notes: e.notes,
+      alarm_minutes: e.alarm_minutes,
+    }));
+    const { error } = await supabase.from('events').insert(rows);
+    if (error) {
+      alert(`Bulk insert failed: ${error.message}`);
+      return;
+    }
+    await supabase
+      .from('event_drafts')
+      .update({
+        parsed_events: [],
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', draft.id);
+    await loadDrafts();
+    await loadEvents();
+  }
+
+  async function rejectDraft(draft: EventDraft) {
+    await supabase
+      .from('event_drafts')
+      .update({ status: 'rejected', parsed_events: [] })
+      .eq('id', draft.id);
+    await loadDrafts();
+  }
+
+  async function dismissOneDraftEvent(draft: EventDraft, idx: number) {
+    const remaining = draft.parsed_events.filter((_, i) => i !== idx);
+    const newStatus = remaining.length === 0 ? 'rejected' : 'parsed';
+    await supabase
+      .from('event_drafts')
+      .update({ parsed_events: remaining, status: newStatus })
+      .eq('id', draft.id);
+    await loadDrafts();
+  }
+
+  function draftEventTimeLabel(e: ParsedDraftEvent): string {
+    if (e.all_day) return 'all-day';
+    const start = hhmm(e.start_at);
+    if (!e.end_at) return start;
+    return `${start}–${hhmm(e.end_at)}`;
+  }
+
+  function draftEventDateLabel(e: ParsedDraftEvent): string {
+    return new Date(e.start_at).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -270,138 +441,244 @@
 {#if authState.phase !== 'ready'}
   <p class="muted">loading…</p>
 {:else}
-  <header class="hdr">
-    <div class="nav-l">
-      <button type="button" class="step" onclick={prevMonth} aria-label="previous month">◄</button>
-      <h1>{monthLabel(viewMonth)}</h1>
-      <button type="button" class="step" onclick={nextMonth} aria-label="next month">►</button>
-      <button type="button" class="today" onclick={gotoToday}>today</button>
-    </div>
-    <div class="nav-r">
-      {#if loading}
-        <span class="muted">syncing…</span>
-      {/if}
-      <button type="button" class="primary" onclick={openCreate}>+ event</button>
-    </div>
-  </header>
-
-  {#if cloudError}
-    <p class="error">{cloudError}</p>
-  {/if}
-
-  <!-- Month grid -->
-  <div class="dow-row">
-    {#each DOW as d}<span>{d}</span>{/each}
-  </div>
-  <div class="grid">
-    {#each grid as d (d.toISOString())}
-      {@const isCur = d.getMonth() === viewMonth.getMonth()}
-      {@const isToday = sameDay(d, now)}
-      {@const isSel = sameDay(d, selectedDay)}
-      {@const dayEvents = byDay.get(ymd(d)) ?? []}
-      <button
-        type="button"
-        class="cell {isCur ? '' : 'out'} {isToday ? 'today' : ''} {isSel ? 'sel' : ''}"
-        onclick={() => selectDay(d)}
-        aria-label={shortDayLabel(d)}
-      >
-        <span class="num">{d.getDate()}</span>
-        {#if dayEvents.length > 0}
-          <span class="dots">
-            {#each dayEvents.slice(0, 3) as _e (_e.id)}<span class="dot"></span>{/each}
-            {#if dayEvents.length > 3}<span class="more">+{dayEvents.length - 3}</span>{/if}
-          </span>
-        {/if}
-      </button>
-    {/each}
-  </div>
-
-  <!-- Selected day panel -->
-  <section class="day-panel">
-    <h2>{shortDayLabel(selectedDay)}</h2>
-    {#if selectedEvents.length === 0}
-      <p class="empty">Nothing scheduled. <button class="link" onclick={openCreate}>add an event ↑</button></p>
-    {:else}
-      <ul class="day-list">
-        {#each selectedEvents as e (e.id)}
-          <li class="ev">
-            <div class="ev-time">
-              {#if e.all_day}all-day{:else}{hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}{/if}
-            </div>
-            <div class="ev-body">
-              <div class="ev-title">{e.title}</div>
-              {#if e.location}<div class="ev-meta">📍 {e.location}</div>{/if}
-              {#if e.notes}<div class="ev-meta notes">{e.notes}</div>{/if}
-              {#if e.alarm_minutes != null}<div class="ev-meta">⏰ {e.alarm_minutes} min before</div>{/if}
-            </div>
-            <div class="ev-actions">
-              <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
-              <button type="button" class="link danger" onclick={() => deleteEvent(e)}>×</button>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
-
-  <!-- Create / edit form -->
-  {#if showForm}
-    <section class="form-card">
-      <header class="form-h">
-        <h3>{editing ? 'edit event' : 'new event'}</h3>
-        <button type="button" class="link" onclick={closeForm}>cancel</button>
+  <div class="layout">
+    <!-- LEFT: Calendar -->
+    <section class="left">
+      <header class="hdr">
+        <div class="nav-l">
+          <button type="button" class="step" onclick={prevMonth} aria-label="previous month">◄</button>
+          <h1>{monthLabel(viewMonth)}</h1>
+          <button type="button" class="step" onclick={nextMonth} aria-label="next month">►</button>
+          <button type="button" class="today" onclick={gotoToday}>today</button>
+        </div>
+        <div class="nav-r">
+          {#if loading}<span class="muted">syncing…</span>{/if}
+        </div>
       </header>
-      <form onsubmit={submitForm}>
-        <label>
-          title
-          <input type="text" bind:value={formTitle} required maxlength="256" placeholder="What is it?" />
-        </label>
-        <div class="grid-2">
-          <label>
-            start
-            <input type="datetime-local" bind:value={formStart} required />
-          </label>
-          <label>
-            end <span class="optional">(optional)</span>
-            <input type="datetime-local" bind:value={formEnd} />
-          </label>
-        </div>
-        <label class="check">
-          <input type="checkbox" bind:checked={formAllDay} />
-          all-day
-        </label>
-        <label>
-          location <span class="optional">(optional)</span>
-          <input type="text" bind:value={formLocation} maxlength="256" />
-        </label>
-        <label>
-          notes <span class="optional">(optional)</span>
-          <textarea bind:value={formNotes} rows="2"></textarea>
-        </label>
-        <label>
-          alarm <span class="optional">(minutes before; blank = none)</span>
-          <input type="number" min="0" max="10080" bind:value={formAlarm} />
-        </label>
-        {#if formError}<p class="error">{formError}</p>{/if}
-        <div class="form-actions">
-          {#if editing}
-            <button type="button" class="link danger" onclick={() => deleteEvent(editing!)}>delete</button>
-          {/if}
-          <button type="submit" class="primary" disabled={formSubmitting}>
-            {formSubmitting ? 'saving…' : editing ? 'save changes' : 'create event'}
+
+      {#if cloudError}<p class="error">{cloudError}</p>{/if}
+
+      <div class="dow-row">
+        {#each DOW as d}<span>{d}</span>{/each}
+      </div>
+      <div class="grid">
+        {#each grid as d (d.toISOString())}
+          {@const isCur = d.getMonth() === viewMonth.getMonth()}
+          {@const isToday = sameDay(d, now)}
+          {@const isSel = sameDay(d, selectedDay)}
+          {@const dayEvents = byDay.get(ymd(d)) ?? []}
+          <button
+            type="button"
+            class="cell {isCur ? '' : 'out'} {isToday ? 'today' : ''} {isSel ? 'sel' : ''}"
+            onclick={() => selectDay(d)}
+            aria-label={shortDayLabel(d)}
+          >
+            <span class="num">{d.getDate()}</span>
+            {#if dayEvents.length > 0}
+              <span class="dots">
+                {#each dayEvents.slice(0, 3) as _e (_e.id)}<span class="dot"></span>{/each}
+                {#if dayEvents.length > 3}<span class="more">+{dayEvents.length - 3}</span>{/if}
+              </span>
+            {/if}
           </button>
-        </div>
-      </form>
+        {/each}
+      </div>
+
+      <section class="day-panel">
+        <h2>{shortDayLabel(selectedDay)}</h2>
+        {#if selectedEvents.length === 0}
+          <p class="empty">Nothing scheduled.</p>
+        {:else}
+          <ul class="day-list">
+            {#each selectedEvents as e (e.id)}
+              <li class="ev">
+                <div class="ev-time">
+                  {#if e.all_day}all-day{:else}{hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}{/if}
+                </div>
+                <div class="ev-body">
+                  <div class="ev-title">{e.title}</div>
+                  {#if e.location}<div class="ev-meta">📍 {e.location}</div>{/if}
+                  {#if e.notes}<div class="ev-meta notes">{e.notes}</div>{/if}
+                  {#if e.alarm_minutes != null}<div class="ev-meta">⏰ {e.alarm_minutes} min before</div>{/if}
+                </div>
+                <div class="ev-actions">
+                  <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
+                  <button type="button" class="link danger" onclick={() => deleteEvent(e)}>×</button>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
     </section>
-  {/if}
+
+    <!-- RIGHT: AI panel + manual form -->
+    <aside class="right">
+      <section class="ai-card">
+        <h2><span class="sparkle">✨</span> plan with AI</h2>
+        <p class="sub">
+          Paste anything — free-form notes, conversations, "next week: gym Mon Wed Fri 7am, dentist Thu 3pm" — and the AI extracts events you can review.
+        </p>
+        <form onsubmit={submitAI}>
+          <textarea
+            bind:value={aiInput}
+            placeholder={'Try:\n"Coffee with May Friday 3pm at Tsim Sha Tsui"\n"Gym every Mon Wed Fri 7-8am next month"\n"Dentist appt next Thursday morning, 30min reminder"'}
+            rows="7"
+            maxlength="8000"
+          ></textarea>
+          <div class="ai-row">
+            <span class="hint muted">{aiInput.length} / 8000</span>
+            {#if aiError}<span class="error">{aiError}</span>{/if}
+            <button type="submit" class="primary" disabled={aiSubmitting}>
+              {aiSubmitting ? 'sending…' : 'analyze with AI'}
+            </button>
+          </div>
+        </form>
+
+        <!-- Drafts list -->
+        {#if drafts.length > 0}
+          <div class="drafts">
+            <h3>recent drafts</h3>
+            {#each drafts as draft (draft.id)}
+              <article class="draft draft-{draft.status}">
+                <header class="draft-h">
+                  <span class="status-tag status-{draft.status}">{draft.status}</span>
+                  <span class="muted">"{draft.raw_input.slice(0, 60)}{draft.raw_input.length > 60 ? '…' : ''}"</span>
+                </header>
+
+                {#if draft.status === 'pending' || draft.status === 'parsing'}
+                  <p class="muted parsing">⟳ AI parsing…</p>
+                {:else if draft.status === 'error'}
+                  <p class="error">⚠ {draft.ai_error ?? 'parse failed'}</p>
+                  <button type="button" class="link" onclick={() => rejectDraft(draft)}>dismiss</button>
+                {:else if draft.parsed_events.length === 0}
+                  <p class="muted">No events found in that input.</p>
+                  <button type="button" class="link" onclick={() => rejectDraft(draft)}>dismiss</button>
+                {:else}
+                  <ul class="proposed">
+                    {#each draft.parsed_events as pe, i (i)}
+                      <li class="proposal">
+                        <div class="prop-when">
+                          <div>{draftEventDateLabel(pe)}</div>
+                          <div class="prop-time">{draftEventTimeLabel(pe)}</div>
+                        </div>
+                        <div class="prop-body">
+                          <div class="prop-title">{pe.title}</div>
+                          {#if pe.location}<div class="muted small">📍 {pe.location}</div>{/if}
+                          {#if pe.alarm_minutes != null}<div class="muted small">⏰ {pe.alarm_minutes} min</div>{/if}
+                          {#if pe.notes}<div class="muted small notes">{pe.notes}</div>{/if}
+                        </div>
+                        <div class="prop-actions">
+                          <button type="button" class="mini primary" onclick={() => acceptOneDraftEvent(draft, i)}>keep</button>
+                          <button type="button" class="mini" onclick={() => dismissOneDraftEvent(draft, i)}>skip</button>
+                        </div>
+                      </li>
+                    {/each}
+                  </ul>
+                  <div class="bulk-row">
+                    <button type="button" class="primary" onclick={() => acceptAllDrafts(draft)}>
+                      keep all {draft.parsed_events.length}
+                    </button>
+                    <button type="button" class="link danger" onclick={() => rejectDraft(draft)}>reject all</button>
+                  </div>
+                {/if}
+              </article>
+            {/each}
+          </div>
+        {/if}
+      </section>
+
+      <!-- Manual form trigger / inline form -->
+      {#if !showManualForm}
+        <button type="button" class="manual-trigger" onclick={openCreate}>
+          + add event manually
+        </button>
+      {:else}
+        <section class="form-card">
+          <header class="form-h">
+            <h3>{editing ? 'edit event' : 'new event'}</h3>
+            <button type="button" class="link" onclick={closeManualForm}>cancel</button>
+          </header>
+          <form onsubmit={submitManual}>
+            <label>
+              title
+              <input type="text" bind:value={formTitle} required maxlength="256" />
+            </label>
+            <div class="grid-2">
+              <label>
+                start
+                <input type="datetime-local" bind:value={formStart} required />
+              </label>
+              <label>
+                end <span class="optional">(optional)</span>
+                <input type="datetime-local" bind:value={formEnd} />
+              </label>
+            </div>
+            <label class="check">
+              <input type="checkbox" bind:checked={formAllDay} />
+              all-day
+            </label>
+            <label>
+              location <span class="optional">(optional)</span>
+              <input type="text" bind:value={formLocation} maxlength="256" />
+            </label>
+            <label>
+              notes <span class="optional">(optional)</span>
+              <textarea bind:value={formNotes} rows="2"></textarea>
+            </label>
+            <label>
+              alarm <span class="optional">(minutes before; blank = none)</span>
+              <input type="number" min="0" max="10080" bind:value={formAlarm} />
+            </label>
+            {#if formError}<p class="error">{formError}</p>{/if}
+            <div class="form-actions">
+              {#if editing}
+                <button type="button" class="link danger" onclick={() => deleteEvent(editing!)}>delete</button>
+              {/if}
+              <button type="submit" class="primary" disabled={formSubmitting}>
+                {formSubmitting ? 'saving…' : editing ? 'save changes' : 'create event'}
+              </button>
+            </div>
+          </form>
+        </section>
+      {/if}
+    </aside>
+  </div>
 {/if}
 
 <style>
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 920px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .left {
+    min-width: 0;
+  }
+  .right {
+    display: grid;
+    gap: 1rem;
+    position: sticky;
+    top: 1rem;
+  }
+  @media (max-width: 920px) {
+    .right {
+      position: static;
+    }
+  }
+
   .hdr {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     gap: 0.75rem;
     flex-wrap: wrap;
   }
@@ -412,25 +689,23 @@
     gap: 0.5rem;
   }
   h1 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     margin: 0;
-    min-width: 11rem;
+    min-width: 10rem;
     text-align: center;
   }
   .step,
-  .today,
-  .primary {
+  .today {
     background: var(--surface);
     color: var(--ink);
     border: 1px solid var(--line);
-    padding: 0.4rem 0.8rem;
+    padding: 0.35rem 0.7rem;
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     cursor: pointer;
-    border-radius: 2px;
   }
   .step {
-    padding: 0.4rem 0.6rem;
+    padding: 0.35rem 0.55rem;
   }
   .step:hover,
   .today:hover {
@@ -440,8 +715,11 @@
   .primary {
     background: var(--accent);
     color: var(--bg);
-    border-color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 0.45rem 0.9rem;
+    font-family: inherit;
     font-weight: 600;
+    cursor: pointer;
   }
   .primary:hover:not(:disabled) {
     background: var(--accent-dim);
@@ -456,21 +734,28 @@
     font-family: 'VT323', monospace;
     font-size: 15px;
   }
+  .small {
+    font-size: 0.8rem;
+  }
   .error {
     color: #ff6b6b;
-    font-size: 0.9rem;
-    margin: 0.5rem 0;
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .hint {
+    font-size: 0.75rem;
   }
 
+  /* Month grid */
   .dow-row {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     text-align: center;
     color: var(--ink-mute);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    padding: 0.3rem 0;
+    padding: 0.25rem 0;
   }
   .grid {
     display: grid;
@@ -482,9 +767,9 @@
   .cell {
     background: var(--bg);
     border: none;
-    aspect-ratio: 1.05;
-    min-height: 56px;
-    padding: 0.35rem 0.45rem;
+    aspect-ratio: 1.1;
+    min-height: 50px;
+    padding: 0.3rem 0.4rem;
     text-align: left;
     cursor: pointer;
     color: var(--ink);
@@ -492,7 +777,7 @@
     flex-direction: column;
     justify-content: space-between;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
   .cell.out {
     color: var(--ink-mute);
@@ -525,22 +810,24 @@
   }
   .more {
     color: var(--accent-dim);
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     margin-left: 0.25rem;
   }
 
+  /* Day events */
   .day-panel {
-    margin-top: 1.25rem;
+    margin-top: 1rem;
     border-top: 1px solid var(--line);
-    padding-top: 1rem;
+    padding-top: 0.75rem;
   }
   .day-panel h2 {
-    font-size: 1rem;
-    margin: 0 0 0.6rem;
+    font-size: 0.95rem;
+    margin: 0 0 0.5rem;
     color: var(--accent);
   }
   .empty {
     color: var(--ink-mute);
+    font-size: 0.9rem;
   }
   .link {
     background: none;
@@ -568,12 +855,12 @@
   }
   .ev {
     display: grid;
-    grid-template-columns: 7rem 1fr auto;
+    grid-template-columns: 6rem 1fr auto;
     gap: 0.75rem;
     background: var(--surface-lo);
     border: 1px solid var(--line);
     border-left: 3px solid var(--accent);
-    padding: 0.55rem 0.75rem;
+    padding: 0.5rem 0.75rem;
   }
   .ev-time {
     color: var(--accent);
@@ -597,18 +884,184 @@
     align-items: center;
   }
 
-  /* Form card */
+  /* Right column — AI card */
+  .ai-card {
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    padding: 1rem;
+  }
+  .ai-card h2 {
+    font-size: 1rem;
+    margin: 0 0 0.4rem;
+    color: var(--accent);
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+  }
+  .ai-card h2 .sparkle {
+    margin-right: 0.35rem;
+  }
+  .sub {
+    color: var(--ink-mute);
+    font-size: 0.85rem;
+    margin: 0 0 0.6rem;
+  }
+  .ai-card form {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .ai-card textarea {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.6rem 0.7rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 8rem;
+    white-space: pre-wrap;
+  }
+  .ai-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .ai-row .primary {
+    margin-left: auto;
+  }
+
+  /* Drafts */
+  .drafts {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--line-soft);
+    display: grid;
+    gap: 0.6rem;
+  }
+  .drafts h3 {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .draft {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 0.55rem 0.7rem;
+  }
+  .draft-h {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .status-tag {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.05rem 0.4rem;
+    background: var(--surface);
+    color: var(--ink-mute);
+  }
+  .status-parsed { color: var(--accent); }
+  .status-confirmed { color: var(--green); }
+  .status-error { color: #ff6b6b; }
+  .status-parsing,
+  .status-pending { color: var(--ink-dim); }
+
+  .parsing {
+    color: var(--accent);
+    animation: pulse 1.4s ease-in-out infinite;
+    margin: 0.3rem 0;
+  }
+  @keyframes pulse {
+    50% { opacity: 0.5; }
+  }
+
+  .proposed {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .proposal {
+    display: grid;
+    grid-template-columns: 5rem 1fr auto;
+    gap: 0.5rem;
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    padding: 0.45rem 0.55rem;
+    align-items: start;
+  }
+  .prop-when {
+    font-size: 0.8rem;
+    color: var(--accent);
+  }
+  .prop-time {
+    color: var(--ink-mute);
+    font-size: 0.75rem;
+  }
+  .prop-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .prop-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .mini {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.55rem;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .mini.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .mini:hover {
+    border-color: var(--accent);
+  }
+  .bulk-row {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  /* Manual form trigger + form */
+  .manual-trigger {
+    background: var(--surface-lo);
+    border: 1px dashed var(--line);
+    color: var(--ink-mute);
+    padding: 0.7rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .manual-trigger:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
   .form-card {
-    margin-top: 1.25rem;
     background: var(--surface-lo);
     border: 1px solid var(--accent);
-    padding: 1rem;
+    padding: 0.85rem;
   }
   .form-h {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.6rem;
   }
   .form-h h3 {
     font-size: 0.95rem;
@@ -619,19 +1072,19 @@
   }
   .form-card form {
     display: grid;
-    gap: 0.65rem;
+    gap: 0.55rem;
   }
   .form-card label {
     display: grid;
-    gap: 0.25rem;
+    gap: 0.2rem;
     color: var(--ink-mute);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
   .form-card label.check {
     flex-direction: row;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     color: var(--ink);
   }
   .form-card input[type='text'],
@@ -641,7 +1094,7 @@
     background: var(--bg);
     border: 1px solid var(--line);
     color: var(--ink);
-    padding: 0.45rem 0.6rem;
+    padding: 0.4rem 0.55rem;
     font-family: inherit;
     font-size: 0.9rem;
   }
@@ -651,7 +1104,7 @@
   .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.65rem;
+    gap: 0.55rem;
   }
   @media (max-width: 520px) {
     .grid-2 {
@@ -660,12 +1113,18 @@
     .ev {
       grid-template-columns: 1fr;
     }
+    .proposal {
+      grid-template-columns: 1fr;
+    }
+    .prop-actions {
+      flex-direction: row;
+    }
   }
   .form-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
   }
   .form-actions button[type='submit'] {
     margin-left: auto;

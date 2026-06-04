@@ -117,9 +117,19 @@
       return;
     }
     if (data) {
-      records = data as LocalRecord[];
-      await db.records.clear();
-      await db.records.bulkPut(records);
+      // Take the plain Supabase rows BEFORE handing them to $state.
+      // Once they're assigned to `records` (which is a reactive
+      // $state array) they get wrapped in a Proxy; passing those
+      // proxies to IndexedDB / Dexie blows up the structured-clone
+      // algorithm with `DataCloneError: could not be cloned`.
+      const fresh = data as LocalRecord[];
+      records = fresh;
+      try {
+        await db.records.clear();
+        await db.records.bulkPut(fresh);
+      } catch (e) {
+        console.warn('[PalmVellum] local cache write failed (non-fatal):', e);
+      }
     }
   }
 

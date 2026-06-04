@@ -412,8 +412,11 @@
 
 {:else}
   <!-- Authenticated + invited: capture form + records list -->
-  <section class="capture-card">
-    <div class="tabs" role="tablist" aria-label="Capture mode">
+  <section class="capture-card" aria-label="Hotsync with Palm">
+    <p class="subhead">
+      anything you save here ships to your Palm at next HotSync — and answers it sends back land here too.
+    </p>
+    <div class="tabs" role="tablist" aria-label="Hotsync inbox mode">
       {#each CAPTURE_MODES as m (m.key)}
         <button
           type="button"
@@ -623,6 +626,14 @@
   .capture-card {
     margin-bottom: 1.5rem;
     padding: 0;
+  }
+  .subhead {
+    margin: 0;
+    padding: 0.7rem 1.1rem;
+    font-size: 0.82rem;
+    color: var(--ink-mute);
+    border-bottom: 1px solid var(--line);
+    line-height: 1.45;
   }
   .tabs {
     display: flex;

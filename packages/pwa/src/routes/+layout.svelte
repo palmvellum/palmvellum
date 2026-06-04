@@ -20,7 +20,7 @@
 
     <nav class="links">
       {#if authState.phase === 'ready'}
-        <a href="{base}/">capture</a>
+        <a href="{base}/">hotsync with palm</a>
         <a href="{base}/calendar">calendar</a>
         <a href="{base}/settings">settings</a>
       {/if}

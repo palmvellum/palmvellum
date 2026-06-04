@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# vellum — wrapper that loads packages/sync-cli/.env and runs the CLI.
+#
+# Use this instead of calling bin/vellum-sync directly so your service-
+# role key and PALM_USER_ID stay in the .env file (which is gitignored)
+# and never leak into shell history.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+if [ -f .env ]; then
+  # shellcheck disable=SC1091
+  set -a; source .env; set +a
+fi
+
+if [ ! -x ./bin/vellum-sync ]; then
+  echo "binary missing — building..." >&2
+  make >/dev/null
+fi
+
+exec ./bin/vellum-sync "$@"

@@ -168,3 +168,43 @@ mac-daemon, shared-schema), and the build orchestration scripts.
   - Charcoal grey + accent yellow palette matches the landing page
   - Static build produces 16 files / ~340 KB total
 - `pnpm-workspace.yaml` reopens packages/pwa
+
+### AI provider abstraction + OpenAI default (2026-06-04)
+
+- `internal/ai/provider.go` — new Provider interface (Enabled,
+  ProviderName, Ask). `OracleSystemPrompt` is shared so the persona
+  is consistent regardless of which backend answers.
+- `internal/ai/openai.go` — OpenAI Chat Completions backend, model
+  defaults to `gpt-4o-mini`, key prefix check (`sk-`), full Response
+  shape with usage tokens.
+- `internal/ai/anthropic.go` — renamed from `claude.go` and
+  refactored to implement the new Provider interface; cache_control
+  on the persona prompt preserved.
+- `config.Load` now reads `AI_PROVIDER` (default `openai`),
+  `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`,
+  `ANTHROPIC_MODEL`. Daemon logs the chosen provider.
+- `doctor` reports the selected provider's configured-or-not state.
+- `aiworker.Worker` takes an `ai.Provider` (was `*ai.Client`).
+- `.env.example` updated with the new provider knobs.
+
+Smoke-tested:
+- `palmvellum doctor` → "ai provider openai not configured" when
+  key is absent, succeeds otherwise.
+- `palmvellum serve` → starts worker as "provider=openai
+  ai_ready=false", idles cleanly.
+
+### PWA deployed to tatliving.dev/palmvellum/app/ (2026-06-04)
+
+- `svelte.config.js`: `kit.paths.base = '/palmvellum/app'` so all
+  asset URLs include the subdir prefix (overridable via
+  `PUBLIC_BASE_PATH` env var for local dev or alternate deploys).
+- Build copied to the tathome2025/tatlivingio repo at
+  `palmvellum/app/` (16 files, ~432 KB).
+- tatlivingio `vercel.json` gains an SPA-fallback rewrite so deep
+  links to `/palmvellum/app/<anything>` resolve to the SvelteKit
+  shell. Static assets under `/palmvellum/app/_app/*` continue to
+  be served directly (Vercel prefers static matches over rewrites).
+- Landing page hero gains "launch web companion" as the new primary
+  CTA; "git clone" demoted to secondary.
+- Verified live: index 200, deep-link 200, JS asset 200, landing
+  page contains the new button.

@@ -14,7 +14,13 @@ import (
 type Config struct {
 	SupabaseURL       string
 	SupabaseSecretKey string
-	AnthropicAPIKey   string
+
+	// AI provider selection: "openai" (default) or "anthropic".
+	AIProvider      string
+	OpenAIAPIKey    string
+	OpenAIModel     string
+	AnthropicAPIKey string
+	AnthropicModel  string
 
 	UserID   string
 	DeviceID string
@@ -38,14 +44,20 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		SupabaseURL:       env("SUPABASE_URL", ""),
 		SupabaseSecretKey: env("SUPABASE_SECRET_KEY", ""),
-		AnthropicAPIKey:   env("ANTHROPIC_API_KEY", ""),
-		UserID:            env("USER_ID", ""),
-		DeviceID:          env("DEVICE_ID", defaultDeviceID()),
-		SQLitePath:        expand(env("SQLITE_PATH", filepath.Join(home, ".local/share/palmvellum/cache.db")), home),
-		HTTPAddr:          env("HTTP_ADDR", "127.0.0.1:7733"),
-		LogLevel:          env("LOG_LEVEL", "info"),
-		PalmSyncMode:      env("PALMSYNC_MODE", "stub"),
-		PalmSyncSocket:    expand(env("PALMSYNC_SOCKET", filepath.Join(home, ".local/share/palmvellum/palm-sync.sock")), home),
+
+		AIProvider:      env("AI_PROVIDER", "openai"),
+		OpenAIAPIKey:    env("OPENAI_API_KEY", ""),
+		OpenAIModel:     env("OPENAI_MODEL", "gpt-4o-mini"),
+		AnthropicAPIKey: env("ANTHROPIC_API_KEY", ""),
+		AnthropicModel:  env("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
+
+		UserID:         env("USER_ID", ""),
+		DeviceID:       env("DEVICE_ID", defaultDeviceID()),
+		SQLitePath:     expand(env("SQLITE_PATH", filepath.Join(home, ".local/share/palmvellum/cache.db")), home),
+		HTTPAddr:       env("HTTP_ADDR", "127.0.0.1:7733"),
+		LogLevel:       env("LOG_LEVEL", "info"),
+		PalmSyncMode:   env("PALMSYNC_MODE", "stub"),
+		PalmSyncSocket: expand(env("PALMSYNC_SOCKET", filepath.Join(home, ".local/share/palmvellum/palm-sync.sock")), home),
 	}
 
 	if err := os.MkdirAll(filepath.Dir(cfg.SQLitePath), 0o755); err != nil {

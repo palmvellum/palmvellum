@@ -14,6 +14,12 @@ const config = {
       strict: true,
     }),
 
+    // Deployed under tatliving.dev/palmvellum/app/ — see the
+    // tatlivingio repo's vercel.json rewrite for the SPA fallback.
+    paths: {
+      base: process.env.PUBLIC_BASE_PATH ?? '/palmvellum/app',
+    },
+
     // We use Cloudflare/Vercel-style routing; no server-side anything.
     prerender: {
       handleHttpError: 'warn',

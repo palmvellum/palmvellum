@@ -80,8 +80,14 @@ func serveCmd() *cobra.Command {
 			defer db.Close()
 
 			sb := supa.New(cfg.SupabaseURL, cfg.SupabaseSecretKey)
-			claude := ai.New(cfg.AnthropicAPIKey)
-			worker := aiworker.New(sb, claude, cfg.DeviceID)
+			provider := ai.New(ai.Config{
+				Provider:        cfg.AIProvider,
+				OpenAIAPIKey:    cfg.OpenAIAPIKey,
+				OpenAIModel:     cfg.OpenAIModel,
+				AnthropicAPIKey: cfg.AnthropicAPIKey,
+				AnthropicModel:  cfg.AnthropicModel,
+			})
+			worker := aiworker.New(sb, provider, cfg.DeviceID)
 
 			srv := api.New(cfg, db)
 
@@ -90,7 +96,8 @@ func serveCmd() *cobra.Command {
 				Str("addr", cfg.HTTPAddr).
 				Str("sqlite", cfg.SQLitePath).
 				Bool("supabase_ready", sb.Enabled()).
-				Bool("claude_ready", claude.Enabled()).
+				Str("ai_provider", provider.ProviderName()).
+				Bool("ai_ready", provider.Enabled()).
 				Msg("palmvellum daemon starting")
 
 			// Run the AI worker alongside the HTTP server. Either
@@ -138,13 +145,19 @@ func doctorCmd() *cobra.Command {
 				fmt.Println("⚠️  supabase not configured (see .env)")
 			}
 
-			// Anthropic readiness — we don't ping (would burn a token);
-			// just verify the key shape.
-			claude := ai.New(cfg.AnthropicAPIKey)
-			if claude.Enabled() {
-				fmt.Println("✅ anthropic key configured")
+			// AI provider readiness — verify key shape only; we don't
+			// ping (would burn a token).
+			provider := ai.New(ai.Config{
+				Provider:        cfg.AIProvider,
+				OpenAIAPIKey:    cfg.OpenAIAPIKey,
+				OpenAIModel:     cfg.OpenAIModel,
+				AnthropicAPIKey: cfg.AnthropicAPIKey,
+				AnthropicModel:  cfg.AnthropicModel,
+			})
+			if provider.Enabled() {
+				fmt.Printf("✅ ai provider configured: %s\n", provider.ProviderName())
 			} else {
-				fmt.Println("⚠️  anthropic not configured (ai worker will be idle)")
+				fmt.Printf("⚠️  ai provider %s not configured (worker will be idle)\n", provider.ProviderName())
 			}
 
 			// TODO(v0.5): check Full Disk Access via IOKit

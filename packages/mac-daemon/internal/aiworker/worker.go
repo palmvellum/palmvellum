@@ -22,7 +22,7 @@ import (
 // Worker drains pending AI requests from Supabase.
 type Worker struct {
 	sb           *supa.Client
-	claude       *ai.Client
+	ai           ai.Provider
 	deviceID     string
 	pollInterval time.Duration
 	// maxResponseLen caps the response stored on the record so the
@@ -32,10 +32,10 @@ type Worker struct {
 }
 
 // New builds a Worker.
-func New(sb *supa.Client, claude *ai.Client, deviceID string) *Worker {
+func New(sb *supa.Client, provider ai.Provider, deviceID string) *Worker {
 	return &Worker{
 		sb:             sb,
-		claude:         claude,
+		ai:             provider,
 		deviceID:       deviceID,
 		pollInterval:   2 * time.Second,
 		maxResponseLen: 1024,
@@ -43,11 +43,11 @@ func New(sb *supa.Client, claude *ai.Client, deviceID string) *Worker {
 }
 
 // Run blocks until ctx is cancelled. It's safe to call when either
-// Claude or Supabase is misconfigured — the worker just logs and
-// exits cleanly.
+// the AI provider or Supabase is misconfigured — the worker just
+// logs and exits cleanly.
 func (w *Worker) Run(ctx context.Context) error {
-	if !w.claude.Enabled() {
-		log.Info().Msg("ai worker: ANTHROPIC_API_KEY not set, worker idle")
+	if !w.ai.Enabled() {
+		log.Info().Str("provider", w.ai.ProviderName()).Msg("ai worker: provider not configured, worker idle")
 		<-ctx.Done()
 		return nil
 	}
@@ -59,6 +59,7 @@ func (w *Worker) Run(ctx context.Context) error {
 
 	log.Info().
 		Str("device_id", w.deviceID).
+		Str("provider", w.ai.ProviderName()).
 		Dur("interval", w.pollInterval).
 		Msg("ai worker starting")
 
@@ -112,7 +113,7 @@ func (w *Worker) tick(ctx context.Context) error {
 	procStatus := "processing"
 	_ = w.sb.UpdateRecordAI(ctx, rec.ID, supa.AIUpdate{Status: procStatus})
 
-	resp, err := w.claude.Ask(ctx, *rec.Body)
+	resp, err := w.ai.Ask(ctx, *rec.Body) //nolint:staticcheck // provider.Ask
 	if err != nil {
 		errStr := err.Error()
 		_ = w.sb.UpdateRecordAI(ctx, rec.ID, supa.AIUpdate{

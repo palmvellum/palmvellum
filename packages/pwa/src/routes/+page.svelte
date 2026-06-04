@@ -2,54 +2,140 @@
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
   import { db, type LocalRecord } from '$lib/db';
+  import { authState, magicLinkRedirect } from '$lib/auth.svelte';
 
-  let records = $state<LocalRecord[]>([]);
-  let loading = $state(true);
-  let cloudError = $state<string | null>(null);
-  let session = $state<{ email: string } | null>(null);
+  // ── Waitlist signup state ───────────────────────────────
+  let waitlistEmail = $state('');
+  let waitlistNote = $state('');
+  let waitlistSubmitting = $state(false);
+  let waitlistDone = $state(false);
+  let waitlistError = $state<string | null>(null);
 
-  // Initial paint from local Dexie cache (instant), then refresh from cloud.
-  async function loadLocal() {
-    records = await db.records.orderBy('updated_at').reverse().limit(50).toArray();
+  async function submitWaitlist(e: Event) {
+    e.preventDefault();
+    waitlistError = null;
+    waitlistSubmitting = true;
+    const { error } = await supabase.from('waitlist').insert({
+      email: waitlistEmail.trim().toLowerCase(),
+      note: waitlistNote.trim() || null,
+      referrer: typeof document !== 'undefined' ? document.referrer || null : null,
+    });
+    waitlistSubmitting = false;
+    if (error) {
+      waitlistError =
+        error.code === '23505'
+          ? "You're already on the list — we'll be in touch."
+          : error.message;
+      return;
+    }
+    waitlistDone = true;
   }
 
+  // ── Sign-in (magic link) ────────────────────────────────
+  let signinEmail = $state('');
+  let signinSubmitting = $state(false);
+  let signinSent = $state(false);
+  let signinError = $state<string | null>(null);
+
+  async function submitSignin(e: Event) {
+    e.preventDefault();
+    signinError = null;
+    signinSubmitting = true;
+    const { error } = await supabase.auth.signInWithOtp({
+      email: signinEmail.trim().toLowerCase(),
+      options: { emailRedirectTo: magicLinkRedirect() },
+    });
+    signinSubmitting = false;
+    if (error) {
+      signinError = error.message;
+      return;
+    }
+    signinSent = true;
+  }
+
+  // ── Capture (authed) ────────────────────────────────────
+  let captureBody = $state('');
+  let captureType = $state<'aiquery' | 'thought' | 'todo'>('aiquery');
+  let captureSubmitting = $state(false);
+  let captureError = $state<string | null>(null);
+
+  function newUlid(): string {
+    // Browser-safe ULID — matches packages/shared-schema/src/ulid.ts
+    const ts = BigInt(Date.now());
+    const ENC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    const tsB = ts.toString(2).padStart(48, '0');
+    const rnd = crypto.getRandomValues(new Uint8Array(10));
+    let rndB = '';
+    for (const b of rnd) rndB += b.toString(2).padStart(8, '0');
+    const bits = tsB + rndB; // 128
+    let out = '';
+    for (let i = 0; i < 26; i++) {
+      const slice = bits.slice(i * 5, i * 5 + 5).padEnd(5, '0');
+      out += ENC[parseInt(slice, 2)];
+    }
+    return out;
+  }
+
+  async function submitCapture(e: Event) {
+    e.preventDefault();
+    if (!authState.userId) return;
+    captureError = null;
+    captureSubmitting = true;
+    const body = captureBody.trim();
+    const { error } = await supabase.from('records').insert({
+      id: newUlid(),
+      user_id: authState.userId,
+      type: captureType,
+      posture: 'open',
+      body,
+      source: 'web',
+      ai_status: captureType === 'aiquery' ? 'pending' : null,
+    });
+    captureSubmitting = false;
+    if (error) {
+      captureError = error.message;
+      return;
+    }
+    captureBody = '';
+    await refreshFromCloud();
+  }
+
+  // ── Records list (authed) ───────────────────────────────
+  let records = $state<LocalRecord[]>([]);
+  let recordsLoading = $state(false);
+  let recordsError = $state<string | null>(null);
+
   async function refreshFromCloud() {
-    cloudError = null;
+    recordsError = null;
     const { data, error } = await supabase
       .from('records')
       .select('*')
       .order('updated_at', { ascending: false })
       .limit(50);
-
     if (error) {
-      cloudError = error.message;
+      recordsError = error.message;
       return;
     }
-    if (!data) return;
-
-    // Replace local cache with the authoritative cloud rows.
-    await db.records.clear();
-    await db.records.bulkPut(data as LocalRecord[]);
-    records = data as LocalRecord[];
-  }
-
-  async function captureSession() {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.user.email) {
-      session = { email: data.session.user.email };
+    if (data) {
+      records = data as LocalRecord[];
+      await db.records.clear();
+      await db.records.bulkPut(records);
     }
   }
 
-  // onMount cleanup must be synchronous in Svelte 5, so we keep the
-  // channel handle in scope and return a sync teardown.
   let channelHandle: ReturnType<typeof supabase.channel> | null = null;
 
-  onMount(() => {
+  $effect(() => {
+    if (authState.phase !== 'ready') {
+      channelHandle?.unsubscribe();
+      channelHandle = null;
+      return;
+    }
     void (async () => {
-      await captureSession();
-      await loadLocal();
+      recordsLoading = true;
+      records = await db.records.orderBy('updated_at').reverse().limit(50).toArray();
       await refreshFromCloud();
-      loading = false;
+      recordsLoading = false;
 
       channelHandle = supabase
         .channel('records-feed')
@@ -64,155 +150,318 @@
     })();
 
     return () => {
-      if (channelHandle) {
-        void supabase.removeChannel(channelHandle);
-        channelHandle = null;
-      }
+      channelHandle?.unsubscribe();
+      channelHandle = null;
     };
   });
 
   function fmtTime(s: string): string {
-    const d = new Date(s);
-    return d.toLocaleString();
+    return new Date(s).toLocaleString();
   }
 </script>
 
 <svelte:head>
-  <title>PalmVellum · records</title>
+  <title>PalmVellum · web companion</title>
 </svelte:head>
 
-<header class="hdr">
-  <div>
-    <h1>PalmVellum</h1>
-    <p class="sub">records browser · pre-alpha</p>
-  </div>
-  <div class="who">
-    {#if session}
-      <span class="ok">signed in · {session.email}</span>
-    {:else}
-      <span class="warn">not signed in — enrol via Supabase Studio to see records</span>
-    {/if}
-  </div>
-</header>
-
-{#if loading}
+{#if authState.phase === 'loading'}
   <p class="loading">loading…</p>
-{:else if cloudError}
-  <section class="error">
-    <h2>cloud error</h2>
-    <pre>{cloudError}</pre>
-    <p class="hint">
-      RLS may be blocking — the publishable key only sees rows where
-      <code>user_id = auth.uid()</code>. Sign in via Supabase Studio to
-      seed a user, or write rows server-side first.
+
+{:else if authState.phase === 'unauthenticated'}
+  <!-- Waitlist + sign-in side by side -->
+  <section class="hero">
+    <h1>The web companion for your Palm.</h1>
+    <p>
+      Live records, AI Oracle responses, and Palm sync — all in one
+      browser tab. Bring your own OpenAI or Anthropic key (free
+      forever), or join the waitlist for the paid platform tier.
     </p>
   </section>
-{:else if records.length === 0}
-  <section class="empty">
-    <p>No records yet.</p>
-    <p class="hint">
-      Insert one from the SQL editor to test the live update:
+
+  <div class="split">
+    <section class="card">
+      <h2>Join the waitlist</h2>
+      {#if waitlistDone}
+        <p class="ok">✓ On the list. We'll email when invites open.</p>
+      {:else}
+        <form onsubmit={submitWaitlist}>
+          <label>
+            email
+            <input
+              type="email"
+              bind:value={waitlistEmail}
+              required
+              placeholder="you@example.com"
+            />
+          </label>
+          <label>
+            tell us about yourself <span class="optional">(optional)</span>
+            <textarea
+              bind:value={waitlistNote}
+              rows="3"
+              placeholder="Which Palm do you have? What do you want to use it for?"
+            ></textarea>
+          </label>
+          {#if waitlistError}
+            <p class="error">{waitlistError}</p>
+          {/if}
+          <button type="submit" disabled={waitlistSubmitting}>
+            {waitlistSubmitting ? 'submitting…' : 'join waitlist'}
+          </button>
+        </form>
+      {/if}
+    </section>
+
+    <section class="card">
+      <h2>Already invited?</h2>
+      {#if signinSent}
+        <p class="ok">✓ Magic link sent to {signinEmail}. Check your inbox.</p>
+      {:else}
+        <form onsubmit={submitSignin}>
+          <label>
+            email
+            <input
+              type="email"
+              bind:value={signinEmail}
+              required
+              placeholder="you@example.com"
+            />
+          </label>
+          {#if signinError}
+            <p class="error">{signinError}</p>
+          {/if}
+          <button type="submit" disabled={signinSubmitting}>
+            {signinSubmitting ? 'sending…' : 'send magic link'}
+          </button>
+        </form>
+      {/if}
+    </section>
+  </div>
+
+{:else if authState.phase === 'uninvited'}
+  <section class="card center">
+    <h2>You're signed in.</h2>
+    <p>
+      <strong>{authState.email}</strong> hasn't been invited yet. We'll send
+      another email when your seat opens up.
     </p>
-    <pre><code>{`-- as the project owner in Supabase Studio, after auth.uid() exists:
-INSERT INTO records (id, user_id, type, posture, body, source)
-VALUES (
-  '01HZZZZZZZZZZZZZZZZZZZZZZZ',
-  auth.uid(),
-  'thought',
-  'open',
-  'first PalmVellum record',
-  'web'
-);`}</code></pre>
+    <p class="hint">
+      If you weren't expecting this, you may have signed in with the wrong
+      email. <a href="#sign-out" onclick={(e) => { e.preventDefault(); void authState.signOut(); }}>Sign out</a>
+      and try again.
+    </p>
   </section>
+
 {:else}
-  <section class="list">
-    {#each records as r (r.id)}
-      <article class={`row posture-${r.posture}`}>
-        <header class="row-h">
-          <span class="type">{r.type}</span>
-          <span class="posture">{r.posture}</span>
-          <time>{fmtTime(r.updated_at)}</time>
-        </header>
-        {#if r.body}
-          <p class="body">{r.body}</p>
-        {:else}
-          <p class="body muted">⟨no body — vault tier⟩</p>
+  <!-- Authenticated + invited: capture form + records list -->
+  <section class="capture-card">
+    <h2>capture</h2>
+    <form onsubmit={submitCapture}>
+      <textarea
+        bind:value={captureBody}
+        rows="3"
+        placeholder="A thought, a todo, or a question for the Oracle…"
+        required
+      ></textarea>
+      <div class="capture-row">
+        <select bind:value={captureType}>
+          <option value="aiquery">aiquery — ask the Oracle</option>
+          <option value="thought">thought</option>
+          <option value="todo">todo</option>
+        </select>
+        {#if captureError}
+          <span class="error">{captureError}</span>
         {/if}
-        {#if r.ai_status}
-          <footer class={`ai ai-${r.ai_status}`}>
-            <span class="badge">{r.ai_status}</span>
-            {#if r.ai_response}
-              <p class="reply">{r.ai_response}</p>
-            {/if}
-          </footer>
-        {/if}
-      </article>
-    {/each}
+        <button type="submit" disabled={captureSubmitting}>
+          {captureSubmitting ? 'sending…' : 'capture'}
+        </button>
+      </div>
+    </form>
   </section>
+
+  <h2 class="list-title">records</h2>
+  {#if recordsLoading}
+    <p class="loading">loading…</p>
+  {:else if recordsError}
+    <section class="error-block">
+      <p>{recordsError}</p>
+    </section>
+  {:else if records.length === 0}
+    <p class="empty">No records yet. Capture something above ↑</p>
+  {:else}
+    <section class="list">
+      {#each records as r (r.id)}
+        <article class={`row posture-${r.posture}`}>
+          <header class="row-h">
+            <span class="type">{r.type}</span>
+            <span class="posture">{r.posture}</span>
+            <time>{fmtTime(r.updated_at)}</time>
+          </header>
+          {#if r.body}
+            <p class="body">{r.body}</p>
+          {:else}
+            <p class="body muted">⟨no body — vault tier⟩</p>
+          {/if}
+          {#if r.ai_status}
+            <footer class={`ai ai-${r.ai_status}`}>
+              <span class="badge">{r.ai_status}</span>
+              {#if r.ai_response}
+                <p class="reply">{r.ai_response}</p>
+              {/if}
+            </footer>
+          {/if}
+        </article>
+      {/each}
+    </section>
+  {/if}
 {/if}
 
 <style>
-  .hdr {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 2rem;
+  .hero {
+    margin-bottom: 1.5rem;
   }
-  h1 {
+  .hero h1 {
     font-size: 1.6rem;
     font-weight: 600;
-    margin: 0;
+    margin: 0 0 0.5rem;
   }
-  .sub {
-    margin: 0.25rem 0 0;
+  .hero p {
+    color: var(--ink-dim);
+    max-width: 56ch;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 640px) {
+    .split {
+      grid-template-columns: 1fr;
+    }
+  }
+  .card,
+  .capture-card,
+  .center,
+  .error-block {
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    padding: 1rem 1.1rem;
+    border-radius: 2px;
+  }
+  .card h2,
+  .capture-card h2 {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
+    color: var(--accent);
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+  }
+  .center {
+    text-align: center;
+    max-width: 480px;
+    margin: 2rem auto;
+  }
+  form {
+    display: grid;
+    gap: 0.6rem;
+  }
+  label {
+    display: grid;
+    gap: 0.25rem;
     color: var(--ink-mute);
-    font-size: 0.9rem;
-  }
-  .who {
     font-size: 0.85rem;
   }
+  .optional {
+    color: var(--line);
+  }
+  input,
+  textarea,
+  select {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.5rem 0.6rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 3.5rem;
+  }
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: 1px solid var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: 1px solid var(--accent);
+    padding: 0.55rem 1rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) {
+    background: var(--accent-dim);
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .ok {
     color: var(--green);
   }
-  .warn {
-    color: var(--ink-mute);
-  }
-
-  .loading,
-  .empty,
   .error {
-    padding: 1.5rem 0;
-    color: var(--ink-dim);
-  }
-  .empty .hint,
-  .error .hint {
-    margin-top: 0.75rem;
-    color: var(--ink-mute);
-    font-size: 0.9rem;
-  }
-  pre {
-    background: var(--surface-lo);
-    border: 1px solid var(--line-soft);
-    padding: 0.75rem;
-    overflow-x: auto;
+    color: #ff6b6b;
     font-size: 0.85rem;
-    border-radius: 4px;
+  }
+  .hint {
+    color: var(--ink-mute);
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
   }
 
+  .capture-card {
+    margin-bottom: 1.5rem;
+  }
+  .capture-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .capture-row select {
+    flex: 1;
+    min-width: 12rem;
+  }
+  .capture-row button {
+    margin-left: auto;
+  }
+
+  .list-title {
+    font-size: 0.85rem;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+  }
   .list {
     display: grid;
     gap: 0.75rem;
+  }
+  .loading,
+  .empty {
+    color: var(--ink-mute);
+    padding: 0.8rem 0;
   }
   .row {
     background: var(--surface-lo);
     border: 1px solid var(--line);
     border-left: 3px solid var(--ink-mute);
     padding: 0.75rem 1rem;
-    border-radius: 2px;
   }
   .row.posture-vault {
     border-left-color: #ff6b6b;
@@ -264,7 +513,6 @@ VALUES (
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 0.05rem 0.4rem;
-    border-radius: 2px;
     background: var(--surface);
     color: var(--ink-mute);
   }

@@ -140,18 +140,16 @@
     const { data, error } = await supabase
       .from('records')
       .select('*')
+      .is('deleted_at', null) // soft-deleted rows stay hidden
       .order('updated_at', { ascending: false })
-      .limit(50);
+      .limit(200);
     if (error) {
       recordsError = error.message;
       return;
     }
     if (data) {
-      // Take the plain Supabase rows BEFORE handing them to $state.
-      // Once they're assigned to `records` (which is a reactive
-      // $state array) they get wrapped in a Proxy; passing those
-      // proxies to IndexedDB / Dexie blows up the structured-clone
-      // algorithm with `DataCloneError: could not be cloned`.
+      // Plain rows go to Dexie; the reactive $state copy proxies on assign
+      // and IndexedDB cannot structured-clone Proxies.
       const fresh = data as LocalRecord[];
       records = fresh;
       try {
@@ -159,6 +157,98 @@
         await db.records.bulkPut(fresh);
       } catch (e) {
         console.warn('[PalmVellum] local cache write failed (non-fatal):', e);
+      }
+    }
+  }
+
+  // ── Filter + sort records to match the active tab ────────
+  function isTodoCompleted(r: LocalRecord): boolean {
+    const m = r.metadata as { completed?: unknown } | null;
+    return m?.completed === true;
+  }
+
+  const filteredRecords = $derived.by(() => {
+    const subset = records.filter((r) => r.type === captureType);
+    if (captureType === 'todo') {
+      return subset.sort((a, b) => {
+        const aDone = isTodoCompleted(a);
+        const bDone = isTodoCompleted(b);
+        if (aDone !== bDone) return aDone ? 1 : -1;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    }
+    return subset;
+  });
+
+  function emptyMessageFor(mode: string): string {
+    switch (mode) {
+      case 'aiquery':
+        return 'No questions yet. Ask the Oracle above ↑';
+      case 'thought':
+        return 'No thoughts captured yet ↑';
+      case 'todo':
+        return 'Nothing on your list. Add a task above ↑';
+      default:
+        return 'No records yet.';
+    }
+  }
+  function listHeadingFor(mode: string): string {
+    switch (mode) {
+      case 'aiquery':
+        return 'conversations';
+      case 'thought':
+        return 'thoughts';
+      case 'todo':
+        return 'tasks';
+      default:
+        return 'records';
+    }
+  }
+
+  // ── Mutations: toggle todo, delete record ───────────────
+  async function toggleTodo(r: LocalRecord) {
+    const next = !isTodoCompleted(r);
+    const existingMeta =
+      (r.metadata as Record<string, unknown> | null) ?? {};
+    const newMeta = { ...existingMeta, completed: next };
+
+    // Optimistic: replace the row in `records` so the checkbox flips
+    // immediately. Pass a plain object — see DataCloneError fix above.
+    records = records.map((rec) =>
+      rec.id === r.id ? { ...rec, metadata: newMeta as Record<string, unknown> } : rec,
+    );
+
+    const { error } = await supabase
+      .from('records')
+      .update({ metadata: newMeta })
+      .eq('id', r.id);
+    if (error) {
+      console.error('[PalmVellum] toggleTodo failed:', error);
+      await refreshFromCloud();
+    }
+  }
+
+  async function deleteRecord(r: LocalRecord) {
+    // Confirm only for things you can't easily re-create.
+    if (r.type !== 'todo') {
+      if (!confirm('Delete this record?')) return;
+    }
+
+    // Optimistic remove
+    records = records.filter((rec) => rec.id !== r.id);
+
+    const { error } = await supabase
+      .from('records')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', r.id);
+    if (error) {
+      console.error('[PalmVellum] deleteRecord failed:', error);
+      await refreshFromCloud();
+    } else {
+      try {
+        await db.records.delete(r.id);
+      } catch (e) {
+        console.warn('[PalmVellum] local delete (non-fatal):', e);
       }
     }
   }
@@ -355,23 +445,53 @@
     </form>
   </section>
 
-  <h2 class="list-title">records</h2>
+  <h2 class="list-title">{listHeadingFor(captureType)}</h2>
   {#if recordsLoading}
     <p class="loading">loading…</p>
   {:else if recordsError}
     <section class="error-block">
       <p>{recordsError}</p>
     </section>
-  {:else if records.length === 0}
-    <p class="empty">No records yet. Capture something above ↑</p>
+  {:else if filteredRecords.length === 0}
+    <p class="empty">{emptyMessageFor(captureType)}</p>
+  {:else if captureType === 'todo'}
+    <ul class="todo-list">
+      {#each filteredRecords as r (r.id)}
+        {@const done = isTodoCompleted(r)}
+        <li class={`todo ${done ? 'done' : ''}`}>
+          <input
+            type="checkbox"
+            checked={done}
+            onchange={() => toggleTodo(r)}
+            aria-label="mark complete"
+          />
+          <span class="body">{r.body ?? ''}</span>
+          <time class="todo-time">{fmtTime(r.updated_at)}</time>
+          <button
+            type="button"
+            class="delete-btn"
+            title="delete"
+            aria-label="delete task"
+            onclick={() => deleteRecord(r)}
+          >×</button>
+        </li>
+      {/each}
+    </ul>
   {:else}
     <section class="list">
-      {#each records as r (r.id)}
+      {#each filteredRecords as r (r.id)}
         <article class={`row posture-${r.posture}`}>
           <header class="row-h">
             <span class="type">{r.type}</span>
             <span class="posture">{r.posture}</span>
             <time>{fmtTime(r.updated_at)}</time>
+            <button
+              type="button"
+              class="delete-btn"
+              title="delete"
+              aria-label="delete record"
+              onclick={() => deleteRecord(r)}
+            >×</button>
           </header>
           {#if r.body}
             <p class="body">{r.body}</p>
@@ -646,5 +766,91 @@
     50% {
       opacity: 0.45;
     }
+  }
+
+  /* Delete button shared by cards + todos */
+  .delete-btn {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-mute);
+    cursor: pointer;
+    padding: 0 0.4rem;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    border-radius: 2px;
+  }
+  .delete-btn:hover {
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+  }
+
+  /* Card-mode delete button sits in the row header */
+  .row-h .delete-btn {
+    font-size: 1rem;
+    padding: 0 0.35rem;
+  }
+
+  /* Task-list mode */
+  .todo-list {
+    list-style: none;
+    display: grid;
+    gap: 0.4rem;
+    padding: 0;
+  }
+  .todo {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    padding: 0.55rem 0.75rem;
+    border-radius: 2px;
+  }
+  .todo.done {
+    border-left-color: var(--ink-mute);
+    opacity: 0.55;
+  }
+  .todo input[type='checkbox'] {
+    appearance: none;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 1.5px solid var(--ink-mute);
+    background: var(--bg);
+    cursor: pointer;
+    position: relative;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .todo input[type='checkbox']:checked {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .todo input[type='checkbox']:checked::after {
+    content: '✓';
+    position: absolute;
+    left: 1px;
+    top: -3px;
+    color: var(--bg);
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .todo .body {
+    flex: 1;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .todo.done .body {
+    text-decoration: line-through;
+    color: var(--ink-mute);
+  }
+  .todo-time {
+    color: var(--ink-mute);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .todo .delete-btn {
+    margin-left: 0;
   }
 </style>

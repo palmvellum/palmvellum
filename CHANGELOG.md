@@ -275,3 +275,14 @@ existing E2E continues to work.
   scopes every HotSync write to this user_id; v0.2 only logs.
 - `.env.example` documents the new variable; the placeholder slot
   stays empty so an unenrolled daemon does not loop on resolve.
+
+### Hotfix: enqueue_ai_request SECURITY DEFINER (2026-06-04)
+
+- Migration `0003_fix_enqueue_security_definer` applied. The trigger
+  function that copies new aiquery records into `ai_queue` was
+  inheriting SECURITY INVOKER, so authenticated users got
+  `new row violates row-level security policy for table "ai_queue"`
+  when inserting from the PWA capture form. The fix is to flip the
+  function to SECURITY DEFINER with an explicit search_path; the
+  trigger still only inserts NEW.user_id (which records' own RLS
+  has already pinned to auth.uid()), so no privilege escalation.

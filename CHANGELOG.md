@@ -208,3 +208,35 @@ Smoke-tested:
   CTA; "git clone" demoted to secondary.
 - Verified live: index 200, deep-link 200, JS asset 200, landing
   page contains the new button.
+
+### v0.2 SaaS data model applied (2026-06-04)
+
+Migration `0002_v02_saas` landed on the live PalmVellum project. Adds
+the multi-tenant SaaS substrate:
+
+- `waitlist` — anon insert OK; only the owning user can read their
+  row once their auth.users record exists.
+- `user_settings` — per-user API mode (byok / platform), preferred
+  provider, BYOK key references into Supabase Vault, subscription
+  status, credits, Palm enrollment state. `invited` gate controls
+  access to /app.
+- `ai_usage` — per-call accounting (tokens, cost in credits, errors).
+  v0.3 reads this for billing; v0.2 writes BYOK rows with
+  cost_credits=0.
+- 5 SECURITY DEFINER functions:
+  - `init_user_settings` — auto-creates a settings row when auth.users
+    gains a new member; auto-flips `invited` if the email is already
+    off the waitlist.
+  - `store_user_api_key(provider, plaintext)` — PWA-callable; pushes
+    the plaintext into vault.secrets and writes the returned UUID to
+    user_settings. Plaintext never reaches a regular column.
+  - `read_user_api_key(target_user, provider)` — service-role-only;
+    pulls plaintext back from vault.decrypted_secrets for the worker.
+  - `enroll_palm()` — returns a fresh 64-char hex hotsync_token; only
+    its sha256 is stored.
+  - `resolve_hotsync_token(raw)` — service-role-only; returns the
+    user_id whose token matches.
+
+RLS enabled on every new table with auth.uid()-scoped policies.
+Backfilled `user_settings` for the existing test auth user so the
+existing E2E continues to work.

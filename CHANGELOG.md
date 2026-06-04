@@ -240,3 +240,38 @@ the multi-tenant SaaS substrate:
 RLS enabled on every new table with auth.uid()-scoped policies.
 Backfilled `user_settings` for the existing test auth user so the
 existing E2E continues to work.
+
+### v0.2 worker: per-user BYOK + ai_usage tracking (2026-06-04)
+
+- `internal/supa/client.go` adds four entry points used by the new
+  worker: `GetUserSettings`, `ReadUserAPIKey` (calls the
+  service-role-only `read_user_api_key` RPC that decrypts via
+  `vault.decrypted_secrets`), `InsertAIUsage`, and
+  `ResolveHotsyncToken`.
+- `internal/aiworker/worker.go` rewritten around `ai.Provider`
+  instantiated per-call. Branch on `user_settings.api_mode`:
+  - **byok** — pull the user's plaintext key from Vault, build a
+    fresh `ai.NewOpenAI` / `ai.NewAnthropic` with their model
+    preference, call it once, discard.
+  - **platform** — fall back to the daemon's `OPENAI_API_KEY` /
+    `ANTHROPIC_API_KEY` (v0.2 charges 0 credits; v0.3 wires Airwallex
+    + decrements `credits_remaining`).
+  - Every call writes an `ai_usage` row regardless of outcome —
+    successes and failures alike — so the v0.3 dashboard has
+    complete history.
+- New `fail()` helper centralises "set ai_status=error + record
+  ai_usage with the error message".
+- `cmd/palmvellum/main.go` constructs the worker with
+  `aiworker.PlatformKeys` instead of a single provider; logs
+  `platform_openai_ready` / `platform_anthropic_ready` so operators
+  can see which fallback paths are armed.
+
+### v0.2 daemon: hotsync_token wiring (2026-06-04)
+
+- `internal/config/config.go` reads `PALMVELLUM_HOTSYNC_TOKEN`. The
+  raw value never leaves the daemon's process memory.
+- On `serve` startup the daemon trades the token for a `user_id`
+  via `ResolveHotsyncToken`; logs `hotsync_bound=true|false`. v0.3
+  scopes every HotSync write to this user_id; v0.2 only logs.
+- `.env.example` documents the new variable; the placeholder slot
+  stays empty so an unenrolled daemon does not loop on resolve.

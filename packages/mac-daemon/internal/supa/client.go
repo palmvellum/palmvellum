@@ -154,6 +154,121 @@ func (c *Client) GetRecord(ctx context.Context, id string) (*Record, error) {
 	return &rec, nil
 }
 
+// UserSettings mirrors public.user_settings (subset the daemon cares about).
+type UserSettings struct {
+	UserID            string  `json:"user_id"`
+	APIMode           string  `json:"api_mode"`
+	PreferredProvider string  `json:"preferred_provider"`
+	OpenAISecretID    *string `json:"openai_secret_id,omitempty"`
+	OpenAIModel       string  `json:"openai_model"`
+	AnthropicSecretID *string `json:"anthropic_secret_id,omitempty"`
+	AnthropicModel    string  `json:"anthropic_model"`
+	Invited           bool    `json:"invited"`
+	CreditsRemaining  int     `json:"credits_remaining"`
+}
+
+// GetUserSettings fetches a user's settings row.
+func (c *Client) GetUserSettings(ctx context.Context, userID string) (*UserSettings, error) {
+	resp, err := c.do(ctx, "GET",
+		fmt.Sprintf("/rest/v1/user_settings?user_id=eq.%s&select=*&limit=1", userID), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("user_settings %d: %s", resp.StatusCode, string(b))
+	}
+	var out []UserSettings
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("user_settings not found for %s", userID)
+	}
+	s := out[0]
+	return &s, nil
+}
+
+// ReadUserAPIKey fetches a decrypted BYOK key from Vault via the
+// read_user_api_key SECURITY DEFINER RPC. Returns empty string +
+// nil error if the user has not stored a key for that provider.
+func (c *Client) ReadUserAPIKey(ctx context.Context, userID, provider string) (string, error) {
+	body := map[string]any{
+		"target_user":   userID,
+		"provider_name": provider,
+	}
+	resp, err := c.do(ctx, "POST", "/rest/v1/rpc/read_user_api_key", body)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("read_user_api_key %d: %s", resp.StatusCode, string(b))
+	}
+	// PostgREST returns the scalar wrapped in JSON ("text") or null.
+	var out *string
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	if out == nil {
+		return "", nil
+	}
+	return *out, nil
+}
+
+// AIUsage is the row we insert into public.ai_usage on every call.
+type AIUsage struct {
+	UserID      string  `json:"user_id"`
+	RecordID    *string `json:"record_id,omitempty"`
+	APIMode     string  `json:"api_mode"`
+	Provider    string  `json:"provider"`
+	Model       string  `json:"model,omitempty"`
+	TokensIn    int     `json:"tokens_in"`
+	TokensOut   int     `json:"tokens_out"`
+	CostCredits int     `json:"cost_credits"`
+	Error       *string `json:"error,omitempty"`
+}
+
+// InsertAIUsage records one AI call.
+func (c *Client) InsertAIUsage(ctx context.Context, u AIUsage) error {
+	resp, err := c.do(ctx, "POST", "/rest/v1/ai_usage", u)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ai_usage %d: %s", resp.StatusCode, string(b))
+	}
+	return nil
+}
+
+// ResolveHotsyncToken trades the raw token for a user_id via the
+// resolve_hotsync_token SECURITY DEFINER RPC. Returns empty user_id
+// if no match (token not recognised).
+func (c *Client) ResolveHotsyncToken(ctx context.Context, rawToken string) (string, error) {
+	body := map[string]any{"raw_token": rawToken}
+	resp, err := c.do(ctx, "POST", "/rest/v1/rpc/resolve_hotsync_token", body)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("resolve_hotsync_token %d: %s", resp.StatusCode, string(b))
+	}
+	var out *string
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	if out == nil {
+		return "", nil
+	}
+	return *out, nil
+}
+
 // AIUpdate is the patch payload for ai_status + response columns.
 type AIUpdate struct {
 	Status    string  `json:"ai_status"`

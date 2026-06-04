@@ -80,14 +80,33 @@ func serveCmd() *cobra.Command {
 			defer db.Close()
 
 			sb := supa.New(cfg.SupabaseURL, cfg.SupabaseSecretKey)
-			provider := ai.New(ai.Config{
-				Provider:        cfg.AIProvider,
+
+			// Resolve the linked user from PALMVELLUM_HOTSYNC_TOKEN
+			// if set. v0.2 uses this purely as a label; v0.3+ scopes
+			// every HotSync write to this user_id.
+			boundUserID := ""
+			if cfg.HotsyncToken != "" && sb.Enabled() {
+				u, err := sb.ResolveHotsyncToken(ctx, cfg.HotsyncToken)
+				if err != nil {
+					log.Warn().Err(err).Msg("resolve hotsync token failed")
+				} else if u == "" {
+					log.Warn().Msg("PALMVELLUM_HOTSYNC_TOKEN does not match any enrolled Palm")
+				} else {
+					boundUserID = u
+					log.Info().Str("user_id", u).Msg("hotsync token resolved — daemon bound to user")
+				}
+			}
+
+			// AI worker now uses per-user BYOK keys via Supabase Vault.
+			// The daemon-level OPENAI_API_KEY / ANTHROPIC_API_KEY are
+			// the fallback for users on api_mode='platform'.
+			platform := aiworker.PlatformKeys{
 				OpenAIAPIKey:    cfg.OpenAIAPIKey,
 				OpenAIModel:     cfg.OpenAIModel,
 				AnthropicAPIKey: cfg.AnthropicAPIKey,
 				AnthropicModel:  cfg.AnthropicModel,
-			})
-			worker := aiworker.New(sb, provider, cfg.DeviceID)
+			}
+			worker := aiworker.New(sb, platform, cfg.DeviceID)
 
 			srv := api.New(cfg, db)
 
@@ -96,8 +115,8 @@ func serveCmd() *cobra.Command {
 				Str("addr", cfg.HTTPAddr).
 				Str("sqlite", cfg.SQLitePath).
 				Bool("supabase_ready", sb.Enabled()).
-				Str("ai_provider", provider.ProviderName()).
-				Bool("ai_ready", provider.Enabled()).
+				Bool("platform_openai_ready", cfg.OpenAIAPIKey != "" && cfg.OpenAIAPIKey != "sk-REPLACE_ME").
+				Bool("hotsync_bound", boundUserID != "").
 				Msg("palmvellum daemon starting")
 
 			// Run the AI worker alongside the HTTP server. Either

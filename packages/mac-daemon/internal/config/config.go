@@ -25,6 +25,11 @@ type Config struct {
 	UserID   string
 	DeviceID string
 
+	// HotsyncToken is the raw 64-char hex string issued by enroll_palm
+	// and pasted by the user. The daemon trades it for a user_id at
+	// startup via resolve_hotsync_token.
+	HotsyncToken string
+
 	SQLitePath string
 	HTTPAddr   string
 	LogLevel   string
@@ -53,6 +58,7 @@ func Load() (*Config, error) {
 
 		UserID:         env("USER_ID", ""),
 		DeviceID:       env("DEVICE_ID", defaultDeviceID()),
+		HotsyncToken:   env("PALMVELLUM_HOTSYNC_TOKEN", ""),
 		SQLitePath:     expand(env("SQLITE_PATH", filepath.Join(home, ".local/share/palmvellum/cache.db")), home),
 		HTTPAddr:       env("HTTP_ADDR", "127.0.0.1:7733"),
 		LogLevel:       env("LOG_LEVEL", "info"),

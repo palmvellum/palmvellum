@@ -32,6 +32,7 @@ export interface UserSettings {
   palm_serial: string | null;
   palm_model: string | null;
   invited: boolean;
+  timezone: string;
 }
 
 class AuthState {

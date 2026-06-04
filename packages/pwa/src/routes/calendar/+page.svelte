@@ -312,11 +312,9 @@
     aiError = null;
     aiSubmitting = true;
     const tz =
-      authState.settings?.preferred_provider /* trick: keep linter quiet */ &&
-      authState.settings &&
-      'timezone' in (authState.settings as Record<string, unknown>)
-        ? String((authState.settings as Record<string, unknown>)['timezone'] ?? 'UTC')
-        : Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      authState.settings?.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone ||
+      'UTC';
 
     const { error } = await supabase.from('event_drafts').insert({
       id: newUlid(),

@@ -40,28 +40,41 @@ class AuthState {
   userId = $state<string | null>(null);
   settings = $state<UserSettings | null>(null);
 
-  /** Re-fetch user_settings from Supabase and recompute phase. */
+  /** Re-fetch user_settings from Supabase and recompute phase.
+   *  Crucially: every exit path must leave `phase` in a terminal state
+   *  (`ready` / `uninvited` / `unauthenticated`) so the UI never gets
+   *  stuck rendering the loading skeleton. */
   async refreshSettings(): Promise<void> {
     if (!this.userId) {
       this.settings = null;
+      this.phase = 'unauthenticated';
       return;
     }
-    const { data, error } = await supabase
-      .from('user_settings')
-      .select('*')
-      .eq('user_id', this.userId)
-      .maybeSingle();
-    if (error) {
-      console.warn('user_settings fetch failed', error);
-      return;
-    }
-    this.settings = data as UserSettings | null;
-    if (!this.settings) {
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', this.userId)
+        .maybeSingle();
+      if (error) {
+        // Real error from PostgREST (RLS denial, network blip, etc).
+        // Treat as uninvited so the user sees the holding screen
+        // rather than an indefinite spinner.
+        console.error('[PalmVellum] user_settings fetch failed:', error);
+        this.settings = null;
+        this.phase = 'uninvited';
+        return;
+      }
+      this.settings = (data as UserSettings | null) ?? null;
+      if (!this.settings || !this.settings.invited) {
+        this.phase = 'uninvited';
+      } else {
+        this.phase = 'ready';
+      }
+    } catch (e) {
+      console.error('[PalmVellum] user_settings fetch threw:', e);
+      this.settings = null;
       this.phase = 'uninvited';
-    } else if (!this.settings.invited) {
-      this.phase = 'uninvited';
-    } else {
-      this.phase = 'ready';
     }
   }
 

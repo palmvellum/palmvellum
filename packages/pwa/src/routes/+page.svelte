@@ -131,11 +131,34 @@
       channelHandle = null;
       return;
     }
-    void (async () => {
+
+    let cancelled = false;
+
+    (async () => {
       recordsLoading = true;
-      records = await db.records.orderBy('updated_at').reverse().limit(50).toArray();
-      await refreshFromCloud();
-      recordsLoading = false;
+      try {
+        try {
+          const local = await db.records
+            .orderBy('updated_at')
+            .reverse()
+            .limit(50)
+            .toArray();
+          if (!cancelled) records = local;
+        } catch (e) {
+          console.error('[PalmVellum] local cache load failed:', e);
+        }
+        try {
+          await refreshFromCloud();
+        } catch (e) {
+          console.error('[PalmVellum] cloud refresh failed:', e);
+          if (!cancelled)
+            recordsError = e instanceof Error ? e.message : String(e);
+        }
+      } finally {
+        if (!cancelled) recordsLoading = false;
+      }
+
+      if (cancelled) return;
 
       channelHandle = supabase
         .channel('records-feed')
@@ -143,13 +166,18 @@
           'postgres_changes',
           { event: '*', schema: 'public', table: 'records' },
           async () => {
-            await refreshFromCloud();
+            try {
+              await refreshFromCloud();
+            } catch (e) {
+              console.error('[PalmVellum] realtime refresh failed:', e);
+            }
           },
         )
         .subscribe();
     })();
 
     return () => {
+      cancelled = true;
       channelHandle?.unsubscribe();
       channelHandle = null;
     };

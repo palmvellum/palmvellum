@@ -19,10 +19,14 @@
     </a>
 
     <nav class="links">
+      {#if authState.phase === 'ready'}
+        <a href="{base}/">capture</a>
+        <a href="{base}/calendar">calendar</a>
+        <a href="{base}/settings">settings</a>
+      {/if}
       <a href="/palmvellum/">manifesto</a>
       <a href="https://github.com/palmvellum/palmvellum" rel="noopener">github</a>
       {#if authState.phase === 'ready'}
-        <a href="{base}/settings">settings</a>
         <button class="signout" onclick={() => void authState.signOut()}>
           sign out
         </button>

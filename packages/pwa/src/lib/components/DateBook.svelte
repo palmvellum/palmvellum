@@ -1,14 +1,11 @@
 <script lang="ts">
   /**
-   * <DateBook deviceId={...} />
+   * <DateBook />
    *
-   * Per-device calendar view: month grid + AI free-form parser +
-   * manual event form. All event reads/writes are scoped to the
-   * supplied device via events.palm_device_id; AI-parsed events
-   * also get the same palm_device_id when accepted from a draft.
-   *
-   * This is the same UI that used to live at /calendar — that
-   * route now redirects here once the user picks a device.
+   * User-wide calendar view: month grid + AI free-form parser +
+   * manual event form. Reads every non-deleted event belonging to
+   * the signed-in user — there is no per-device partitioning. All
+   * Palms registered to the user share this same dataset.
    */
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
@@ -17,11 +14,6 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid as sharedNewUlid } from '$lib/ulid';
-
-  interface Props {
-    deviceId: string;
-  }
-  let { deviceId }: Props = $props();
   import {
     type CalendarEvent,
     startOfMonth,
@@ -119,7 +111,6 @@
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .eq('palm_device_id', deviceId)
       .is('deleted_at', null)
       .gte('start_at', from.toISOString())
       .lt('start_at', to.toISOString())
@@ -152,16 +143,11 @@
 
     eventsChannel?.unsubscribe();
     eventsChannel = supabase
-      .channel('cal-events-' + deviceId)
+      .channel('cal-events')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
-        async (payload) => {
-          // Only refresh when the change belongs to THIS device — the
-          // realtime payload's `new` row carries palm_device_id.
-          const row = (payload.new ?? payload.old) as { palm_device_id?: string } | undefined;
-          if (row?.palm_device_id === deviceId) await loadEvents();
-        },
+        async () => { await loadEvents(); },
       )
       .subscribe();
 
@@ -185,7 +171,6 @@
 
   $effect(() => {
     void viewMonth;
-    void deviceId;
     if (authState.phase === 'ready') void loadEvents();
   });
 
@@ -283,7 +268,6 @@
       const { error } = await supabase.from('events').insert({
         id: newUlid(),
         user_id: authState.userId,
-        palm_device_id: deviceId,
         source: 'web',
         ...payload,
       });
@@ -350,7 +334,6 @@
     const { error } = await supabase.from('events').insert({
       id: newUlid(),
       user_id: authState.userId,
-      palm_device_id: deviceId,
       source: 'ai',
       title: e.title,
       start_at: e.start_at,
@@ -382,7 +365,6 @@
     const rows = draft.parsed_events.map((e) => ({
       id: newUlid(),
       user_id: authState.userId,
-      palm_device_id: deviceId,
       source: 'ai',
       title: e.title,
       start_at: e.start_at,

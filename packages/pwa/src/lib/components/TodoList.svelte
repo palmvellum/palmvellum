@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
-   * <TodoList deviceId={...} />
+   * <TodoList />
    *
-   * Per-device To Do List. Reads from public.records where
-   * palm_device_id = deviceId AND type='todo'. Each todo carries
+   * User-wide To Do List. Reads every non-deleted record with
+   * type='todo' for the signed-in user. Each todo carries
    * structured fields inside `metadata`:
    *
    *   palm_due_date      ISO yyyy-mm-dd (string) or empty
@@ -38,11 +38,6 @@
     palm_device_id: string | null;
   }
 
-  interface Props {
-    deviceId: string;
-  }
-  let { deviceId }: Props = $props();
-
   let todos = $state<Todo[]>([]);
   let loading = $state(true);
   let loadError = $state<string | null>(null);
@@ -73,7 +68,6 @@
     const { data, error } = await supabase
       .from('records')
       .select('*')
-      .eq('palm_device_id', deviceId)
       .eq('type', 'todo')
       .is('deleted_at', null)
       .order('updated_at', { ascending: false });
@@ -124,7 +118,6 @@
       posture: 'open',
       body,
       source: 'web',
-      palm_device_id: deviceId,
       metadata: {
         palm_due_date: createDue || '',
         palm_priority: createPriority,
@@ -237,19 +230,17 @@
   const doneCount = $derived(todos.filter((t) => completed(t)).length);
 
   $effect(() => {
-    void deviceId;
     if (authState.phase === 'ready') void load();
   });
 
   $effect(() => {
     const channel = supabase
-      .channel('todo-' + deviceId)
+      .channel('todo-all')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'records' },
         async (payload) => {
-          const row = (payload.new ?? payload.old) as { palm_device_id?: string; type?: string };
-          if (row?.palm_device_id !== deviceId) return;
+          const row = (payload.new ?? payload.old) as { type?: string };
           if (row?.type !== 'todo') return;
           await load();
         },

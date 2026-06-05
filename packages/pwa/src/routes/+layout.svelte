@@ -20,7 +20,7 @@
 
     <nav class="links">
       {#if authState.phase === 'ready'}
-        <a href="{base}/devices">my device</a>
+        <a href="{base}/palm">my palm</a>
         <a href="{base}/settings">platform setting</a>
       {/if}
       <a href="/palmvellum/">manifesto</a>

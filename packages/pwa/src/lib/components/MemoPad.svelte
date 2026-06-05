@@ -1,12 +1,12 @@
 <script lang="ts">
   /**
-   * <MemoPad deviceId={...} />
+   * <MemoPad />
    *
-   * Per-device Memo Pad view. Reads from public.records where
-   * palm_device_id = deviceId AND type IN ('aiquery', 'thought').
-   * Memos in the "AI" category (records.type='aiquery') get
-   * ai_status=pending on insert and the existing AI worker writes
-   * ai_response — which we render inline once it arrives.
+   * User-wide Memo Pad. Reads every non-deleted record with
+   * type IN ('aiquery','thought') for the signed-in user.
+   * Memos created here as AI queries get ai_status=pending on
+   * insert and the AI worker writes ai_response — which we render
+   * inline once it arrives.
    *
    * (AI) prefix in the body is auto-detected at create time and
    * routes the memo into the AI flow even if the user didn't
@@ -30,11 +30,6 @@
     updated_at: string;
     palm_device_id: string | null;
   }
-
-  interface Props {
-    deviceId: string;
-  }
-  let { deviceId }: Props = $props();
 
   let memos = $state<Memo[]>([]);
   let loading = $state(true);
@@ -60,7 +55,6 @@
     const { data, error } = await supabase
       .from('records')
       .select('*')
-      .eq('palm_device_id', deviceId)
       .is('deleted_at', null)
       .in('type', ['aiquery', 'thought'])
       .order('updated_at', { ascending: false });
@@ -93,7 +87,6 @@
       posture: 'open',
       body,
       source: 'web',
-      palm_device_id: deviceId,
       ai_status: isAI ? 'pending' : null,
       metadata: {
         palm_category_name: isAI ? 'AI' : 'Unfiled',
@@ -192,20 +185,18 @@
   );
 
   $effect(() => {
-    void deviceId;
     if (authState.phase === 'ready') void load();
   });
 
-  // Realtime — filter by device on the client.
+  // Realtime — refresh on any memo-ish record change.
   $effect(() => {
     const channel = supabase
-      .channel('memo-' + deviceId)
+      .channel('memo-all')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'records' },
         async (payload) => {
-          const row = (payload.new ?? payload.old) as { palm_device_id?: string; type?: string };
-          if (row?.palm_device_id !== deviceId) return;
+          const row = (payload.new ?? payload.old) as { type?: string };
           if (row?.type !== 'aiquery' && row?.type !== 'thought') return;
           await load();
         },

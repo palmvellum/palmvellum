@@ -20,7 +20,10 @@
 //	72      4       Next record list ID (always 0)
 //	76      2       Number of records (UInt16)
 //	78      8*N     N record entries (see below)
-//	78+8N   2       Padding (typically 0x0000) before first record data
+//	78+8N   2       Padding (typically 0x0000)
+//	..      *       AppInfo block (if AppInfoOffset != 0)
+//	..      *       SortInfo block (if SortInfoOffset != 0; unused here)
+//	..      *       Record data chunks
 //
 // Each record entry (8 bytes):
 //
@@ -54,8 +57,13 @@ type DB struct {
 	BackupAt   time.Time
 	ModNumber  uint32
 	Type       [4]byte // e.g. 'D','a','t','a'
-	Creator    [4]byte // e.g. 'P','v','V','1'
+	Creator    [4]byte // e.g. 'm','e','m','o'
 	UniqueSeed uint32
+
+	// AppInfo holds the optional AppInfo block bytes. For MemoDB /
+	// ToDoDB this is the standard categories block (see memodb.go,
+	// tododb.go). For VellumDB it's empty.
+	AppInfo []byte
 
 	Records []Record
 }
@@ -88,7 +96,8 @@ func Read(b []byte) (*DB, error) {
 	db.ModifiedAt = palmTime(binary.BigEndian.Uint32(b[40:44]))
 	db.BackupAt = palmTime(binary.BigEndian.Uint32(b[44:48]))
 	db.ModNumber = binary.BigEndian.Uint32(b[48:52])
-	// appInfo (52..55), sortInfo (56..59) ignored
+	appInfoOff := binary.BigEndian.Uint32(b[52:56])
+	sortInfoOff := binary.BigEndian.Uint32(b[56:60])
 	copy(db.Type[:], b[60:64])
 	copy(db.Creator[:], b[64:68])
 	db.UniqueSeed = binary.BigEndian.Uint32(b[68:72])
@@ -110,6 +119,22 @@ func Read(b []byte) (*DB, error) {
 		db.Records[i].UniqueID = uint32(e[5])<<16 | uint32(e[6])<<8 | uint32(e[7])
 	}
 
+	// Optional AppInfo block. End boundary is the earliest of: SortInfo
+	// offset (if set), first record offset (if any), or EOF.
+	if appInfoOff != 0 && int(appInfoOff) <= len(b) {
+		end := uint32(len(b))
+		if sortInfoOff != 0 && sortInfoOff > appInfoOff && sortInfoOff < end {
+			end = sortInfoOff
+		}
+		if n > 0 && offsets[0] > appInfoOff && offsets[0] < end {
+			end = offsets[0]
+		}
+		if end > appInfoOff {
+			db.AppInfo = append([]byte(nil), b[appInfoOff:end]...)
+		}
+	}
+
+	// Record chunks
 	for i := 0; i < n; i++ {
 		start := offsets[i]
 		var end uint32
@@ -121,7 +146,6 @@ func Read(b []byte) (*DB, error) {
 		if int(start) > len(b) || int(end) > len(b) || end < start {
 			return nil, fmt.Errorf("pdb: bad record %d offset [%d..%d] of %d", i, start, end, len(b))
 		}
-		// Copy so the caller can free the source buffer.
 		db.Records[i].Data = append([]byte(nil), b[start:end]...)
 	}
 
@@ -130,6 +154,8 @@ func Read(b []byte) (*DB, error) {
 
 // Write serializes the DB to a byte stream suitable for `.pdb` import.
 //
+// Layout: header → entries → 2-byte pad → (optional AppInfo) → record blobs.
+//
 // The unique ID seed is auto-bumped if any record has UniqueID == 0
 // (we assign sequentially from seed+1 in that case).
 func (db *DB) Write() ([]byte, error) {
@@ -137,6 +163,7 @@ func (db *DB) Write() ([]byte, error) {
 		return nil, errors.New("pdb: too many records (>65535)")
 	}
 	n := len(db.Records)
+
 	// Auto-assign IDs to any record that came in with UniqueID == 0.
 	seed := db.UniqueSeed
 	for i := range db.Records {
@@ -147,15 +174,24 @@ func (db *DB) Write() ([]byte, error) {
 	}
 	db.UniqueSeed = seed
 
-	// Layout: 78 header + 8*n entries + 2 pad + record blobs
-	headerLen := 78 + 8*n + 2
-	totalLen := headerLen
+	headerEntriesLen := 78 + 8*n
+	paddingLen := 2 // always emit the pad — Palm Memo Pad expects it
+	hasAppInfo := len(db.AppInfo) > 0
+
+	var appInfoOffset uint32
+	if hasAppInfo {
+		appInfoOffset = uint32(headerEntriesLen + paddingLen)
+	}
+
+	recordsStart := uint32(headerEntriesLen + paddingLen + len(db.AppInfo))
+
+	totalLen := int(recordsStart)
 	for _, r := range db.Records {
 		totalLen += len(r.Data)
 	}
 	out := make([]byte, totalLen)
 
-	// Name (NUL-padded to 32)
+	// Header
 	copy(out[0:32], []byte(db.Name))
 	binary.BigEndian.PutUint16(out[32:34], db.Attributes)
 	binary.BigEndian.PutUint16(out[34:36], db.Version)
@@ -163,15 +199,16 @@ func (db *DB) Write() ([]byte, error) {
 	binary.BigEndian.PutUint32(out[40:44], toPalm(db.ModifiedAt))
 	binary.BigEndian.PutUint32(out[44:48], toPalm(db.BackupAt))
 	binary.BigEndian.PutUint32(out[48:52], db.ModNumber)
-	// appInfo, sortInfo = 0
+	binary.BigEndian.PutUint32(out[52:56], appInfoOffset)
+	// sortInfoOffset = 0
 	copy(out[60:64], db.Type[:])
 	copy(out[64:68], db.Creator[:])
 	binary.BigEndian.PutUint32(out[68:72], db.UniqueSeed)
 	// nextRecordListID = 0
 	binary.BigEndian.PutUint16(out[76:78], uint16(n))
 
-	// Entries + record data
-	cursor := uint32(headerLen)
+	// Record entries — offsets point past header+entries+padding+appinfo
+	cursor := recordsStart
 	for i, r := range db.Records {
 		e := out[78+8*i : 78+8*i+8]
 		binary.BigEndian.PutUint32(e[0:4], cursor)
@@ -181,6 +218,11 @@ func (db *DB) Write() ([]byte, error) {
 		e[7] = byte(r.UniqueID)
 		copy(out[cursor:cursor+uint32(len(r.Data))], r.Data)
 		cursor += uint32(len(r.Data))
+	}
+
+	// AppInfo (after 2-byte pad, before first record)
+	if hasAppInfo {
+		copy(out[appInfoOffset:appInfoOffset+uint32(len(db.AppInfo))], db.AppInfo)
 	}
 
 	return out, nil

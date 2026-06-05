@@ -1,19 +1,15 @@
-# vellum-sync — manual Palm ↔ Supabase round-trip
+# vellum-sync — PalmOS native-DB ↔ Supabase
 
-The eventual story is **task #14**: a real Network HotSync server on
-your Mac that speaks SLP / PADP / CMP / DLP to CloudpilotEmu, so one
-tap of the HotSync icon does it all. Until that ships, this CLI is the
-*manual* path that:
-
-1. lets you test every other moving piece of PalmVellum today, and
-2. owns the PDB read/write code that the future daemon will reuse
-   verbatim.
+Bridges PalmOS' stock Memo Pad and To Do List databases to the
+PalmVellum cloud. Manual flow today (you back up the .pdb from the
+emulator, run the CLI, install it back); the same code becomes the
+sync core when task #14 grows a real Network HotSync server.
 
 ## Build
 
 ```sh
 cd packages/sync-cli
-make            # produces ./bin/vellum-sync
+make            # ./bin/vellum-sync
 ```
 
 ## Configure
@@ -23,71 +19,105 @@ cp .env.example .env
 # fill in SUPABASE_SERVICE_ROLE_KEY (Supabase Dashboard → Settings → API)
 ```
 
-`.env` stays git-ignored.
+`.env` is git-ignored.
 
-## Workflow (CloudpilotEmu)
+## What syncs where
+
+| PalmOS app | Cloud `records.type` | Identifier on Palm |
+|------------|----------------------|--------------------|
+| Memo Pad, category **AI** | `aiquery` | `device_id="memo:<24-bit hex uid>"` |
+| Memo Pad, any other category | `thought` | same scheme |
+| To Do List | `todo` (with metadata for due_date, priority, completed, notes) | `device_id="todo:<hex>"` |
+
+The cloud's existing AI worker fires on aiquery insert and writes the
+answer to `ai_response`. On the next pull, the response is appended
+to the memo's body under a `— AI —` separator, so the user sees Q + A
+together in MemoPad.
+
+## Workflow (CloudpilotEmu or any Palm)
 
 ```
-       ┌────────────────────────┐         ┌──────────────────────┐
-       │  CloudpilotEmu         │         │  Supabase            │
-       │  (Vellum.prc + ROM)    │         │  records table       │
-       └──────────┬─────────────┘         └──────────┬───────────┘
-   ⋮ Database     │                                  │
-   backup ↓       │   VellumDB.pdb                   │
-                  ├─────────────────► push ────────► │  AI worker
-                  │                                  │  writes
-   ⋮ Install ↑    │   new.pdb                        │  ai_response
-                  │ ◄──────── pull ◄─────────────────┤
+           ┌────────────────────────┐         ┌──────────────────────┐
+           │  CloudpilotEmu         │         │  Supabase            │
+           │  Memo Pad / To Do      │         │  records table       │
+           └──────────┬─────────────┘         └──────────┬───────────┘
+   ⋮ Database         │                                  │
+   backup ↓           │   MemoDB.pdb / ToDoDB.pdb        │
+                      ├────────────► push ─────────────► │  AI worker
+                      │                                  │  writes
+   ⋮ Install ↑        │   updated .pdb (with answers)    │  ai_response
+                      │ ◄──────── pull ◄─────────────────┤
 ```
 
-Commands:
+## Commands
 
 ```sh
-./vellum inspect VellumDB.pdb        # decode and dump without touching cloud
-./vellum push    VellumDB.pdb        # upsert each Palm record to Supabase
-./vellum pull    -out new.pdb        # build fresh VellumDB.pdb from cloud
+# Combined one-step (recommended for AI Mode):
+./vellum memo sync ~/Downloads/MemoDB.pdb    # push + wait 8s + pull (in-place)
+./vellum todo sync ~/Downloads/ToDoDB.pdb    # push + pull (in-place)
+
+# Or the individual halves:
+./vellum memo push ~/Downloads/MemoDB.pdb    # Palm → cloud
+./vellum memo pull -out ~/Downloads/MemoDB.pdb  # cloud → Palm
+./vellum todo push ~/Downloads/ToDoDB.pdb
+./vellum todo pull -out ~/Downloads/ToDoDB.pdb
+
+# Utilities
+./vellum inspect <any.pdb>                   # auto-detect MemoDB / ToDoDB
+./vellum starter memo -out ~/Downloads/MemoDB.pdb   # empty MemoDB with
+                                                      # categories incl. AI
+./vellum starter todo -out ~/Downloads/ToDoDB.pdb
 ```
 
-Both directions are idempotent — push matches by `(user_id, device_id)`
-where `device_id = "palm:<24-bit hex of Palm record uniqueID>"`, and
-pull re-uses that same uniqueID when writing the new PDB. Re-running
-either command without changing the source is a no-op (push prints
-"~ updated", pull just rewrites the same bytes).
+## First-time setup
 
-## Demo (round-trip with AI answer)
+If you don't have an AI category in MemoPad yet, generate and install
+a starter:
 
 ```sh
-# 1. On the emu: open Vellum, type "What was Steve Jobs famous quote
-#    about Newton?", tap AI tab, save. A new record appears in the log
-#    with status '.' (draft).
-#
-# 2. CloudpilotEmu → Emulator tab → ⋮ → Database backup → VellumDB →
-#    save to ~/Downloads/VellumDB.pdb
-
-./vellum push ~/Downloads/VellumDB.pdb
-# → "+ aiquery uid=000003 ..."
-
-# 3. Open https://tatliving.dev/palmvellum/app/ — your record appears
-#    on the "hotsync with palm" tab. After ~3-5s the AI answer shows up
-#    in the detail view (or list status changes from pending → done).
-#
-# 4. Pull it back:
-
-./vellum pull -out ~/Downloads/new.pdb
-
-# 5. CloudpilotEmu → ⋮ → Install database → ~/Downloads/new.pdb.
-#    Confirm overwrite of VellumDB. Open Vellum → tap the AI row →
-#    detail form shows the answer.
+./vellum starter memo -out ~/Downloads/MemoDB-starter.pdb
+# Then in CloudpilotEmu: ⋮ → Install database → MemoDB-starter.pdb
 ```
 
-## What ships in this package
+This drops in a fresh MemoDB with categories Unfiled, Personal,
+Business, **AI** ready to use. Existing memos are erased — so do this
+ONLY before you have content you want to keep, or use it on a fresh
+session.
+
+## Idempotency + identity
+
+Each Palm record carries a 24-bit unique ID assigned by the OS. Push
+records that as `device_id = "memo:<hex>"` or `"todo:<hex>"`. Re-runs
+match on `(user_id, device_id)` so they update rather than duplicate.
+
+Cloud rows that have no `device_id` (e.g. PWA-originated) get one
+assigned on first pull — the CLI both writes the new ID into the
+generated PDB **and** backfills the cloud row with the same ID before
+returning. So the very next push finds them and updates in place.
+
+## Limitations (will be fixed when task #14 lands)
+
+- Pull is destructive: the entire MemoDB/ToDoDB is regenerated from
+  cloud state. Local edits between push and pull are lost. Do
+  push-then-pull as a single `sync` action to minimize the window.
+- Editing the question portion of an AI memo doesn't re-trigger the
+  AI worker (`records_enqueue_ai` trigger fires on INSERT only). To
+  get a fresh answer for an updated question, delete the memo on
+  Palm and create a new one.
+- No conflict resolution. If both sides changed the same record since
+  the last sync, last-write-wins.
+- Capacity: 65,535 records per PDB (PalmOS hard cap), single user.
+
+## Package layout
 
 ```
-cmd/vellum-sync/        Cobra-free flat dispatcher + subcommands
-internal/pdb/           Palm Database (.pdb) reader/writer
-internal/vellum/        VellumDB record codec (matches vellum.c)
-internal/cloud/         Thin Supabase PostgREST client + ULID gen
+cmd/vellum-sync/        flat subcommand dispatcher
+internal/pdb/           Palm Database (.pdb) reader/writer with optional
+                        AppInfo block
+internal/memodb/        MemoDB record codec + categories AppInfo
+internal/tododb/        ToDoDB record codec + categories AppInfo (reuses
+                        memodb.AppInfo for the first 276 bytes)
+internal/cloud/         Thin Supabase PostgREST client + ULID generator
+internal/vellum/        Legacy VellumDB record codec — deprecated; kept
+                        for archaeology only
 ```
-
-Tests live alongside (`go test ./...`). When the daemon (task #14)
-lands, it imports `internal/pdb` and `internal/vellum` verbatim.

@@ -20,9 +20,8 @@
 
     <nav class="links">
       {#if authState.phase === 'ready'}
-        <a href="{base}/">hotsync with palm</a>
-        <a href="{base}/calendar">calendar</a>
-        <a href="{base}/settings">settings</a>
+        <a href="{base}/devices">my device</a>
+        <a href="{base}/settings">platform setting</a>
       {/if}
       <a href="/palmvellum/">manifesto</a>
       <a href="https://github.com/palmvellum/palmvellum" rel="noopener">github</a>

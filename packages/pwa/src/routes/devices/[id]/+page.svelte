@@ -13,6 +13,7 @@
   import { goto } from '$app/navigation';
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
+  import DateBook from '$lib/components/DateBook.svelte';
 
   interface Device {
     id: string;
@@ -127,17 +128,15 @@
       {/each}
     </div>
 
+    {#if activeTab === 'datebook'}
+      <!-- Full-width Date Book — no .panel wrapper, the component
+           has its own 2-column layout (month grid + AI panel). -->
+      <div class="datebook-host" role="tabpanel">
+        <DateBook deviceId={device.id} />
+      </div>
+    {:else}
     <div class="panel" role="tabpanel">
-      {#if activeTab === 'datebook'}
-        <h2>Date Book</h2>
-        <p>
-          Calendar events sync bidirectionally between your Palm's
-          <em>DatebookDB.pdb</em> and the platform. AI parsing of
-          free-form text (the current <a href="{base}/calendar">/calendar</a>)
-          will live here once Phase 1 lands.
-        </p>
-        <p class="phase-note">Phase 1 — coming next.</p>
-      {:else if activeTab === 'todo'}
+      {#if activeTab === 'todo'}
         <h2>To Do List</h2>
         <p>
           Bidirectional sync with <em>ToDoDB.pdb</em> (description,
@@ -190,6 +189,7 @@
         <p class="phase-note">Phase 2.</p>
       {/if}
     </div>
+    {/if}
   </section>
 {/if}
 
@@ -323,5 +323,9 @@
     font-size: 0.8rem !important;
     font-style: italic;
     margin-top: 1rem !important;
+  }
+  .datebook-host {
+    /* DateBook component owns its own internal layout grid. */
+    margin: 0;
   }
 </style>

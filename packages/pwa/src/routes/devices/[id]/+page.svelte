@@ -14,6 +14,8 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import DateBook from '$lib/components/DateBook.svelte';
+  import MemoPad from '$lib/components/MemoPad.svelte';
+  import TodoList from '$lib/components/TodoList.svelte';
 
   interface Device {
     id: string;
@@ -129,40 +131,26 @@
     </div>
 
     {#if activeTab === 'datebook'}
-      <!-- Full-width Date Book — no .panel wrapper, the component
-           has its own 2-column layout (month grid + AI panel). -->
       <div class="datebook-host" role="tabpanel">
         <DateBook deviceId={device.id} />
       </div>
+    {:else if activeTab === 'memo'}
+      <div class="full-host" role="tabpanel">
+        <MemoPad deviceId={device.id} />
+      </div>
+    {:else if activeTab === 'todo'}
+      <div class="full-host" role="tabpanel">
+        <TodoList deviceId={device.id} />
+      </div>
     {:else}
     <div class="panel" role="tabpanel">
-      {#if activeTab === 'todo'}
-        <h2>To Do List</h2>
-        <p>
-          Bidirectional sync with <em>ToDoDB.pdb</em> (description,
-          due date, priority, completed). Tasks starting with
-          <code>(AI)</code> get executed by an AI worker — the result
-          is written as a Memo titled <em>AI Result: …</em> and the
-          task is marked completed.
-        </p>
-        <p class="phase-note">Sync: Phase 1. (AI) trigger: Phase 4.</p>
-      {:else if activeTab === 'address'}
+      {#if activeTab === 'address'}
         <h2>Address</h2>
         <p>
           Bidirectional sync with <em>AddressDB.pdb</em>. Phase 2
           adds the contact-record codec.
         </p>
         <p class="phase-note">Phase 2.</p>
-      {:else if activeTab === 'memo'}
-        <h2>Memo Pad</h2>
-        <p>
-          Bidirectional sync with <em>MemoDB.pdb</em>. Memos starting
-          with <code>(AI)</code> get analyzed — the AI extracts
-          mentions of calendar events, todos, etc. and creates them
-          on the appropriate apps, then appends what it did to the
-          memo body.
-        </p>
-        <p class="phase-note">Sync: Phase 1. (AI) trigger: Phase 4.</p>
       {:else if activeTab === 'notepad'}
         <h2>Note Pad</h2>
         <p>
@@ -324,8 +312,9 @@
     font-style: italic;
     margin-top: 1rem !important;
   }
-  .datebook-host {
-    /* DateBook component owns its own internal layout grid. */
+  .datebook-host,
+  .full-host {
+    /* Component owns its own layout grid + spacing. */
     margin: 0;
   }
 </style>

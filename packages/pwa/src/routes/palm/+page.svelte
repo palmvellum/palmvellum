@@ -16,6 +16,7 @@
   import TodoList from '$lib/components/TodoList.svelte';
   import AddressBook from '$lib/components/AddressBook.svelte';
   import ExpenseLog from '$lib/components/ExpenseLog.svelte';
+  import NotePad from '$lib/components/NotePad.svelte';
 
   const TABS = [
     { key: 'datebook', label: 'Date Book' },
@@ -65,17 +66,11 @@
       <div class="host" role="tabpanel"><AddressBook /></div>
     {:else if activeTab === 'expense'}
       <div class="host" role="tabpanel"><ExpenseLog /></div>
+    {:else if activeTab === 'notepad'}
+      <div class="host" role="tabpanel"><NotePad /></div>
     {:else}
       <div class="panel" role="tabpanel">
-        {#if activeTab === 'notepad'}
-          <h2>Note Pad</h2>
-          <p>
-            Note Pad freehand drawings on your Palm are rendered to
-            JPG on the platform; AI runs OCR / sketch interpretation
-            and stores the text version alongside the original image.
-          </p>
-          <p class="phase-note">Phase 3 — needs bitmap-to-JPG renderer + Storage bucket + vision API.</p>
-        {:else if activeTab === 'mail'}
+        {#if activeTab === 'mail'}
           <h2>Mail</h2>
           <p>
             Configure websites; AI visits each at your chosen daily

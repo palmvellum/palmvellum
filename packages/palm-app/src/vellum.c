@@ -1,21 +1,22 @@
 /*
- * PalmVellum Capture v1.1 — on-device entry surface for AI / thought / todo.
+ * PalmVellum Capture v1.2 — on-device entry surface for AI / thought / todo.
  *
- * Changes vs v1.0:
- *   - Main form shows a pending-sync banner ("log : N to sync") whenever
- *     records with status=draft exist. Updates after every save/edit/sync.
- *   - Detail form's body field is now EDITABLE. New `save` button rewrites
- *     the underlying record via DmResizeRecord+DmWrite, preserving the
- *     existing answer bytes, and flips status back to draft so the next
- *     HotSync re-pushes the change.
- *   - Defensive rewrites of DetailPopulate to fix the soft-reset on log tap:
- *     strict C89 layout (all locals at function top), NULL guards on every
- *     handle/lock, FldRecalculateField call after FldSetTextHandle, and a
- *     GraffitiStateIndicator on both forms.
+ * Changes vs v1.1:
+ *   - Replaced the LIST widget with five NOFRAME LEFTANCHOR buttons
+ *     (IDs 1200..1204). Tapping a row now fires ctlSelectEvent, which
+ *     is the standard PalmOS path for form-switching from a tap and
+ *     avoids the known dispatch quirk where FrmGotoForm inside
+ *     lstSelectEvent could crash the list widget's own redraw pass.
+ *   - Detail body field uses a fixed-size 1024-byte MemHandle so
+ *     PalmOS doesn't have to grow it under the user during edits.
+ *   - Detail answer field uses a static buffer via FldSetTextPtr —
+ *     read-only display with no handle ownership ambiguity.
  *
- * Storage and record format unchanged from v1.0 — VellumDB rows produced
- * by either revision are byte-compatible, so existing CLI round-trips
- * continue to work.
+ * Record byte format and VellumDB layout are unchanged; old/new
+ * VellumDB.pdb backups remain byte-compatible.
+ *
+ * Compile target: -palmos3.5 (works on 4.x ROMs via backward compat).
+ * Compiler: m68k-palmos-gcc 2.95.3 — C89, locals at block top.
  */
 
 #include <PalmOS.h>
@@ -36,7 +37,9 @@
 #define MAIN_BTN_SAVE      1020
 #define MAIN_LBL_STATUS    1021
 #define MAIN_LBL_BANNER    1022
-#define MAIN_LST_RECORDS   1030
+
+#define MAIN_BTN_ROW_BASE  1200
+#define MAIN_BTN_ROW_MAX   5
 
 #define DETAIL_LBL_TYPE    1101
 #define DETAIL_LBL_STATUS  1102
@@ -58,8 +61,8 @@
 #define STATUS_ANSWERED    2
 #define STATUS_DONE        3
 
-#define LIST_MAX_ROWS      32
 #define LIST_LBL_LEN       28
+#define DETAIL_BUF_SIZE    1024
 #define NO_REC             0xFFFF
 
 /* --------------------------------------------------------------- globals */
@@ -67,10 +70,16 @@
 static DmOpenRef gDB         = NULL;
 static UInt8     gSelType    = TYPE_AI;
 static UInt16    gOpenIdx    = NO_REC;
-static Char      gListBuf[LIST_MAX_ROWS * LIST_LBL_LEN];
-static Char     *gListPtrs[LIST_MAX_ROWS];
-static UInt16    gListRecIdx[LIST_MAX_ROWS];
+static Char      gListBuf[MAIN_BTN_ROW_MAX * LIST_LBL_LEN];
+static Char     *gListPtrs[MAIN_BTN_ROW_MAX];
+static UInt16    gListRecIdx[MAIN_BTN_ROW_MAX];
 static UInt16    gListCount  = 0;
+
+/* Static buffers for the detail form's body/answer fields. Using
+ * FldSetTextPtr against these avoids the handle ownership ambiguity
+ * that PalmOS' field code can get tangled in when an editable field
+ * is given a too-small handle (the most likely v1.1 crash). */
+static Char      gDetailAnsBuf[DETAIL_BUF_SIZE];
 
 /* --------------------------------------------------------------- db helpers */
 
@@ -87,8 +96,8 @@ static UInt16 OpenOrCreateDB(void) {
     return gDB ? 0 : 2;
 }
 
-/* Count records with status == STATUS_DRAFT across all types — drives
- * the "N to sync" banner. */
+/* Count records with status == STATUS_DRAFT (any type) — drives the
+ * "N to sync" banner on the main form. */
 static UInt16 CountPending(void) {
     UInt16 n;
     UInt16 i;
@@ -109,7 +118,7 @@ static UInt16 CountPending(void) {
     return cnt;
 }
 
-/* --------------------------------------------------------------- list helpers */
+/* --------------------------------------------------------------- row helpers */
 
 static void FormatRow(UInt16 recIdx, Char *dst) {
     MemHandle h;
@@ -185,30 +194,31 @@ static void UpdatePendingLabel(void) {
     FrmCopyLabel(frm, MAIN_LBL_BANNER, buf);
 }
 
+/* Walk records newest-first, fill gListBuf/gListPtrs/gListRecIdx with
+ * up to MAIN_BTN_ROW_MAX matching entries, then assign each as the
+ * label of the corresponding row button and reveal it. Hide unused
+ * slots. */
 static void RebuildList(void) {
     FormType *frm;
-    ListType *lst;
     UInt16 n;
     UInt16 i;
     UInt16 idx;
     UInt16 recIdx;
+    UInt16 objIdx;
     MemHandle h;
     UInt8 *p;
     UInt8 typ;
     Char *ptr;
+    ControlType *ctl;
 
     frm = FrmGetActiveForm();
     if (!frm) return;
-    lst = (ListType *)FrmGetObjectPtr(frm,
-              FrmGetObjectIndex(frm, MAIN_LST_RECORDS));
-    if (!lst) return;
 
     n = DmNumRecords(gDB);
     idx = 0;
     ptr = gListBuf;
 
-    /* Walk newest → oldest, take only those matching gSelType */
-    for (i = 0; i < n && idx < LIST_MAX_ROWS; i++) {
+    for (i = 0; i < n && idx < MAIN_BTN_ROW_MAX; i++) {
         recIdx = n - 1 - i;
         h = DmQueryRecord(gDB, recIdx);
         if (!h) continue;
@@ -225,9 +235,20 @@ static void RebuildList(void) {
         idx++;
     }
     gListCount = idx;
-    LstSetListChoices(lst, idx == 0 ? NULL : gListPtrs, idx);
-    LstSetSelection(lst, noListSelection);
-    LstDrawList(lst);
+
+    /* Apply to buttons */
+    for (i = 0; i < MAIN_BTN_ROW_MAX; i++) {
+        objIdx = FrmGetObjectIndex(frm, MAIN_BTN_ROW_BASE + i);
+        if (objIdx == (UInt16)frmInvalidObjectId) continue;
+        ctl = (ControlType *)FrmGetObjectPtr(frm, objIdx);
+        if (!ctl) continue;
+        if (i < idx) {
+            CtlSetLabel(ctl, gListPtrs[i]);
+            FrmShowObject(frm, objIdx);
+        } else {
+            FrmHideObject(frm, objIdx);
+        }
+    }
 
     UpdatePendingLabel();
 }
@@ -313,8 +334,6 @@ static void SaveCurrent(void) {
 
 /* --------------------------------------------------------------- detail */
 
-/* Decode the header in-place from the given Char* into the locals,
- * keeping the chunk pointer (used to access body/answer bytes). */
 static void DetailPopulate(void) {
     FormType *frm;
     MemHandle h;
@@ -323,14 +342,13 @@ static void DetailPopulate(void) {
     UInt8 status;
     UInt16 bodyLen;
     UInt16 ansLen;
+    UInt16 lim;
     const Char *typeStr;
     const Char *statusStr;
     FieldType *bodyFld;
     FieldType *ansFld;
-    MemHandle txtH;
-    MemHandle ansH;
+    MemHandle bodyH;
     Char *txt;
-    Char *ansTxt;
 
     if (gOpenIdx == NO_REC) return;
     frm = FrmGetActiveForm();
@@ -359,48 +377,47 @@ static void DetailPopulate(void) {
     FrmCopyLabel(frm, DETAIL_LBL_TYPE,   typeStr);
     FrmCopyLabel(frm, DETAIL_LBL_STATUS, statusStr);
 
-    /* Body field — allocate own handle so the field owns + frees it
-     * when the form closes. */
+    /* Editable body — always allocate a full-size handle so PalmOS
+     * has room to let the user grow the text without resizing under
+     * us. The handle is owned by the field after FldSetTextHandle
+     * and will be freed by PalmOS when the form closes. */
     bodyFld = (FieldType *)FrmGetObjectPtr(frm,
                   FrmGetObjectIndex(frm, DETAIL_FLD_BODY));
     if (bodyFld) {
-        txtH = MemHandleNew(bodyLen + 1);
-        if (txtH) {
-            txt = (Char *)MemHandleLock(txtH);
+        bodyH = MemHandleNew(DETAIL_BUF_SIZE);
+        if (bodyH) {
+            txt = (Char *)MemHandleLock(bodyH);
             if (txt) {
-                if (bodyLen) MemMove(txt, p + REC_HDR_LEN, bodyLen);
-                txt[bodyLen] = 0;
-                MemHandleUnlock(txtH);
-                FldSetTextHandle(bodyFld, txtH);
+                MemSet(txt, DETAIL_BUF_SIZE, 0);
+                lim = bodyLen < DETAIL_BUF_SIZE - 1 ? bodyLen
+                                                    : DETAIL_BUF_SIZE - 1;
+                if (lim) MemMove(txt, p + REC_HDR_LEN, lim);
+                MemHandleUnlock(bodyH);
+                FldSetTextHandle(bodyFld, bodyH);
                 FldRecalculateField(bodyFld, true);
                 FldDrawField(bodyFld);
             } else {
-                MemHandleFree(txtH);
+                MemHandleFree(bodyH);
             }
         }
     }
 
-    /* Answer field — read-only display, also gets its own handle. */
+    /* Read-only answer — copy bytes into our static buffer and point
+     * the field at it. No handle ownership question; safe to reset
+     * to "" when there's no answer. */
     ansFld = (FieldType *)FrmGetObjectPtr(frm,
                  FrmGetObjectIndex(frm, DETAIL_FLD_ANSWER));
     if (ansFld) {
+        MemSet(gDetailAnsBuf, DETAIL_BUF_SIZE, 0);
         if (ansLen > 0) {
-            ansH = MemHandleNew(ansLen + 1);
-            if (ansH) {
-                ansTxt = (Char *)MemHandleLock(ansH);
-                if (ansTxt) {
-                    MemMove(ansTxt, p + REC_HDR_LEN + bodyLen, ansLen);
-                    ansTxt[ansLen] = 0;
-                    MemHandleUnlock(ansH);
-                    FldSetTextHandle(ansFld, ansH);
-                    FldRecalculateField(ansFld, true);
-                } else {
-                    MemHandleFree(ansH);
-                }
-            }
-        } else {
-            FldSetTextHandle(ansFld, NULL);
+            lim = ansLen < DETAIL_BUF_SIZE - 1 ? ansLen
+                                               : DETAIL_BUF_SIZE - 1;
+            MemMove(gDetailAnsBuf, p + REC_HDR_LEN + bodyLen, lim);
         }
+        /* FldSetTextLength isn't in the 3.5 SDK header; the field reads
+         * length by walking until NUL, and our buffer is zero-padded. */
+        FldSetTextPtr(ansFld, gDetailAnsBuf);
+        FldRecalculateField(ansFld, true);
         FldDrawField(ansFld);
     }
 
@@ -432,14 +449,6 @@ static void DetailMarkDone(void) {
     DmReleaseRecord(gDB, gOpenIdx, true);
 }
 
-/* Save edits made in the detail body field. Rebuilds the record:
- *   - preserve type + ctime + answer bytes
- *   - replace body bytes with the field's current text
- *   - flip status to draft (will re-sync on next push)
- *
- * Implementation: capture the old answer bytes into a temp handle,
- * call DmResizeRecord to set the new total size, rewrite the header
- * + body + answer at the right offsets. */
 static void DetailSaveEdit(void) {
     FormType *frm;
     FieldType *bodyFld;
@@ -474,7 +483,6 @@ static void DetailSaveEdit(void) {
     bodyH = FldGetTextHandle(bodyFld);
     body = bodyH ? (Char *)MemHandleLock(bodyH) : NULL;
 
-    /* Capture header + answer bytes from the existing record. */
     existing = DmQueryRecord(gDB, gOpenIdx);
     if (!existing) goto cleanup;
     existingP = (UInt8 *)MemHandleLock(existing);
@@ -504,7 +512,6 @@ static void DetailSaveEdit(void) {
     }
     MemHandleUnlock(existing);
 
-    /* Resize record and rewrite. */
     newSize = REC_HDR_LEN + bodyLen + ansLen;
     resized = DmResizeRecord(gDB, gOpenIdx, newSize);
     if (!resized) goto cleanup;
@@ -516,7 +523,7 @@ static void DetailSaveEdit(void) {
 
     hdr[0]  = 0x01;
     hdr[1]  = type;
-    hdr[2]  = STATUS_DRAFT;            /* edit → needs re-sync */
+    hdr[2]  = STATUS_DRAFT;
     hdr[3]  = 0;
     hdr[4]  = (UInt8)(ctime >> 24);
     hdr[5]  = (UInt8)(ctime >> 16);
@@ -550,7 +557,8 @@ cleanup:
 static Boolean MainFormHandleEvent(EventType *e) {
     Boolean handled;
     FormType *frm;
-    UInt16 sel;
+    UInt16 cid;
+    UInt16 row;
 
     handled = false;
 
@@ -565,34 +573,39 @@ static Boolean MainFormHandleEvent(EventType *e) {
             break;
 
         case ctlSelectEvent:
-            switch (e->data.ctlSelect.controlID) {
+            cid = e->data.ctlSelect.controlID;
+            switch (cid) {
                 case MAIN_BTN_AI:
                     gSelType = TYPE_AI;
                     RebuildList();
+                    handled = true;
                     break;
                 case MAIN_BTN_THOUGHT:
                     gSelType = TYPE_THOUGHT;
                     RebuildList();
+                    handled = true;
                     break;
                 case MAIN_BTN_TODO:
                     gSelType = TYPE_TODO;
                     RebuildList();
+                    handled = true;
                     break;
                 case MAIN_BTN_SAVE:
                     SaveCurrent();
+                    handled = true;
                     break;
-            }
-            handled = true;
-            break;
-
-        case lstSelectEvent:
-            if (e->data.lstSelect.listID == MAIN_LST_RECORDS) {
-                sel = e->data.lstSelect.selection;
-                if (sel < gListCount) {
-                    gOpenIdx = gListRecIdx[sel];
-                    FrmGotoForm(FORM_DETAIL);
-                }
-                handled = true;
+                default:
+                    if (cid >= MAIN_BTN_ROW_BASE &&
+                        cid < MAIN_BTN_ROW_BASE + MAIN_BTN_ROW_MAX) {
+                        row = cid - MAIN_BTN_ROW_BASE;
+                        if (row < gListCount &&
+                            gListRecIdx[row] < DmNumRecords(gDB)) {
+                            gOpenIdx = gListRecIdx[row];
+                            FrmGotoForm(FORM_DETAIL);
+                        }
+                        handled = true;
+                    }
+                    break;
             }
             break;
 

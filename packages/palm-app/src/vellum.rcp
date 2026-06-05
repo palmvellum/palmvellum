@@ -1,11 +1,15 @@
-// Vellum Capture v1.1 — resource definitions for prc-tools/pilrc.
+// Vellum Capture v1.2 — resource definitions for prc-tools/pilrc.
 //
-// Form 1000 = main capture (tabs + body field + save + sync banner + log list)
-// Form 1100 = entry detail (read or EDIT body + answer + save/delete/done/back)
+// Two forms:
+//   1000 = main capture (tabs + body field + save + sync banner +
+//          up to 5 clickable record rows as NOFRAME buttons)
+//   1100 = entry detail (read or EDIT body + answer + save/del/done/back)
 //
-// Both forms now include a GraffitiStateIndicator next to the
-// editable field so pilrc stops warning and the user sees Graffiti
-// shift state during input.
+// The log List widget from v1.0/v1.1 is gone. Each record row is now
+// its own NOFRAME LEFTANCHOR button so a tap fires ctlSelectEvent
+// rather than lstSelectEvent, which avoids the known PalmOS quirk
+// where FrmGotoForm from inside lstSelectEvent could trip up the list
+// widget's own redraw pass.
 
 FORM ID 1000 AT (0 0 160 160)
 USABLE
@@ -28,7 +32,15 @@ BEGIN
     // Initial text reserves bbox width for the longest practical message.
     LABEL "log : 99 to sync" ID 1022 AT (4 90) FONT 0
 
-    LIST "" ID 1030 AT (4 102 152 56) VISIBLEITEMS 5
+    // Five clickable record rows. NOFRAME + LEFTANCHOR makes them
+    // look like plain text lines but they still fire ctlSelectEvent
+    // when tapped anywhere in their 152x11 rect. Hidden by default;
+    // RebuildList() shows the ones with content.
+    BUTTON "" ID 1200 AT (4 102 152 11) NOFRAME LEFTANCHOR FONT 0 NONUSABLE
+    BUTTON "" ID 1201 AT (4 114 152 11) NOFRAME LEFTANCHOR FONT 0 NONUSABLE
+    BUTTON "" ID 1202 AT (4 126 152 11) NOFRAME LEFTANCHOR FONT 0 NONUSABLE
+    BUTTON "" ID 1203 AT (4 138 152 11) NOFRAME LEFTANCHOR FONT 0 NONUSABLE
+    BUTTON "" ID 1204 AT (4 150 152 10) NOFRAME LEFTANCHOR FONT 0 NONUSABLE
 END
 
 FORM ID 1100 AT (0 0 160 160)

@@ -84,7 +84,7 @@
   <h1>settings</h1>
   <p class="hint">Account: {authState.email}</p>
 
-  <!-- ── BYOK section ── -->
+  <!-- BYOK section -->
   <section class="card">
     <h2>API keys</h2>
     <p class="sub">
@@ -155,7 +155,7 @@
     </form>
   </section>
 
-  <!-- ── Palm enrollment ── -->
+  <!-- Palm enrollment -->
   <section class="card">
     <h2>Palm enrollment</h2>
     {#if authState.settings.palm_enrolled}
@@ -201,7 +201,7 @@
     </button>
   </section>
 
-  <!-- ── Credits + subscription ── -->
+  <!-- Credits + subscription -->
   <section class="card">
     <h2>credits</h2>
     <p>

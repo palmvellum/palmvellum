@@ -1,7 +1,7 @@
 -- PalmVellum — initial schema.
 --
 -- Three tables enforce the three-tier posture system documented in
---   docs/crypto-spec.md §1 and §10.
+--   README.md.
 --
 --   records          the user's records (thoughts, todos, AI queries,
 --                    encrypted journal entries, etc.). Vault-tier
@@ -71,7 +71,7 @@ CREATE TABLE public.records (
         'thought', 'todo', 'aiquery', 'reading', 'contact'
     )),
 
-    -- Posture / type / body integrity per docs/crypto-spec.md §10.2:
+    -- Posture / type / body integrity per README.md:
     --   vault records exist nowhere on the bridge — even as ciphertext —
     --   so any vault-tier row arriving here is rejected.
     --   sealed records must carry a ciphertext body.

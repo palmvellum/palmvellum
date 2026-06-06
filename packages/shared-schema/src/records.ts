@@ -1,57 +1,40 @@
 /**
  * Record schema — the heart of PalmVellum's data model.
  *
- * Every entity (password, todo, AI query, journal entry, signing key)
- * is a record. The posture system determines what may leave the Palm.
- *
- * See docs/crypto-spec.md §1 for the posture rationale.
+ * Every entity (memo, todo, AI query, contact, expense, event, sketch,
+ * mail item, mail source) is a record. All records are plaintext and
+ * sync via Supabase under per-user RLS.
  */
 
 import { z } from 'zod';
 import { UlidSchema } from './ulid.js';
 
 /**
- * Record posture — the sync-and-encryption category.
+ * Record posture.
  *
- * `vault`  — never leaves the Palm. Master phrase stays with you.
- * `sealed` — AES-256-GCM ciphertext may sync to cloud; decryption only on Palm.
- * `open`   — plaintext sync OK.
- *
- * The schema enforces posture-type pairings: vault records carry no body
- * field at the bridge; sealed records carry ciphertext; open records carry
- * plaintext.
+ * Historical: an earlier project direction included a three-tier vault
+ * / sealed / open posture system. That direction was dropped in June
+ * 2026. The column survives in the database for migration simplicity;
+ * every record written today is `open` and the enum is kept for type
+ * compatibility with existing rows.
  */
-export const PostureSchema = z.enum(['vault', 'sealed', 'open']);
+export const PostureSchema = z.enum(['open']);
 export type Posture = z.infer<typeof PostureSchema>;
 
 /**
  * Record type — the entity kind.
- *
- * `vault` posture types:
- *   - password, totp, ed25519_key, secp256k1_key, seed
- *
- * `sealed` posture types:
- *   - journal, shard
- *
- * `open` posture types:
- *   - thought, todo, aiquery, reading, contact
  */
 export const RecordTypeSchema = z.enum([
-  // vault posture
-  'password',
-  'totp',
-  'ed25519_key',
-  'secp256k1_key',
-  'seed',
-  // sealed posture
-  'journal',
-  'shard',
-  // open posture
-  'thought',
+  'thought',     // memo
+  'aiquery',     // memo prefixed with (AI), triggers the agent
   'todo',
-  'aiquery',
-  'reading',
-  'contact',
+  'contact',     // address-book entry
+  'event',       // date-book entry
+  'expense',
+  'sketch',      // note-pad drawing
+  'mail',        // mail inbox digest
+  'mail_source', // mail per-source config
+  'reading',     // reserved
 ]);
 export type RecordType = z.infer<typeof RecordTypeSchema>;
 
@@ -73,7 +56,7 @@ export type AiStatus = z.infer<typeof AiStatusSchema>;
  * Notes:
  *   - `id` is a ULID (26 chars, Crockford Base32) — generated on Palm
  *     or wherever the record originates. See ./ulid.ts.
- *   - `body` is null for vault-posture rows; ciphertext for sealed; plaintext for open.
+ *   - `body` is plaintext (markdown / Palm Roman text).
  *   - `device_id` identifies the source device for telemetry / dedup.
  */
 export const RecordSchema = z.object({
@@ -117,24 +100,14 @@ export const RecordSchema = z.object({
   ai_tokens_in: z.number().int().nonnegative().nullable(),
   ai_tokens_out: z.number().int().nonnegative().nullable(),
   ai_error: z.string().nullable(),
-}).refine(
-  (r) => {
-    // Posture-type matrix invariant.
-    const vaultTypes: RecordType[] = ['password', 'totp', 'ed25519_key', 'secp256k1_key', 'seed'];
-    const sealedTypes: RecordType[] = ['journal', 'shard'];
-    if (vaultTypes.includes(r.type)) return r.posture === 'vault' && r.body === null;
-    if (sealedTypes.includes(r.type)) return r.posture === 'sealed' && r.body !== null;
-    return r.posture === 'open';
-  },
-  { message: 'Posture / type mismatch — see docs/crypto-spec.md §1.4' },
-);
+});
 export type Record = z.infer<typeof RecordSchema>;
 
 /**
  * Subset used when creating a new record from a client. The server fills in
  * timestamps, user_id, status nulls, etc.
  */
-export const NewRecordSchema = RecordSchema.innerType().pick({
+export const NewRecordSchema = RecordSchema.pick({
   id: true,
   type: true,
   posture: true,

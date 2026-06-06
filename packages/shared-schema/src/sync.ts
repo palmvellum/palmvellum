@@ -3,7 +3,7 @@
  *
  * The daemon talks to Supabase via the `sync_apply_diff` RPC, which
  * accepts a single jsonb batch and applies it transactionally.
- * See docs/crypto-spec.md §10.2 for the server-side enforcement.
+ * See README.md for the server-side overview.
  */
 
 import { z } from 'zod';
@@ -34,7 +34,7 @@ export type SyncConflict = z.infer<typeof SyncConflictSchema>;
  */
 export const SyncChangeSchema = z.object({
   op: z.enum(['upsert', 'delete']),
-  record: RecordSchema.innerType().partial({
+  record: RecordSchema.partial({
     deleted_at: true,
     ai_status: true,
     ai_response: true,

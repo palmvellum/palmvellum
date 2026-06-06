@@ -2,19 +2,17 @@
  * @palmvellum/shared-schema
  *
  * Single source of truth for the cross-package data model:
- *   - record posture system (vault / sealed / open)
- *   - record types
+ *   - record types (memo / todo / event / contact / expense / sketch / mail)
  *   - AI queue entries
  *   - sync conflict tombstones
  *
  * Consumed by:
  *   - packages/pwa  (PWA — for UI types + Realtime sync)
  *   - packages/mac-daemon  (via codegen, see scripts/gen-go-types.sh)
- *   - packages/palm-app  (manually mirrored in C — see docs/crypto-spec.md §9)
+ *   - packages/palm-app  (manually mirrored in C — see README.md)
  *
  * The on-device Palm app maintains a binary-compatible mirror of these
- * schemas. See docs/crypto-spec.md sections 9 and 10 for the canonical
- * wire and storage formats.
+ * schemas. See README.md for the canonical wire and storage formats.
  */
 
 export * from './records.js';

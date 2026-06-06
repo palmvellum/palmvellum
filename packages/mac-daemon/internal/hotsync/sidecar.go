@@ -3,7 +3,7 @@
 // returns canned responses so the rest of the daemon can develop
 // against a stable interface.
 //
-// See docs/crypto-spec.md §10 and issues #10 / #14 for the full
+// See README.md and issues #10 / #14 for the full
 // specification.
 package hotsync
 

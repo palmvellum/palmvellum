@@ -6,7 +6,7 @@
  * Supabase Realtime. Using a dedicated queue keeps Realtime traffic low
  * and the worker simple.
  *
- * See docs/crypto-spec.md §10 for the sync engine enforcement.
+ * See README.md for the sync engine overview.
  */
 
 import { z } from 'zod';
@@ -48,7 +48,7 @@ export type OracleQuery = z.infer<typeof OracleQuerySchema>;
  * Oracle response. body is capped at 1024 bytes for IIIe; the full
  * server-side text is preserved separately keyed by record_id.
  *
- * See docs/crypto-spec.md §9.2 for the IIIe memory budget.
+ * See README.md for the IIIe memory budget.
  */
 export const OracleResponseSchema = z.object({
   record_id: UlidSchema,

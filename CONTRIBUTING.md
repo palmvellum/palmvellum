@@ -11,7 +11,7 @@ modern software for hardware that stopped being manufactured in
 We need real-hardware validation on devices we do not own. Check
 the [open `hardware-compat` issues](https://github.com/palmvellum/palmvellum/issues?q=is%3Aissue+label%3Ahardware-compat).
 
-If your Palm is on our [supported list](docs/hardware-compatibility.md)
+If your Palm is in our [reference target list](docs/hardware-compatibility.md)
 but no one has tested it yet, **your report is the contribution**.
 File a new issue using the
 [hardware compatibility template](https://github.com/palmvellum/palmvellum/issues/new?template=hardware-compat.yml).

@@ -9,7 +9,7 @@
  * Cross-platform parity is enforced by `testdata/ulid-vectors.json`,
  * tested in CI against all three implementations.
  *
- * See docs/crypto-spec.md §9 for the byte layout.
+ * See README.md for the byte layout.
  */
 
 import { z } from 'zod';

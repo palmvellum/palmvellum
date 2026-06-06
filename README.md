@@ -61,8 +61,8 @@ supabase/
 └── functions/       Deno Edge Functions (process-ai-queue, ai-agent,
                      process-event-draft, process-sketch, fetch-mail-source,
                      summarize-upload)
-docs/                Project docs: ROADMAP, threat-model, crypto-spec,
-                     hardware-compatibility
+docs/                Project docs: hardware-compatibility (reference
+                     target list + buying tips)
 ```
 
 ### Companion Android app

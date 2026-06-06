@@ -703,12 +703,6 @@
     border-left: 3px solid var(--ink-mute);
     padding: 0.75rem 1rem;
   }
-  .row.posture-vault {
-    border-left-color: #ff6b6b;
-  }
-  .row.posture-sealed {
-    border-left-color: var(--accent);
-  }
   .row.posture-open {
     border-left-color: var(--green);
   }

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS records (
   id            TEXT PRIMARY KEY,                  -- ULID
   user_id       TEXT NOT NULL,
   type          TEXT NOT NULL,
-  posture       TEXT NOT NULL CHECK (posture IN ('vault','sealed','open')),
+  posture       TEXT NOT NULL CHECK (posture IN ('open')),
   body          TEXT,
   tags          TEXT NOT NULL DEFAULT '[]',        -- JSON array
   metadata      TEXT NOT NULL DEFAULT '{}',        -- JSON object

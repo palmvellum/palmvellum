@@ -435,7 +435,7 @@
             bind:value={fHint}
             rows="2"
             maxlength="500"
-            placeholder={fType === 'url' ? 'e.g. "Focus on TypeScript and Rust stories, skip crypto."' : 'e.g. "Prefer academic / industry sources over speculation."'}
+            placeholder={fType === 'url' ? 'e.g. "Focus on TypeScript and Rust stories, skip startup gossip."' : 'e.g. "Prefer academic / industry sources over speculation."'}
           ></textarea>
         </label>
         <div class="form-actions-row">

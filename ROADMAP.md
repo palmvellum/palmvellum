@@ -1,66 +1,96 @@
 # Roadmap
 
-PalmVellum follows semantic versioning. Production cryptographic
-features are gated behind v1.0.
+PalmVellum is an open-source platform that pairs 1996-2003 AAA-battery
+Palm Pilot devices with AI assistance and cloud sync, leaving the Palm
+itself unmodified. The roadmap below tracks the actual platform -
+records, sync, AI assist, and the partner surface - without any future
+cryptocurrency or vault features.
 
-## v0.1 — "Hello, Vellum" (target: 4 weeks)
+> Earlier drafts of this roadmap pitched cold signers, Bitcoin /
+> Ethereum support, and a three-tier security posture. That direction
+> was removed in June 2026. The platform is now exclusively a low-fi
+> productivity companion. If you want a hardware wallet, buy a hardware
+> wallet - this is not it.
 
-The minimum viable Oracle pattern. Crypto features are stubbed out;
-this milestone proves the architecture end-to-end.
+## Done - Phase 1 to Phase 5 (v0.1 to v0.5)
 
-- [x] Project naming, GitHub org, license, docs scaffold
-- [ ] Cross-target Hello.prc running on real Palm IIIe via HotSync
-- [ ] Mac daemon with palm-sync sidecar + Supabase client
-- [ ] SvelteKit PWA with Realtime sync
-- [ ] AI Oracle pattern: Graffiti question → HotSync → Claude → answer back
-- [ ] CloudpilotEmu network HotSync E2E test
-- [ ] Real-hardware E2E test on Palm IIIe
+The platform reached "useful daily companion" status in the v0.5 cycle.
+Everything below is live on `tatliving.dev/palmvellum/app` and against
+the live Supabase project.
 
-## v0.5 — "Reading the lines" (target: 10 weeks)
+- [x] Project scaffold, Apache 2.0 license, GitHub org
+- [x] Docker-based m68k toolchain (`scripts/palm-toolchain.Dockerfile`)
+- [x] Mac daemon Go scaffold with HotSync orchestration plan
+- [x] Supabase project (Singapore region) with RLS, Vault BYOK, pg_net,
+      pg_cron, Realtime, Storage
+- [x] SvelteKit 2 + Svelte 5 PWA at `/palmvellum/app`
+- [x] Native HotSync conduits (`packages/sync-cli`) for Memo Pad and
+      To Do List - push / pull / sync, idempotent device IDs
+- [x] Memo Pad - full two-way sync, `(AI)` prefix triggers an AI agent
+      that answers and writes back as a follow-up memo
+- [x] To Do List - priority, due dates, `(AI)` prefix routes the task
+      through the agent which can create events / answer / write a Memo
+- [x] Address Book - categorised contacts with rich fields, multi-script
+      names (Latin + CJK)
+- [x] Date Book - manual entry plus AI free-form parser ("Coffee with
+      May Friday 3pm" -> structured event)
+- [x] Note Pad - sketches arrive from the Palm; vision AI transcribes
+      handwriting and describes drawings
+- [x] Mail - per-source URL digest or topic-research mode where AI uses
+      web search to write a 10-20 minute cited research article, output
+      language selectable per source
+- [x] Expense - multi-currency log, category totals
+- [x] BYOK + platform-credit dual model (OpenAI / Anthropic). BYOK pays
+      nothing; platform credits via Airwallex
+- [x] Edge Functions: `ai-agent`, `process-ai-queue`, `process-sketch`,
+      `summarize-upload`, `process-event-draft`, `fetch-mail-source`
+- [x] pg_cron sweepers: agent-sweeper (1 min), mail-sweeper (5 min),
+      upload-sweeper (1 min) - three-layer safety net for webhook
+      delivery
+- [x] i18n in the PWA: English, Traditional Chinese, Simplified Chinese,
+      Japanese, Korean, Russian
+- [x] Trilingual landing page + manifesto at `tatliving.dev/palmvellum/`
+- [x] Capacitor Android wrapper scaffold (`packages/android` - app name
+      "Palm Organizers")
 
-The minimum useful product. Vault is functional but not
-audit-recommended.
+## Next - Phase 6 (focus: stability, hardware coverage)
 
-- [ ] Sony PEG-SL10 hi-res support (320×320 + jog dial)
-- [ ] Password Vault (AES-256-GCM, master phrase KDF, `type=vault` enforcement)
-- [ ] TOTP Authenticator (RFC 6238)
-- [ ] Three-tier record posture enforced (`vault` / `sealed` / `open`)
-- [ ] PWA Vault UI (zero-knowledge — cloud sees only sealed blobs)
-- [ ] BIP-39 seed phrase generator
-- [ ] Cross-target validation on at least 3 other AAA Palm models
+- [ ] Real-hardware HotSync validation on Palm IIIe (reference device)
+- [ ] HotSync conduit for Address Book and Date Book
+- [ ] HotSync conduit for Note Pad sketches (currently sketches arrive
+      via a separate upload path; goal is to land them through the same
+      native HotSync flow)
+- [ ] Mac daemon: replace the polling worker with a Network HotSync
+      server so the Palm can sync over Wi-Fi via a Refresh Puck
+- [ ] Reduce Edge Function cold-start latency on the agent path
+- [ ] Translations of landing-page + in-app copy reviewed by native
+      speakers for ja / ko / ru
 
-## v0.7 — "The scribe" (target: 16 weeks)
+## Future - open questions, no commitments
 
-- [ ] Cold Signer (Ed25519, PGP, age, SSH)
-- [ ] Cryptocurrency signer (ECDSA-secp256k1, Bitcoin + Ethereum)
-- [ ] QR-based sign-and-broadcast workflow
-- [ ] Shamir Secret Sharing split UI
-- [ ] Android bridge app (USB-OTG + USB-Serial)
-- [ ] Linux daemon (Ubuntu LTS + Fedora support)
+These are research directions, not promises. We will not ship anything
+in this section without a working prototype first.
 
-## v1.0 — "Sealed" (target: ~6 months from v0.1)
+- Optional self-hosted Supabase (Docker compose) for users who would
+  prefer to run the whole stack on their own server
+- Optional ESP32 "Refresh Puck" reference design - a small box that
+  plugs into the Palm cradle and proxies HotSync to the daemon over
+  Wi-Fi, removing the need to keep a Mac awake
+- Hardware compatibility coverage expanded across the AAA-battery
+  family - the reference target stays Palm IIIe, but every model in
+  the AAA generation deserves first-class support
+- Linux daemon (Ubuntu LTS + Fedora)
+- iOS companion app (Capacitor or native, depending on Apple's USB
+  Host accessibility rules at the time)
 
-Production-ready. Cryptographic features audit-recommended.
+## Explicitly NOT on the roadmap
 
-- [ ] Third-party cryptographic audit completed
-- [ ] All 19 supported devices validated on real hardware
-- [ ] Windows daemon support
-- [ ] Optional self-hosted Supabase (Docker compose)
-- [ ] Optional ESP32 "Refresh Puck" reference design (KiCad + 3D print)
-- [ ] Hardware compatibility coverage for at least 15 of 19 devices
+We dropped these directions in June 2026 and will not bring them back:
 
-## v1.x — "Marginalia" (post-1.0)
-
-- [ ] Encrypted Journal with optional zero-knowledge AI weekly reflection
-- [ ] Optional Cloudflare Workers backend (alt to Supabase)
-- [ ] One-time pad generator + paired-device messaging
-- [ ] Steganographic record hiding (innocent-memo cover stories)
-- [ ] iOS bridge app (if USB Host accessibility permits)
-
-## v2.0 — "Post-cloud" (future)
-
-- [ ] Post-quantum cryptography migration (ML-KEM / ML-DSA)
-- [ ] 4G LTE Refresh Puck variant for fully off-grid operation
-- [ ] Multi-vault profiles (work / personal / travel)
-- [ ] Hardware design files for a modernized 2-AAA Palm-OS-compatible
-      successor handheld (TBD; community proposal stage)
+- Cryptocurrency cold signing (Bitcoin, Ethereum, any chain)
+- PGP / age / SSH cold signing
+- Password Vault, TOTP Authenticator
+- Three-tier security posture (`vault` / `sealed` / `open`)
+- BIP-39 seed phrase generator, Shamir Secret Sharing
+- Custom Palm OS firmware or device modifications of any kind
+- Any feature that requires the user to memorise a master phrase

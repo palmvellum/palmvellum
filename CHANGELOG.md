@@ -7,20 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Project direction pivot (2026-06-06)
+
+The project's pre-v0.5 direction included a v1.0 cryptographic vault
+product (cold signers for Bitcoin / Ethereum / PGP / age / SSH, a
+three-tier `vault` / `sealed` / `open` posture system, master phrase
+KDF, BIP-39, Shamir Secret Sharing, audit roadmap). That entire
+direction was removed in this commit. PalmVellum is now exclusively a
+low-fi productivity platform: native Palm OS apps get AI assistance and
+cloud sync, the Palm hardware stays unmodified, and we do not handle
+cryptocurrency or sensitive credentials.
+
+Removed in this commit:
+- `docs/crypto-spec.md` (entire cryptographic specification)
+- `docs/threat-model.md` (vault-product threat model)
+- ROADMAP entries for v0.7 cold signer, v1.0 audit, v1.x encrypted
+  journal, v2.0 post-quantum migration
+- SECURITY.md vault-specific report scopes
+- Internal source-comment references to `docs/crypto-spec.md`
+- Landing-page manifesto wording that read "strictly limited to AAA"
+  (softened: AAA is our reference target, but the platform speaks
+  standard HotSync and other Palm OS devices are welcome to use it)
+
+Earlier ROADMAP / docs are removed cleanly rather than archived - the
+project never shipped a vault feature and we do not want users searching
+git history for guidance that no longer applies.
+
 ### Added
 
 - Initial project scaffold
 - Apache 2.0 license
-- Threat model and security policy
-- Hardware compatibility matrix (19 devices)
-- Competitive landscape analysis
-- Roadmap through v2.0
-- `docs/crypto-spec.md` — v1.0 cryptographic specification covering
-  posture system, KDF parameters, AES-256-GCM record format,
-  Password Vault, TOTP Authenticator, Cold Signer (Ed25519 +
-  ECDSA-secp256k1), BIP-39 + Shamir Secret Sharing, on-device PDB
-  layout, sync-engine enforcement, and Palm IIIe performance
-  budgets
+- Hardware compatibility matrix - AAA-battery family as reference
+  target, other Palm OS devices welcome but untested
+- Security policy (non-vault scope)
+- Roadmap through v0.5 done and v0.6 next steps
 
 ### Toolchain (2026-06-01)
 

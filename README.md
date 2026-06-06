@@ -112,9 +112,9 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 ### 我哋嘅承諾
 
 - **Apache 2.0**，code 喺呢個 GitHub。
-- **BYOK**（自帶 API key）AI 供應商。OpenAI / Anthropic 嘅消費由你自己 control。平台 credits（Airwallex 付款）係 opt-in。
+- **BYOK**（自帶 API key）AI 供應商 — OpenAI、Anthropic 或 Google Gemini。消費由你自己 control。平台 credits（Airwallex 付款）係 opt-in。
 - **冇 social、冇 analytics、冇 email marketing**。Records 由你寫，亦由你擁有。
-- **硬件支援嚴格限於 AAA 電池 Palm (1996-2003)** — 19 部指定型號。可充電 Palm、Treo、Tungsten、有 radio 嘅設備都唔喺範圍內。
+- **AAA 電池 Palm (1996-2003) 係我哋嘅參考目標同設計重點** — 嗰個係我哋相信、會親自測試嘅機型。但平台本身只講 HotSync，所以其他唔係我哋 target 嘅 Palm OS 機都一樣可以用 — 我哋只係唔會替佢哋做測試。
 - **Palm 機保持 Palm 機。** 我哋不會推 custom firmware。平台講嘅係現有 HotSync 協議，對住現有 PalmOS app。如果某個 model conduit 唔通，我哋會修 conduit — 唔會改 Palm 嘅 app。
 
 ### Android 伴隨 app
@@ -154,9 +154,9 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 ### 我们的承诺
 
 - **Apache 2.0**，代码在此 GitHub。
-- **BYOK**（自带 API key）。OpenAI / Anthropic 的消费由你自己控制。平台 credits（Airwallex 付款）是 opt-in。
+- **BYOK**（自带 API key）AI 供应商 — OpenAI、Anthropic 或 Google Gemini。消费由你自己控制。平台 credits（Airwallex 付款）是 opt-in。
 - **没有 social、没有 analytics、没有 email marketing**。Records 由你写，也由你拥有。
-- **硬件支持严格限于 AAA 电池 Palm (1996-2003)** — 19 个指定型号。可充电 Palm、Treo、Tungsten、有 radio 的设备都不在范围内。
+- **AAA 电池 Palm (1996-2003) 是我们的参考目标和设计重点** — 那是我们相信、会亲自测试的机型。但平台本身只讲 HotSync，所以其他不是我们 target 的 Palm OS 机都一样可以用 — 我们只是不会替它们做测试。
 - **Palm 机保持 Palm 机。** 我们不会推 custom firmware。平台讲的是现有 HotSync 协议，对着现有 PalmOS app。如果某个 model conduit 不通，我们会修 conduit — 不会改 Palm 上的 app。
 
 ### Android 配套 app

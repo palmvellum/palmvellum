@@ -129,4 +129,11 @@ export default {
   'settings.icalCopied': '[ok] コピーしました',
   'settings.icalRevoke': 'フィードを無効にする',
   'settings.icalRefreshHint': 'Apple カレンダーとほとんどのクライアントは 1 時間ごとに更新します。無効化すれば URL は即時に失効。再度有効にすると新しい URL が発行されます。',
+  'datebook.icalGetLink': '.ics リンクを取得',
+  'datebook.icalGetLinkTitle': 'Apple カレンダー / Google カレンダー / Outlook 用の購読 URL を生成',
+  'datebook.icalExplain': 'あなた専用の購読 URL。Apple カレンダー / Google カレンダー / Outlook に貼り付けてください。1 時間ごとに更新されます。',
+  'datebook.icalSubscribeApple': 'Apple カレンダーで開く',
+  'datebook.icalCopy': 'URL をコピー',
+  'datebook.icalCopied': '[ok] コピーしました',
+  'datebook.icalRevoke': '無効化',
 };

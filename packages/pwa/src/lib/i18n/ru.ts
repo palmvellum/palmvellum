@@ -129,4 +129,11 @@ export default {
   'settings.icalCopied': '[ok] скопировано',
   'settings.icalRevoke': 'отозвать',
   'settings.icalRefreshHint': 'Apple Calendar и большинство клиентов обновляют раз в час. Отзыв сразу делает URL недействительным; повторное включение выдаёт новый URL.',
+  'datebook.icalGetLink': 'получить .ics ссылку',
+  'datebook.icalGetLinkTitle': 'Сгенерировать приватный URL подписки для Apple Calendar / Google Calendar / Outlook',
+  'datebook.icalExplain': 'Ваш приватный URL подписки. Вставьте в Apple Calendar / Google Calendar / Outlook. Обновляется раз в час.',
+  'datebook.icalSubscribeApple': 'открыть в Apple Calendar',
+  'datebook.icalCopy': 'скопировать URL',
+  'datebook.icalCopied': '[ok] скопировано',
+  'datebook.icalRevoke': 'отозвать',
 };

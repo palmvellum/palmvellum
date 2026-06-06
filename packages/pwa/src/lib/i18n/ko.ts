@@ -129,4 +129,11 @@ export default {
   'settings.icalCopied': '[ok] 복사됨',
   'settings.icalRevoke': '피드 폐기',
   'settings.icalRefreshHint': 'Apple Calendar와 대부분의 클라이언트는 매시간 새로 고침됩니다. 폐기하면 URL은 즉시 무효화되며, 다시 활성화하면 새 URL이 발급됩니다.',
+  'datebook.icalGetLink': '.ics 링크 받기',
+  'datebook.icalGetLinkTitle': 'Apple Calendar / Google Calendar / Outlook용 개인 구독 URL 생성',
+  'datebook.icalExplain': '개인 구독 URL입니다. Apple Calendar / Google Calendar / Outlook에 붙여넣으세요. 매시간 새로고침됩니다.',
+  'datebook.icalSubscribeApple': 'Apple Calendar로 열기',
+  'datebook.icalCopy': 'URL 복사',
+  'datebook.icalCopied': '[ok] 복사됨',
+  'datebook.icalRevoke': '폐기',
 };

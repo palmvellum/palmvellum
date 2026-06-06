@@ -140,4 +140,11 @@ export default {
   'settings.icalCopied': '[ok] copied',
   'settings.icalRevoke': 'revoke',
   'settings.icalRefreshHint': 'Apple Calendar and most clients refresh hourly. Revoke to invalidate the URL immediately — a fresh enable mints a new one.',
+  'datebook.icalGetLink': 'get .ics link',
+  'datebook.icalGetLinkTitle': 'Generate a private subscription URL for Apple Calendar / Google Calendar / Outlook',
+  'datebook.icalExplain': 'Your private feed URL. Paste it into Apple Calendar / Google Calendar / Outlook. Refreshes every hour.',
+  'datebook.icalSubscribeApple': 'open in Apple Calendar',
+  'datebook.icalCopy': 'copy URL',
+  'datebook.icalCopied': '[ok] copied',
+  'datebook.icalRevoke': 'revoke',
 };

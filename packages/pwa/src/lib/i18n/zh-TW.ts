@@ -129,4 +129,11 @@ export default {
   'settings.icalCopied': '[ok] 已複製',
   'settings.icalRevoke': '撤回連結',
   'settings.icalRefreshHint': 'Apple Calendar 及大部分 client 每小時自動 refresh。撤回後該條 URL 即時失效；再次啟用會生成新 URL。',
+  'datebook.icalGetLink': '取得 .ics 連結',
+  'datebook.icalGetLinkTitle': '生成一條 Apple Calendar / Google Calendar / Outlook 訂閱用嘅私人 URL',
+  'datebook.icalExplain': '你嘅私人訂閱連結。貼入 Apple Calendar、Google Calendar 或者 Outlook。每小時自動 refresh。',
+  'datebook.icalSubscribeApple': '用 Apple Calendar 開',
+  'datebook.icalCopy': '複製連結',
+  'datebook.icalCopied': '[ok] 已複製',
+  'datebook.icalRevoke': '撤回',
 };

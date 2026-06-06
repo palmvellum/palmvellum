@@ -14,6 +14,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid as sharedNewUlid } from '$lib/ulid';
+  import { t } from '$lib/i18n.svelte';
   import {
     type CalendarEvent,
     startOfMonth,
@@ -425,6 +426,63 @@
   }
 
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+  // ── iCal subscription feed ──────────────────────────────
+  // One opaque, per-user token. Each click of "get .ics link" either
+  // reuses the existing token (if already minted) or mints a new one,
+  // then opens an inline panel with the URL + copy + Apple subscribe.
+  const ICAL_FN_BASE = 'https://jrkwncplngmznfzzqwee.supabase.co/functions/v1/ical-feed';
+  let icalOpen = $state(false);
+  let icalBusy = $state(false);
+  let icalCopied = $state(false);
+  let icalError = $state<string | null>(null);
+
+  function icalHttpsUrl(): string | null {
+    const tok = authState.settings?.ical_token;
+    return tok ? `${ICAL_FN_BASE}/${tok}.ics` : null;
+  }
+  function icalWebcalUrl(): string | null {
+    const u = icalHttpsUrl();
+    return u ? u.replace(/^https?:\/\//, 'webcal://') : null;
+  }
+  async function openIcalPanel() {
+    icalError = null;
+    icalCopied = false;
+    // If user already has a token, just open the panel.
+    if (authState.settings?.ical_token) {
+      icalOpen = true;
+      return;
+    }
+    // Otherwise mint one on demand.
+    icalBusy = true;
+    const { error } = await supabase.rpc('mint_ical_token');
+    icalBusy = false;
+    if (error) {
+      icalError = error.message;
+      return;
+    }
+    await authState.refreshSettings();
+    icalOpen = true;
+  }
+  async function copyIcalUrl() {
+    const u = icalHttpsUrl();
+    if (!u) return;
+    await navigator.clipboard.writeText(u);
+    icalCopied = true;
+    setTimeout(() => { icalCopied = false; }, 2000);
+  }
+  async function revokeIcal() {
+    icalBusy = true;
+    icalError = null;
+    const { error } = await supabase.rpc('revoke_ical_token');
+    icalBusy = false;
+    if (error) {
+      icalError = error.message;
+      return;
+    }
+    await authState.refreshSettings();
+    icalOpen = false;
+  }
 </script>
 
 {#if authState.phase !== 'ready'}
@@ -545,8 +603,39 @@
         </div>
         <div class="nav-r">
           {#if loading}<span class="muted">syncing…</span>{/if}
+          <button
+            type="button"
+            class="ical-btn"
+            onclick={openIcalPanel}
+            disabled={icalBusy}
+            title={t('datebook.icalGetLinkTitle')}
+          >
+            {icalBusy ? '...' : t('datebook.icalGetLink')}
+          </button>
         </div>
       </header>
+
+      {#if icalOpen && authState.settings?.ical_token}
+        <div class="ical-panel">
+          <p class="ical-explain">{t('datebook.icalExplain')}</p>
+          <div class="ical-url-box">
+            <code>{icalHttpsUrl()}</code>
+          </div>
+          <div class="ical-row">
+            <a class="ical-apple" href={icalWebcalUrl()} rel="noopener">
+              {t('datebook.icalSubscribeApple')}
+            </a>
+            <button type="button" onclick={copyIcalUrl} disabled={icalBusy}>
+              {icalCopied ? t('datebook.icalCopied') : t('datebook.icalCopy')}
+            </button>
+            <button type="button" class="ical-revoke" onclick={revokeIcal} disabled={icalBusy}>
+              {t('datebook.icalRevoke')}
+            </button>
+            <button type="button" class="ical-close" onclick={() => (icalOpen = false)} aria-label="close">×</button>
+          </div>
+          {#if icalError}<p class="ical-err">{icalError}</p>{/if}
+        </div>
+      {/if}
 
       <div class="dow-row">
         {#each DOW as d}<span>{d}</span>{/each}
@@ -1161,5 +1250,97 @@
   }
   .form-actions button[type='submit'] {
     margin-left: auto;
+  }
+
+  /* iCal subscription button + inline panel */
+  .ical-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.04em;
+  }
+  .ical-btn:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .ical-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .ical-panel {
+    background: var(--surface-lo);
+    border: 1px solid var(--accent);
+    padding: 0.75rem 0.9rem;
+    margin: 0 0 0.9rem;
+    border-radius: 2px;
+  }
+  .ical-explain {
+    color: var(--ink-dim);
+    font-size: 0.82rem;
+    margin: 0 0 0.5rem;
+  }
+  .ical-url-box {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 0.45rem 0.6rem;
+    overflow-x: auto;
+    margin-bottom: 0.6rem;
+  }
+  .ical-url-box code {
+    background: transparent;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    user-select: all;
+  }
+  .ical-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+  }
+  .ical-row a.ical-apple {
+    background: var(--accent);
+    color: var(--bg);
+    border: 1px solid var(--accent);
+    padding: 0.4rem 0.75rem;
+    font-family: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  .ical-row a.ical-apple:hover {
+    background: var(--accent-dim);
+  }
+  .ical-row button {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 0.4rem 0.75rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .ical-row button:hover:not(:disabled) {
+    background: var(--surface-hi);
+  }
+  .ical-row button.ical-revoke {
+    color: var(--ink-mute);
+  }
+  .ical-row button.ical-close {
+    margin-left: auto;
+    padding: 0.2rem 0.55rem;
+    color: var(--ink-mute);
+  }
+  .ical-err {
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    margin: 0.4rem 0 0;
   }
 </style>

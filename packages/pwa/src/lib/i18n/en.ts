@@ -1,0 +1,119 @@
+export default {
+  // ── Nav ─────────────────────────────────────────────────
+  'nav.organizers': 'Organizers',
+  'nav.setting': 'Setting',
+  'nav.manifesto': 'Manifesto',
+  'nav.github': 'Github',
+  'nav.signOut': 'sign out',
+  'nav.language': 'Language',
+
+  // ── /palm dashboard ─────────────────────────────────────
+  'palm.heading': 'Organizers',
+  'palm.sub': 'one shared dataset for every Palm you own — Date Book / To Do List / Address / Memo Pad / Note Pad / Mail / Expense.',
+
+  'tab.datebook': 'Date Book',
+  'tab.todo': 'To Do List',
+  'tab.address': 'Address',
+  'tab.memo': 'Memo Pad',
+  'tab.notepad': 'Note Pad',
+  'tab.mail': 'Mail',
+  'tab.expense': 'Expense',
+
+  // ── Common ──────────────────────────────────────────────
+  'common.loading': 'loading...',
+  'common.cancel': 'cancel',
+  'common.save': 'save',
+  'common.delete': 'delete',
+  'common.edit': 'edit',
+  'common.add': 'add',
+  'common.search': 'search',
+  'common.today': 'today',
+  'common.optional': '(optional)',
+  'common.required': 'required',
+
+  // ── DateBook ────────────────────────────────────────────
+  'datebook.nothingScheduled': 'Nothing scheduled.',
+  'datebook.planWithAi': 'plan with AI',
+  'datebook.analyzeAi': 'analyze with AI',
+  'datebook.addManually': '+ add event manually',
+  'datebook.newEvent': 'new event',
+  'datebook.editEvent': 'edit event',
+
+  // ── MemoPad ─────────────────────────────────────────────
+  'memo.heading': 'memo pad',
+  'memo.filterAll': 'all',
+  'memo.filterAi': 'AI',
+  'memo.filterNote': 'note',
+  'memo.newMemo': '+ new memo',
+  'memo.uploadDrop': 'drop a file',
+  'memo.uploadHint': 'or click here — PDF / DOCX / image (≤ 20 MB). AI reads it and creates a memo summary.',
+  'memo.aiHint': 'Plain text becomes a note. Start with (AI) to run the AI agent — it answers, and if your text implies events or tasks it will also create them in Date Book / To Do List.',
+  'memo.emptyAll': 'No memos on this Palm yet. Add one above or push from MemoPad via vellum-sync.',
+  'memo.emptyFilter': 'Nothing in {filter} for now.',
+
+  // ── TodoList ────────────────────────────────────────────
+  'todo.filterOpen': 'open',
+  'todo.filterDone': 'done',
+  'todo.filterAll': 'all',
+  'todo.newTask': '+ new task',
+  'todo.placeholder': 'What needs doing? Prefix with (AI) to make it an agentic task.',
+  'todo.empty': 'No tasks yet. Add one above or push from ToDo via vellum-sync.',
+  'todo.nothingOpen': 'nothing open.',
+  'todo.priority': 'priority',
+  'todo.due': 'due',
+  'todo.notes': 'notes',
+
+  // ── Address ─────────────────────────────────────────────
+  'address.searchPh': 'search by name / company / phone...',
+  'address.newContact': '+ new contact',
+  'address.firstName': 'first name',
+  'address.lastName': 'last name',
+  'address.company': 'company',
+  'address.title': 'title',
+  'address.phones': 'phones / emails',
+  'address.address': 'address',
+  'address.city': 'city',
+  'address.state': 'state',
+  'address.zip': 'zip',
+  'address.country': 'country',
+
+  // ── Expense ─────────────────────────────────────────────
+  'expense.searchPh': 'search vendor / type / city...',
+  'expense.newExpense': '+ new expense',
+  'expense.vendor': 'vendor',
+  'expense.date': 'date',
+  'expense.amount': 'amount',
+  'expense.currency': 'currency',
+  'expense.payment': 'payment',
+  'expense.type': 'type',
+  'expense.attendees': 'attendees',
+  'expense.total': 'total:',
+
+  // ── NotePad ─────────────────────────────────────────────
+  'notepad.heading': 'note pad',
+  'notepad.sub': 'Sketches arrive from your Palm Note Pad on each HotSync. The platform AI transcribes any handwritten text and describes the drawing. Browser upload is intentionally off — the Palm is the only source of truth here.',
+  'notepad.empty': 'No sketches yet. Draw on your Palm Note Pad and HotSync to populate this gallery.',
+
+  // ── Mail ────────────────────────────────────────────────
+  'mail.heading': 'mail',
+  'mail.sub': 'add a URL or topic, pick a time, and the AI delivers a daily digest to your Palm mail every morning. cron checks every 5 min; missed days retry automatically.',
+  'mail.sourcesLabel': 'sources',
+  'mail.addSource': '+ add source',
+  'mail.inboxLabel': 'inbox',
+  'mail.typeUrl': 'specific URL (fetch + digest)',
+  'mail.typeTopic': 'topic / question (AI researches the web)',
+  'mail.fetchTime': 'fetch time',
+  'mail.timezone': 'timezone',
+  'mail.outputLanguage': 'output language',
+  'mail.digestHint': 'digest hint',
+  'mail.fetchNow': 'fetch now',
+  'mail.references': 'References',
+
+  // ── Settings ────────────────────────────────────────────
+  'settings.heading': 'settings',
+  'settings.apiKeys': 'API keys',
+  'settings.preferredProvider': 'preferred',
+  'settings.storeKey': 'store key',
+  'settings.language': 'language',
+  'settings.languageHint': 'Switches the platform UI between English and Chinese variants.',
+};

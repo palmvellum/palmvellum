@@ -1,318 +1,170 @@
-<div align="center">
-
 # PalmVellum
 
-### Some things deserve to be written down.
-### Not all of them deserve to be online.
+> *Slow tools for fast lives.*  
+> *老器具，新雲端。* / *老器具，新云端。*
 
-*The hardware vellum for the post-cloud age.*
-
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Hardware](https://img.shields.io/badge/hardware-AAA_powered-orange)](docs/hardware-compatibility.md)
-[![Palm OS](https://img.shields.io/badge/Palm_OS-1.0--4.1-blueviolet)](docs/hardware-compatibility.md)
-[![Targets](https://img.shields.io/badge/targets-19_devices-green)](docs/hardware-compatibility.md)
-[![Status](https://img.shields.io/badge/status-pre--alpha-red)](ROADMAP.md)
-
-</div>
+[繁體中文](#palmvellum-繁體中文) · [简体中文](#palmvellum-简体中文) · [English](#english)
 
 ---
 
-## What this is
+## English
 
-Medieval scribes used vellum because parchment outlived their patrons.
-A page written on vellum in 1215 is still legible in 2026.
+**PalmVellum is an open-source platform that gives the native apps on a 1996–2003 Palm Pilot AI-assist and cloud sync — while leaving the Palm itself completely alone.**
 
-PalmVellum is the same idea, made electronic.
+You write on the Palm because it's quiet. Two AAA batteries. 160×160 monochrome screen. No always-on radio. No camera. No infinite scroll. You hold it, you note things down, you put it away. The platform watches the cloud copy and helps when called.
 
-A specific class of handheld computer — Palm Pilot family devices
-manufactured between **1996 and 2003 that run on two AAA alkaline
-batteries** — is the only consumer hardware ever shipped that
-satisfies every property below simultaneously:
+### What "low-fi" means here
 
-- **No radio of any kind, ever** (no Wi-Fi, no Bluetooth, no NFC, no cellular)
-- **Firmware frozen for 20+ years** (zero CVEs filed since 2004)
-- **User-serviceable primary cell** (AAA replaceable in seconds)
-- **Survives cold storage for a decade** (no Li-ion degradation)
-- **Real keyboard or stylus input** (real I/O, not a security token)
-- **Costs $15 to acquire in 2026** (eBay, Yahoo Auctions, surplus stores)
+Not low quality. Not retro for retro's sake. **Low-fi = low fidelity, deliberately.** Fewer pixels, fewer notifications, fewer pretexts to pick up the device. The platform brings AI and cloud in where they're genuinely useful — natural-language input parsing, transcription of handwritten sketches, daily research digests, agentic event / task creation — and stops there. We don't profile you. We don't show ads. We don't notify because someone you don't know looked at your profile. There is no profile.
 
-That class is exactly **19 devices**. PalmVellum supports all of them.
+### The platform — what it actually does
 
-PalmVellum is **not a single app**. It is a movement and a platform —
-a coordinated effort by lo-fi computing enthusiasts to revive these
-specific devices as useful tools for 2026 daily work.
+| Palm app    | Platform partner | AI assist |
+|-------------|------------------|-----------|
+| Date Book   | Calendar grid + paste-anything AI parser     | Free-form text → structured events |
+| To Do List  | Task list with priority / due dates          | `(AI) ...` prefix triggers an agent that executes the prompt and writes the result back as a memo |
+| Memo Pad    | Memo browser + file upload (PDF / DOCX / image) | `(AI) ...` triggers an agent that creates Date Book events / To Do tasks then appends a summary to the memo. Upload a file and AI summarises it into a memo. |
+| Address     | Contacts with rich fields                    | — |
+| Note Pad    | Sketch gallery (read-only on web)            | Vision model transcribes handwriting and describes drawings |
+| Mail        | Daily digest inbox                           | Per-source AI digest of a website, or topic-mode where AI uses web search to write a 10-20 minute research article with cited sources |
+| Expense     | Multi-currency log with category totals      | — |
 
-We ship a small family of focused open-source apps (cold wallet, vCard
-generator, Chinese IME, dream journal, news feed) plus an optional
-commercial AI service that handles the cloud-side heavy lifting (LLM
-calls, document parsing, cross-device sync). The wire format between
-them is open and documented so the community can build alternative
-implementations of either side.
+Both sides — Palm and platform — share **one dataset per user**. Multiple Palms in the same household read and write the same set of records.
 
-## The manifesto
+### Goal
 
-1. **The Palm hardware is the trust root.** It has no radio. It cannot
-   leak. Everything that matters happens on the device.
-2. **Lo-fi is sustainability.** A working Palm IIIe in 2026 was built
-   in 1999 from materials and labor already spent. Reviving it has
-   lower lifecycle cost than any new device.
-3. **The community owns the foundation.** Every layer that any
-   PalmVellum app depends on — the toolchain, the daemon, the schema,
-   the HotSync engine, the threat model — is Apache 2.0 open source.
-4. **The commercial layer is opt-in.** AI features cost real money to
-   run. We sell a fair-priced subscription to access them. Users who
-   want to self-host AI may do so — the protocol is documented.
-5. **We do not gatekeep the platform.** Anyone may publish a
-   PalmVellum-compatible app, with or without our blessing.
+Help you accumulate a slow, deliberate body of personal records — calendar, contacts, notes, sketches, research digests, expenses — without being interrupted by your own tools. The Palm holds them in cold storage on AAA batteries. The platform holds the duplicate cloud copy and runs the AI assist whenever called.
 
-## Apps
+### What we promise
 
-### Open source family (Apache 2.0)
+- **Apache 2.0.** Code on this GitHub.
+- **BYOK** (Bring Your Own Key) for AI providers. Your OpenAI / Anthropic spend is yours. A platform-credits option (via Airwallex) is opt-in.
+- **No social, no analytics, no email marketing.** You write the records, you own them.
+- **Hardware support strictly limited to AAA-battery Palms (1996–2003)** — 19 specific models. Rechargeable Palms, Treos, Tungstens, and any device with an integrated radio are out of scope.
+- **The Palm stays Palm.** We will never push a custom firmware. The platform speaks the existing HotSync protocol to the existing PalmOS apps. If a conduit doesn't work on your model we fix the conduit — the model itself never changes.
 
-| App | Status | Description |
+### What's where in this repo
+
+```
+packages/
+├── pwa/             SvelteKit + adapter-static web app
+│                    (Organizers dashboard at tatliving.dev/palmvellum/app)
+├── palm-app/        Cross-compiled PalmOS .prc artifacts (historical)
+├── sync-cli/        Go CLI: vellum-sync — manual VellumDB / MemoDB /
+│                    ToDoDB ↔ Supabase round-trip
+├── mac-daemon/      Go scaffold for the future Network HotSync daemon
+└── android/         Capacitor scaffold for the Palm Organizers Android
+                     companion app (in prep)
+supabase/
+├── migrations/      SQL schema (records, events, mail_sources, devices,
+│                    Vault BYOK, sketch storage bucket, agent triggers)
+└── functions/       Deno Edge Functions (process-ai-queue, ai-agent,
+                     process-event-draft, process-sketch, fetch-mail-source,
+                     summarize-upload)
+docs/                Project docs: ROADMAP, threat-model, crypto-spec,
+                     hardware-compatibility
+```
+
+### Companion Android app
+
+A native Android companion called **Palm Organizers** is in preparation under `packages/android/` — wrapping the SvelteKit Organizers shell via Capacitor so the same UI runs on phones for users who want the AI assist without sitting at a desk. Status: scaffold only.
+
+### Quick start (development)
+
+```sh
+pnpm install
+pnpm --filter @palmvellum/pwa dev    # http://localhost:5173
+pnpm --filter @palmvellum/pwa build  # static build into packages/pwa/build/
+```
+
+The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`. See `packages/sync-cli/.env.example` for the env vars the CLI expects.
+
+---
+
+## PalmVellum 繁體中文
+
+**PalmVellum 是一個開源平台，為 1996-2003 年那批 Palm Pilot 的原生 app 加入 AI 輔助同雲端同步 — Palm 機本身一點都唔需要改。**
+
+你揀 Palm 是因為佢靜。兩粒 AAA 電池。160×160 黑白屏。冇恆常通訊。冇鏡頭。冇無限滾動。攞上手寫嘢，寫完放低。平台就喺後台守住雲端副本，要用 AI 嗰陣先攞出嚟。
+
+### 「low-fi」對我哋嚟講是甚麼
+
+唔係指品質低。唔係懷舊 for 懷舊。**Low-fi = 低保真，有意嘅。** 像素少啲、通知少啲、令你拎機嘅藉口少啲。平台只係喺 AI 同雲端真係有用嘅地方介入 — 自然語言輸入解析、手稿辨識、每日新聞摘要、自動執行任務／日程 — 然後止步。我哋唔追蹤你嘅閱讀習慣，唔賣廣告，唔會因為「有人睇過你嘅 profile」推 push notification 畀你。根本冇 profile。
+
+### 平台真正做嘅事
+
+| Palm 原生 app | 平台對應 | AI 輔助 |
 |---|---|---|
-| **PalmVellum Core** | 🚧 v0.1 (this repo) | Toolchain, Mac daemon, shared schema, HotSync bridge |
-| **Palm Wallet** | 🗓 planned | Cold signer — BTC + ETH offline signing via QR. Spec moves to its own repo when work starts. |
-| **QR Card** | 🗓 planned | vCard QR exporter for sharing contacts with iOS / Android |
-| **VellumCN** | 🗓 planned | Chinese localization, IME (Cangjie / Pinyin / Sucheng) |
-| **Dream Diary** | 🗓 planned | Stylus dream notes → AI bedtime stories at next sync |
-| **News Feed** | 🗓 planned | User-curated daily news, AI-summarized, pushed to Palm |
+| Date Book | 月曆 + 自由文字 AI 解析 | 隨手打嘅句子 → 結構化日程 |
+| To Do List | 待辦清單 (優先級、到期日) | `(AI) ...` 開頭嘅 task 由智能代理執行，結果寫成 Memo |
+| Memo Pad | 記事瀏覽 + 上傳檔案（PDF / DOCX / 圖片）| `(AI) ...` 觸發智能代理 — 自動建立日程／任務並 append summary 入 memo。上傳檔案 AI 自動讀完做摘要記事。 |
+| Address | 通訊錄 | — |
+| Note Pad | 手稿 gallery（網頁端唯讀） | Vision model 辨識手寫 + 描述圖畫 |
+| Mail | 每日 digest 收件箱 | 對指定網址做摘要，或者「話題」模式 AI 上網搜尋寫一篇 10-20 分鐘嘅深度文章 + 參考來源 |
+| Expense | 多幣別開支表 | — |
 
-### Commercial app + platform
+兩邊（Palm 同平台）**每個 user 共用一個資料集**。同一個家庭幾部 Palm，讀寫同一組 records。
 
-| Product | Description |
-|---|---|
-| **PalmVellum AI** (Palm app, free download, closed source) | The flagship superapp. Native Datebook / Address / ToDo / Memo integration, AI Oracle, encrypted password vault, AES storage, teleprompter, mind-map generation, AI-generated Palm programs |
-| **PalmVellum Platform** (web, closed source) | The cloud back-end. Stripe-billed subscription with **free quota** for casual use; **only AI-driven features are metered**, non-AI features stay free forever |
+### 目標
 
-Both the closed-source app and the platform speak the same open-protocol wire format as the open apps. A self-hosted AI proxy that targets the open spec is a roadmap item.
+幫你慢慢累積一份有意識嘅個人紀錄 — 日程、聯絡人、記事、手稿、研究摘要、開支 — 又唔會俾自己嘅工具不斷打斷。Palm 機係 AAA 電池支撐嘅冷儲存，平台保存雲端副本同負責 AI 輔助。
 
-## The unfair advantage
+### 我哋嘅承諾
 
-| Property                       | 2-AAA Palm | iPhone 17 | YubiKey 5 | Trezor Safe 5 |
-|--------------------------------|:----------:|:---------:|:---------:|:-------------:|
-| Wireless radios present        | **0**      | 6         | 1 (NFC)   | 1 (Bluetooth) |
-| Listed in any CVE database     | **No**     | Daily     | Sometimes | Sometimes     |
-| Battery cell degrades on shelf | **No**     | Yes       | n/a       | n/a           |
-| 10-year cold-storage revival   | **Yes**    | No        | n/a       | n/a           |
-| User-swappable battery         | **Yes**    | No        | n/a       | n/a           |
-| Acquire price (2026)           | **~$15**   | $1,500    | $50       | $169          |
-| Open source end-to-end         | **Yes**    | No        | Partial   | Partial       |
-| Real screen + keyboard         | **Yes**    | Yes       | No        | Limited       |
+- **Apache 2.0**，code 喺呢個 GitHub。
+- **BYOK**（自帶 API key）AI 供應商。OpenAI / Anthropic 嘅消費由你自己 control。平台 credits（Airwallex 付款）係 opt-in。
+- **冇 social、冇 analytics、冇 email marketing**。Records 由你寫，亦由你擁有。
+- **硬件支援嚴格限於 AAA 電池 Palm (1996-2003)** — 19 部指定型號。可充電 Palm、Treo、Tungsten、有 radio 嘅設備都唔喺範圍內。
+- **Palm 機保持 Palm 機。** 我哋不會推 custom firmware。平台講嘅係現有 HotSync 協議，對住現有 PalmOS app。如果某個 model conduit 唔通，我哋會修 conduit — 唔會改 Palm 嘅 app。
 
-When the master phrase is in your head and the device is on you,
-**no nation-state-grade adversary can extract your secrets.**
+### Android 伴隨 app
 
-That is the moat.
+`packages/android/` 入面正在準備一隻叫 **Palm Organizers** 嘅 Android 原生 app — 用 Capacitor 包住 SvelteKit Organizers shell，等同一個介面可以喺手機上跑。狀態：scaffold 階段。
 
-## How it works
+---
 
-```
-                    ┌──────────────────────────────┐
-   You ─[Graffiti]─►│  Palm Pilot                  │
-                    │  (vault + UI + crypto core)  │
-                    └──────────┬───────────────────┘
-                               │ serial cradle (HotSync)
-                               ▼
-                    ┌──────────────────────────────┐
-                    │  Bridge (your Mac, Android,  │
-                    │   or self-hosted ESP32 puck) │
-                    │  - protocol translation       │
-                    │  - TLS termination            │
-                    │  - selective sync gateway     │
-                    └──────────┬───────────────────┘
-                               │ HTTPS (optional)
-                               ▼
-                    ┌──────────────────────────────┐
-                    │  Cloud (Supabase or self-    │
-                    │   hosted), encrypted blobs    │
-                    │   only, never plaintext       │
-                    └──────────────────────────────┘
-```
+## PalmVellum 简体中文
 
-Three record postures, declared per record type:
+**PalmVellum 是一个开源平台，为 1996-2003 年那批 Palm Pilot 的原生 app 加入 AI 辅助和云端同步 — Palm 机本身完全不需要改动。**
 
-- 🔒 **`vault`** — never leaves the Palm. Master phrase stays with you.
-- 🔐 **`sealed`** — AES-256-GCM ciphertext may sync; decryption only on Palm.
-- 🌐 **`open`** — plaintext sync OK (todos, AI conversations, drafts).
+你选 Palm 是因为它安静。两节 AAA 电池。160×160 黑白屏。没有常驻通讯。没有摄像头。没有无限滚动。拿上手写东西，写完放下。平台在后台保存云端副本，要用 AI 时才取出来。
 
-The schema enforces these postures. The sync engine cannot leak a
-`vault` record by accident.
+### 「low-fi」对我们来说意味着什么
 
-## Features
+不是说品质低。不是为复古而复古。**Low-fi = 低保真，有意为之。** 像素少一些、通知少一些、让你拿起设备的理由少一些。平台只在 AI 和云端真正有用的地方介入 — 自然语言输入解析、手稿识别、每日新闻摘要、自动执行任务／日程 — 然后止步。我们不追踪你的阅读习惯，不卖广告，不会因为「有人看过你的 profile」推送通知。根本没有 profile。
 
-### Planned for v1.0
+### 平台具体做什么
 
-- **🔐 Password Vault** — AES-256-GCM records, master phrase via
-  Argon2id (on bridge) + HMAC-SHA1 stretch (on device)
-- **🔑 TOTP Authenticator** — RFC 6238, fully offline, replaces
-  Google Authenticator forever
-- **✍️ Cold Signer** — Ed25519 / ECDSA-secp256k1 for PGP, age, SSH,
-  Bitcoin, Ethereum. Sign offline, broadcast via QR
-- **🧠 AI Oracle** — Graffiti a question, sync, get an answer back
-  from Claude / Gemini / a local LLM. Vault and sealed records are
-  never sent
-- **📓 Encrypted Journal** — Per-entry encryption, optional weekly
-  AI reflection that never sees plaintext
-- **🎲 BIP-39 + Shamir** — Generate recovery phrases, split into
-  N-of-M shares
+| Palm 原生 app | 平台对应 | AI 辅助 |
+|---|---|---|
+| Date Book | 月历 + 自由文字 AI 解析 | 随手打的句子 → 结构化日程 |
+| To Do List | 待办清单（优先级、到期日） | `(AI) ...` 开头的 task 由智能代理执行，结果写成 Memo |
+| Memo Pad | 记事浏览 + 上传文件（PDF / DOCX / 图片） | `(AI) ...` 触发智能代理 — 自动建立日程／任务并 append summary 到 memo。上传文件 AI 自动阅读做摘要记事。 |
+| Address | 通讯录 | — |
+| Note Pad | 手稿 gallery（网页端只读） | Vision model 识别手写 + 描述图画 |
+| Mail | 每日 digest 收件箱 | 对指定网址做摘要，或者「话题」模式 AI 联网搜索写一篇 10-20 分钟的深度文章 + 参考来源 |
+| Expense | 多币别开支表 | — |
 
-### On the roadmap
+两边（Palm 和平台）**每个用户共享一个数据集**。同一个家庭几部 Palm，读写同一组 records。
 
-See [`ROADMAP.md`](ROADMAP.md).
+### 目标
 
-## Why this and not...
+帮你慢慢累积一份有意识的个人记录 — 日程、联系人、记事、手稿、研究摘要、开支 — 又不会被自己的工具不断打断。Palm 机是 AAA 电池支撑的冷存储，平台保存云端副本和负责 AI 辅助。
 
-### ...a YubiKey?
+### 我们的承诺
 
-A YubiKey is a token, not a device. It has no screen, no keyboard,
-no UI. It cannot store passwords you can read. It cannot show you a
-Bitcoin transaction before you sign it. It cannot become an
-AI-bridged notebook. PalmVellum is the YubiKey shaped like a 1998
-Palm Pilot, with all the things a YubiKey gave up.
+- **Apache 2.0**，代码在此 GitHub。
+- **BYOK**（自带 API key）。OpenAI / Anthropic 的消费由你自己控制。平台 credits（Airwallex 付款）是 opt-in。
+- **没有 social、没有 analytics、没有 email marketing**。Records 由你写，也由你拥有。
+- **硬件支持严格限于 AAA 电池 Palm (1996-2003)** — 19 个指定型号。可充电 Palm、Treo、Tungsten、有 radio 的设备都不在范围内。
+- **Palm 机保持 Palm 机。** 我们不会推 custom firmware。平台讲的是现有 HotSync 协议，对着现有 PalmOS app。如果某个 model conduit 不通，我们会修 conduit — 不会改 Palm 上的 app。
 
-### ...a Trezor or ELLIPAL?
+### Android 配套 app
 
-Both are excellent dedicated cryptocurrency signers. Both ship
-firmware you must trust, are listed in CVE databases, and cost
-$80–400. A 2-AAA Palm IIIe costs $30, runs firmware frozen in 1999,
-and signs the same transactions via the same QR workflow — plus it
-stores your passwords, TOTPs, and journal entries the dedicated
-wallets cannot.
+`packages/android/` 中正在准备一款叫 **Palm Organizers** 的 Android 原生 app — 用 Capacitor 包装 SvelteKit Organizers shell，让同一个界面可以在手机上运行。状态：scaffold 阶段。
 
-### ...[SeedSigner](https://seedsigner.com/)?
-
-The closest spiritual sibling, and a strong inspiration. SeedSigner
-picks a specific Raspberry Pi Zero v1.3 because that revision has
-no radio. PalmVellum picks 2-AAA Palm OS devices for the same
-reason. SeedSigner is Bitcoin-only and stateless by design. Palm
-Vellum is multi-purpose and stateful, with a real keyboard or
-stylus.
-
-### ...the old [Keyring for Palm OS](https://gnukeyring.sourceforge.net/)?
-
-Keyring was a brilliant 2003 password manager for Palm OS,
-abandoned around 2010. PalmVellum is its great-grandchild, rebuilt
-on modern crypto primitives, with optional zero-knowledge cloud
-sync for non-secret records, and an AI bridge.
-
-### ...just install Bitwarden?
-
-Bitwarden is great if your threat model is *credential reuse* or
-*phishing*. PalmVellum's threat model is *nation-state network
-surveillance combined with cloud compromise*. Different problem,
-different tool. Use both.
-
-## Supported hardware
-
-19 devices across three manufacturers. All powered by 2 AAA alkaline
-cells. All from 1996–2003. All with zero radios.
-
-Full table with buying guide in
-[`docs/hardware-compatibility.md`](docs/hardware-compatibility.md).
-
-**Quick picks**:
-
-- **Best for first-timers**: Palm IIIxe or m105 (8MB RAM, $20–60)
-- **Reference target**: Palm IIIe (1999 icon, 2MB, $30–80)
-- **Hi-res variant**: Sony PEG-SL10 (320×320 mono, jog dial, $40–120)
-- **Most RAM**: Visor Deluxe / Platinum / Neo (8MB, $25–70)
-
-## Quickstart
-
-> ⚠️ **Pre-alpha.** Production use of cryptographic features is
-> not yet recommended. Track [`ROADMAP.md`](ROADMAP.md) for
-> v1.0 readiness.
-
-### Hardware checklist
-
-- A supported Palm (see table above)
-- A serial HotSync cradle that matches your model
-- A USB-Serial adapter (genuine FTDI FT232R chip required)
-- 2× fresh AAA alkaline batteries
-- A computer running macOS 13+, Linux, or Windows 10/11
-
-### Install (macOS)
-
-```bash
-# Coming soon. For now, build from source:
-git clone https://github.com/palmvellum/palmvellum.git
-cd palmvellum
-./scripts/bootstrap.sh
-make all
-./packages/mac-daemon/bin/palmvellum doctor
-```
-
-### First-time setup
-
-```bash
-palmvellum enroll          # Pair your Palm and set master phrase
-palmvellum hotsync         # Test the cradle and serial chain
-palmvellum vault add       # Add your first password
-```
-
-## Architecture
-
-PalmVellum is a monorepo of three packages:
-
-```
-palmvellum/
-├── packages/
-│   ├── shared-schema/    # TypeScript types + Zod + SQL migrations
-│   ├── palm-app/         # Palm OS C app (m68k)
-│   └── mac-daemon/       # Go daemon (HotSync + AI bridge + crypto)
-├── docs/                 # Hardware compatibility, threat model, crypto spec
-└── scripts/              # Build orchestration (Docker toolchain, bootstrap)
-```
-
-The PWA companion will be added when its workstream begins.
-
-## Security model
-
-PalmVellum assumes a nation-state-grade adversary with **full
-network surveillance, compromised cloud providers, and compromised
-modern endpoints**. The adversary cannot:
-
-1. Physically access your Palm
-2. Read your memory (master phrase)
-
-Given those two constraints, **all your `vault` and `sealed`
-records remain confidential.**
-
-- Full [threat model](docs/threat-model.md)
-- Full [cryptographic specification](docs/crypto-spec.md) — KDF
-  parameters, AES-GCM record format, posture enforcement, signer
-  workflows, BIP-39 + Shamir
-
-## Contributing
-
-Looking for help with:
-
-- 📱 Hardware testing on devices we don't own yet (see compat issues)
-- 🌍 Localization — English first; 繁中, 简中, 日本語, Español
-       contributions welcome
-- 🎨 Logo and visual identity
-- 📚 Documentation and tutorials
-- 🔍 Cryptographic review of primitives by qualified auditors
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+---
 
 ## License
 
-[Apache License 2.0](LICENSE) © 2026 PalmVellum contributors.
-
-## Acknowledgments
-
-Built on the shoulders of:
-
-- [palm-sync](https://github.com/jichu4n/palm-sync) — modern HotSync
-- [prc-tools-remix](https://github.com/jichu4n/prc-tools-remix) — m68k toolchain
-- [CloudpilotEmu](https://cloudpilot-emu.github.io/) — emulator
-- [SeedSigner](https://seedsigner.com/) — design philosophy inspiration
-- [Anthropic](https://anthropic.com), [Supabase](https://supabase.com),
-  the [Svelte](https://svelte.dev) team, the [Go](https://go.dev) team
-- The original engineers at Palm Inc., Handspring, and Sony Clié (1996–2004)
-- The lo-fi computing and permacomputing communities
-
-> "The future is already here — it's just not very evenly distributed."
-> — William Gibson
+[Apache License 2.0](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to help, and [SECURITY.md](SECURITY.md) for security disclosures.

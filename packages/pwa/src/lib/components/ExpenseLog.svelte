@@ -545,10 +545,13 @@
     font-weight: 600;
   }
   .amt {
-    color: var(--accent);
+    color: var(--cat-finance);
     font-weight: 600;
     grid-row: 1;
     grid-column: 2;
+  }
+  .card {
+    border-left: 3px solid var(--cat-finance);
   }
   .meta {
     grid-column: 1 / span 2;

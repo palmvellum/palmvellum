@@ -18,15 +18,16 @@
   import ExpenseLog from '$lib/components/ExpenseLog.svelte';
   import NotePad from '$lib/components/NotePad.svelte';
   import Mail from '$lib/components/Mail.svelte';
+  import { t } from '$lib/i18n.svelte';
 
   const TABS = [
-    { key: 'datebook', label: 'Date Book' },
-    { key: 'todo', label: 'To Do List' },
-    { key: 'address', label: 'Address' },
-    { key: 'memo', label: 'Memo Pad' },
-    { key: 'notepad', label: 'Note Pad' },
-    { key: 'mail', label: 'Mail' },
-    { key: 'expense', label: 'Expense' },
+    { key: 'datebook', i18n: 'tab.datebook' },
+    { key: 'todo', i18n: 'tab.todo' },
+    { key: 'address', i18n: 'tab.address' },
+    { key: 'memo', i18n: 'tab.memo' },
+    { key: 'notepad', i18n: 'tab.notepad' },
+    { key: 'mail', i18n: 'tab.mail' },
+    { key: 'expense', i18n: 'tab.expense' },
   ];
 
   let activeTab = $state<string>('datebook');
@@ -37,22 +38,19 @@
 {:else}
   <section class="palm">
     <header class="head">
-      <h1>Organizers</h1>
-      <p class="sub">
-        one shared dataset for every Palm you own — Date Book / To Do List /
-        Address / Memo Pad / Note Pad / Mail / Expense.
-      </p>
+      <h1>{t('palm.heading')}</h1>
+      <p class="sub">{t('palm.sub')}</p>
     </header>
 
     <div class="tabs" role="tablist" aria-label="palm apps">
-      {#each TABS as t (t.key)}
+      {#each TABS as tab (tab.key)}
         <button
           role="tab"
-          aria-selected={activeTab === t.key}
-          class:active={activeTab === t.key}
-          onclick={() => (activeTab = t.key)}
+          aria-selected={activeTab === tab.key}
+          class:active={activeTab === tab.key}
+          onclick={() => (activeTab = tab.key)}
         >
-          {t.label}
+          {t(tab.i18n)}
         </button>
       {/each}
     </div>

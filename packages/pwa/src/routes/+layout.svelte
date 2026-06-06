@@ -3,11 +3,22 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { authState } from '$lib/auth.svelte';
+  import {
+    currentLang,
+    setLang,
+    t,
+    SUPPORTED_LANGUAGES,
+    type Lang,
+  } from '$lib/i18n.svelte';
 
   let { children } = $props();
 
   onMount(() => {
     void authState.init();
+    // Reflect persisted lang on <html lang="..."> for SEO + a11y.
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = currentLang.value;
+    }
   });
 </script>
 
@@ -20,14 +31,26 @@
 
     <nav class="links">
       {#if authState.phase === 'ready'}
-        <a href="{base}/palm">Organizers</a>
-        <a href="{base}/settings">Setting</a>
+        <a href="{base}/palm">{t('nav.organizers')}</a>
+        <a href="{base}/settings">{t('nav.setting')}</a>
       {/if}
-      <a href="/palmvellum/">Manifesto</a>
-      <a href="https://github.com/palmvellum/palmvellum" rel="noopener">Github</a>
+      <a href="/palmvellum/">{t('nav.manifesto')}</a>
+      <a href="https://github.com/palmvellum/palmvellum" rel="noopener">{t('nav.github')}</a>
+
+      <select
+        class="lang-select"
+        aria-label={t('nav.language')}
+        value={currentLang.value}
+        onchange={(e) => setLang((e.currentTarget as HTMLSelectElement).value as Lang)}
+      >
+        {#each SUPPORTED_LANGUAGES as L (L.code)}
+          <option value={L.code}>{L.label}</option>
+        {/each}
+      </select>
+
       {#if authState.phase === 'ready'}
         <button class="signout" onclick={() => void authState.signOut()}>
-          sign out
+          {t('nav.signOut')}
         </button>
       {:else if authState.phase === 'uninvited' || authState.phase === 'loading'}
         <span class="email-tag">{authState.email ?? '…'}</span>
@@ -126,5 +149,17 @@
   .email-tag {
     color: var(--ink-mute);
     font-size: 0.8rem;
+  }
+  .lang-select {
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 0.25rem 0.4rem;
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .lang-select:hover {
+    border-color: var(--accent);
   }
 </style>

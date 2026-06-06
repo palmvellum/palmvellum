@@ -646,6 +646,23 @@
   .manual {
     min-width: 0;
   }
+  /* Desktop: cap the calendar width so it doesn't sprawl across the
+     full 880-px shell. Mobile still uses the full container. */
+  @media (min-width: 720px) {
+    .left {
+      max-width: 560px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .right,
+    .day-panel,
+    .manual {
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+    }
+  }
   .right {
     display: grid;
     gap: 1rem;
@@ -836,7 +853,7 @@
     gap: 0.75rem;
     background: var(--surface-lo);
     border: 1px solid var(--line);
-    border-left: 3px solid var(--accent);
+    border-left: 3px solid var(--cat-event);
     padding: 0.5rem 0.75rem;
   }
   @media (max-width: 600px) {

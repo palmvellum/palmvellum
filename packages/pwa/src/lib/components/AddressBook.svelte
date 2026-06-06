@@ -530,6 +530,7 @@
     flex: 1;
     background: var(--surface-lo);
     border: 1px solid var(--line);
+    border-left: 3px solid var(--cat-contact);
     color: var(--ink);
     padding: 0.6rem 0.9rem;
     display: grid;

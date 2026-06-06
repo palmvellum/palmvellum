@@ -18,6 +18,25 @@
   --accent: #ffd600;
   --accent-dim: #c9a700;
   --green: #69b945;
+
+  /* Category / type colour palette. Used as left-border accents and
+     tag chips throughout the platform so different record kinds are
+     visually distinguishable without relying on glyphs. */
+  --cat-ai: #ffd600;          /* AI agent / AI query */
+  --cat-personal: #6cb8ff;    /* Personal */
+  --cat-business: #69b945;    /* Business */
+  --cat-family: #ff8aae;      /* Family */
+  --cat-medical: #ff6b6b;     /* Medical / health */
+  --cat-travel: #c084fc;      /* Travel */
+  --cat-food: #ffa758;        /* Food / dining */
+  --cat-finance: #4ec9b0;     /* Finance / expense */
+  --cat-research: #d3a3ff;    /* Research / AI digest */
+  --cat-mail: #82d0ff;        /* Mail digest */
+  --cat-note: #b8b8b8;        /* Plain / Unfiled note */
+  --cat-todo: #f4d35e;        /* To do */
+  --cat-event: #ff9f43;       /* Calendar event */
+  --cat-sketch: #8ad4a8;      /* Note Pad sketch */
+  --cat-contact: #b794ff;     /* Contact */
 }
 
 * {

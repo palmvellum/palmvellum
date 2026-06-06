@@ -559,11 +559,12 @@
   .item {
     background: var(--surface-lo);
     border: 1px solid var(--line);
+    border-left: 3px solid var(--cat-todo);
     padding: 0.55rem 0.8rem;
     border-radius: 2px;
   }
   .item.ai-item {
-    border-left: 3px solid var(--accent);
+    border-left-color: var(--cat-ai);
   }
   .item.done {
     opacity: 0.55;

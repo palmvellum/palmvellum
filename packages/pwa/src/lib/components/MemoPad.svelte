@@ -633,8 +633,11 @@
     color: var(--ink-mute);
   }
   .tag-aiquery {
-    color: var(--accent);
-    border-color: var(--accent-dim);
+    color: var(--cat-ai);
+    border-color: var(--cat-ai);
+  }
+  .item.ai-item {
+    border-left-color: var(--cat-ai);
   }
   .pending {
     color: #ffaf60;

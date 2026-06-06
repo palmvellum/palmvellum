@@ -2,12 +2,12 @@
  * ULID — time-sortable 26-character Crockford-Base32 identifier.
  *
  * Generated identically on:
- *   - Palm  (~80 LOC C, see packages/palm-app/src/ulid.c)
  *   - Mac daemon (Go)
+ *   - sync-cli (Go)
  *   - PWA / Node (this module re-exports the `ulid` package)
  *
  * Cross-platform parity is enforced by `testdata/ulid-vectors.json`,
- * tested in CI against all three implementations.
+ * tested in CI against both Go and TypeScript implementations.
  *
  * See README.md for the byte layout.
  */

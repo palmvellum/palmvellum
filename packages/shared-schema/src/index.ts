@@ -9,10 +9,9 @@
  * Consumed by:
  *   - packages/pwa  (PWA — for UI types + Realtime sync)
  *   - packages/mac-daemon  (via codegen, see scripts/gen-go-types.sh)
- *   - packages/palm-app  (manually mirrored in C — see README.md)
+ *   - packages/sync-cli  (Go sync CLI — uses generated Go types)
  *
- * The on-device Palm app maintains a binary-compatible mirror of these
- * schemas. See README.md for the canonical wire and storage formats.
+ * See README.md for the canonical wire and storage formats.
  */
 
 export * from './records.js';

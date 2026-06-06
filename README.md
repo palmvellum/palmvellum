@@ -49,7 +49,6 @@ Help you accumulate a slow, deliberate body of personal records — calendar, co
 packages/
 ├── pwa/             SvelteKit + adapter-static web app
 │                    (Organizers dashboard at tatliving.dev/palmvellum/app)
-├── palm-app/        Cross-compiled PalmOS .prc artifacts (historical)
 ├── sync-cli/        Go CLI: vellum-sync — manual VellumDB / MemoDB /
 │                    ToDoDB ↔ Supabase round-trip
 ├── mac-daemon/      Go scaffold for the future Network HotSync daemon

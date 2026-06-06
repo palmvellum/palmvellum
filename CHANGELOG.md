@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### packages/palm-app retired (2026-06-07)
+
+The on-device Palm OS C app workstream is dropped. We no longer plan
+to ship our own .prc — the platform speaks standard HotSync to the
+existing native Palm OS apps (Memo Pad, To Do List, Address Book,
+Date Book, Note Pad) and that turns out to be sufficient for the
+product we are building.
+
+Removed in this commit:
+- `packages/palm-app/` (m68k C scaffold, Makefile, .prc artefacts,
+  PilRC sources, build artefacts)
+- `scripts/palm-toolchain.Dockerfile` (Ubuntu 24.04 image carrying
+  m68k-palmos-gcc 2.95.3, PilRC 3.2.90, build-prc 2.3, Palm OS SDKs
+  1 to 5r4 — the entire m68k cross-compile environment)
+- `scripts/palm-build.sh` (one-line invoker for the Docker toolchain)
+- `scripts/bootstrap.sh` Docker / palm-os Homebrew steps + the
+  toolchain sanity test (steps 6 and 7 of the original bootstrap)
+- README tree-description line mentioning palm-app
+- CONTRIBUTING "Palm OS C app" code entry and the "Palm OS C: Palm
+  OS 3.1 baseline" code-style line
+- `packages/shared-schema/src/index.ts` consumer-list entry pointing
+  at palm-app + the ulid.ts comment claiming a C mirror lived in
+  `packages/palm-app/src/ulid.c`
+
+The PalmOS HotSync side of the project lives entirely in
+`packages/sync-cli` (Go) now. If the Palm-side app workstream ever
+comes back, it will start fresh.
+
 ### Project direction pivot (2026-06-06)
 
 The project's pre-v0.5 direction included a v1.0 cryptographic vault

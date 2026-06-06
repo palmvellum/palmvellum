@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
-# scripts/bootstrap.sh — one-shot Palm Vellum dev environment for macOS.
+# scripts/bootstrap.sh — one-shot PalmVellum dev environment for macOS.
 # Idempotent: safe to re-run. Skips anything already installed.
 #
 # What this sets up:
 #   1. Homebrew (assumed already installed)
-#   2. OrbStack (Docker daemon, lightweight on Mac)
-#   3. mise (Node + Go version manager)
-#   4. Go 1.23+
-#   5. Node 22 + pnpm 10
-#   6. jichu4n/palm-os Homebrew tap (pilot-link, prc-tools, palm-os-sdk, pilrc)
-#      ⚠️ Requires up-to-date Xcode Command Line Tools (16.4+ on macOS 26)
-#   7. palmvellum/palm-toolchain Docker image (Ubuntu 24.04 + prc-tools-remix)
-#      → primary m68k compile path, no CLT required
+#   2. mise (Node + Go version manager)
+#   3. Go 1.23+
+#   4. Node 22 + pnpm 10
 #
 # After this runs, you can:
-#   - Build .prc files: ./scripts/palm-build.sh (uses Docker toolchain)
-#   - Test in emulator: open https://app.cloudpilot-emu.github.io/ (web PWA)
+#   - Build the PWA:        pnpm --filter @palmvellum/pwa build
+#   - Run the sync CLI:     cd packages/sync-cli && make && ./bin/vellum-sync
+#   - Run the Mac daemon:   cd packages/mac-daemon && make && ./bin/palmvellum serve
+#   - Test in an emulator:  open https://app.cloudpilot-emu.github.io/
 
 set -euo pipefail
 
@@ -84,65 +81,17 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 ok "pnpm $(pnpm --version)"
 
-# --- 6. jichu4n/palm-os tap (best-effort; may fail on outdated CLT) ---
-bold "==> Tapping jichu4n/palm-os (for native pilot-link)"
-brew tap jichu4n/palm-os 2>&1 | tail -3
-warn "Native palm-os formulae build from source and require Xcode CLT 16.4+."
-warn "On macOS 26: System Settings → Software Update → install any pending CLT update."
-warn "If brew install fails with 'Command Line Tools are too outdated', skip — the"
-warn "Docker toolchain below covers compile + build. pilot-xfer is only needed for"
-warn "physical HotSync with real hardware (Task #8 / #9 — when FTDI cable arrives)."
-
-# --- 7. Docker toolchain image ---
-bold "==> Building palmvellum/palm-toolchain Docker image"
-if ! command -v docker >/dev/null 2>&1; then
-  fail "docker not found. Open OrbStack.app and complete first-run setup, then re-run this script."
-  exit 1
-fi
-
-if ! docker info >/dev/null 2>&1; then
-  fail "docker daemon not running. Launch OrbStack.app and wait for it to start."
-  exit 1
-fi
-
-REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-if docker image inspect palmvellum/palm-toolchain:latest >/dev/null 2>&1; then
-  ok "palmvellum/palm-toolchain:latest already built ($(docker images palmvellum/palm-toolchain:latest --format '{{.Size}}'))"
-else
-  docker build --platform=linux/amd64 \
-      -f "${REPO_ROOT}/scripts/palm-toolchain.Dockerfile" \
-      -t palmvellum/palm-toolchain:latest \
-      "${REPO_ROOT}"
-  ok "Built palmvellum/palm-toolchain:latest"
-fi
-
-# --- Sanity test: compile a 845-byte hello world ---
-bold "==> Toolchain sanity test"
-if [ -f "${REPO_ROOT}/packages/palm-app/src/hello.c" ]; then
-  if "${REPO_ROOT}/scripts/palm-build.sh" >/dev/null 2>&1; then
-    ok "compile + link + build-prc all work; HelloVellum.prc produced"
-    ls -la "${REPO_ROOT}/packages/palm-app/HelloVellum.prc"
-  else
-    warn "compile sanity test failed; run ./scripts/palm-build.sh manually to see errors"
-  fi
-fi
-
 bold "==> Bootstrap complete"
 cat <<MSG
 
 Next steps:
-  1. open OrbStack.app if first run (Privacy & Security may prompt)
-  2. Bookmark CloudpilotEmu in your browser:
+  1. Build the PWA:
+       pnpm --filter @palmvellum/pwa build
+  2. Build + run the Go sync CLI:
+       cd packages/sync-cli && make && ./bin/vellum-sync --help
+  3. Build + run the Mac daemon:
+       cd packages/mac-daemon && make && ./bin/palmvellum doctor
+  4. Bookmark CloudpilotEmu for emulator testing:
        https://app.cloudpilot-emu.github.io/
-     ("Add to Dock" via Safari or "Install" via Chrome to get a PWA icon)
-  3. Build the Palm app any time:
-       ./scripts/palm-build.sh
-  4. The compiled .prc lives at:
-       packages/palm-app/HelloVellum.prc
-
-For the Xcode CLT issue (only needed for physical HotSync once FTDI arrives):
-  System Settings → Software Update → install any CLT update
-  Or download from https://developer.apple.com/download/all/ ("Command Line
-  Tools for Xcode 26.3" or later).
 
 MSG

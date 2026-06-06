@@ -25,8 +25,9 @@ File a new issue using the
 
 ### Code
 
-- Palm OS C app (m68k, Palm OS 3.1 baseline) — `packages/palm-app/`
+- SvelteKit PWA + Android wrapper — `packages/pwa/`, `packages/android/`
 - Go daemon — `packages/mac-daemon/`
+- Go sync CLI — `packages/sync-cli/`
 - Schema + migrations — `packages/shared-schema/`
 
 To get a local environment running:
@@ -41,16 +42,8 @@ make doctor
 
 Per-package READMEs live alongside the code.
 
-### Cryptographic review
-
-If you are a qualified auditor and want to review our crypto
-primitives or sync engine, please reach out via the
-[Security Advisories](https://github.com/palmvellum/palmvellum/security/advisories).
-
 ## Code style
 
-- **Palm OS C**: Palm OS 3.1 baseline; no calls to traps that
-  require >= 3.5 without an `FtrGet` guard. Run our lint script.
 - **Go**: `gofmt`, `go vet`, `staticcheck`. Errors wrapped with
   context. No `panic` in library code.
 - **TypeScript**: Strict mode, no `any` without justification. Zod

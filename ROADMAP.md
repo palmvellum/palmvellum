@@ -19,7 +19,6 @@ Everything below is live on `tatliving.dev/palmvellum/app` and against
 the live Supabase project.
 
 - [x] Project scaffold, Apache 2.0 license, GitHub org
-- [x] Docker-based m68k toolchain (`scripts/palm-toolchain.Dockerfile`)
 - [x] Mac daemon Go scaffold with HotSync orchestration plan
 - [x] Supabase project (Singapore region) with RLS, Vault BYOK, pg_net,
       pg_cron, Realtime, Storage

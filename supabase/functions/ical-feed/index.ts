@@ -51,6 +51,19 @@ interface EventRow {
   updated_at: string;
 }
 
+interface TodoRow {
+  id: string;
+  body: string | null;
+  metadata: {
+    palm_due_date?: string;     // YYYY-MM-DD or empty
+    palm_completed?: boolean;
+    palm_notes?: string;
+    palm_priority?: number;     // 1-3 (Palm priority)
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // @ts-expect-error Deno.serve is provided by the runtime
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -74,8 +87,8 @@ Deno.serve(async (req: Request) => {
   if (tokErr) return text(500, `token lookup: ${tokErr.message}`);
   if (!uid)   return text(404, 'token not found');
 
-  // 3. Pull this user's active events (Apple Calendar handles ~5k
-  //    events without issue; cap at 2000 for safety).
+  // 3a. Pull this user's active events (Apple Calendar handles ~5k
+  //     events without issue; cap at 2000 for safety).
   const { data: events, error: evErr } = await supa
     .from('events')
     .select('id, title, start_at, end_at, all_day, location, notes, alarm_minutes, created_at, updated_at')
@@ -86,8 +99,35 @@ Deno.serve(async (req: Request) => {
 
   if (evErr) return text(500, `events: ${evErr.message}`);
 
+  // 3b. Pull this user's open todos that carry a due date. They will
+  //     render as all-day VEVENTs on the due date so they appear on
+  //     the calendar grid (Apple Calendar / Google Calendar hide
+  //     VTODOs from the main grid). Completed todos and todos with no
+  //     due date are excluded — when the user marks one done it
+  //     simply stops appearing on the next refresh.
+  const { data: todosRaw, error: tdErr } = await supa
+    .from('records')
+    .select('id, body, metadata, created_at, updated_at')
+    .eq('user_id', String(uid))
+    .eq('type', 'todo')
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false })
+    .limit(2000);
+
+  if (tdErr) return text(500, `todos: ${tdErr.message}`);
+
+  const todos: TodoRow[] = (todosRaw ?? []).filter((r: TodoRow) => {
+    const md = r.metadata ?? {};
+    const due = (md.palm_due_date ?? '').trim();
+    if (!due) return false;
+    if (md.palm_completed === true) return false;
+    // Sanity-check the date string.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return false;
+    return true;
+  });
+
   // 4. Format VCALENDAR.
-  const body = buildIcs(events ?? []);
+  const body = buildIcs(events ?? [], todos);
 
   return new Response(body, {
     status: 200,
@@ -114,7 +154,7 @@ function text(status: number, msg: string): Response {
 
 const PRODID = '-//PalmVellum//Date Book v0.6//EN';
 
-function buildIcs(events: EventRow[]): string {
+function buildIcs(events: EventRow[], todos: TodoRow[]): string {
   // CRLF line breaks per RFC 5545.
   const lines: string[] = [];
   lines.push('BEGIN:VCALENDAR');
@@ -123,11 +163,13 @@ function buildIcs(events: EventRow[]): string {
   lines.push('CALSCALE:GREGORIAN');
   lines.push('METHOD:PUBLISH');
   lines.push('X-WR-CALNAME:PalmVellum Date Book');
-  lines.push('X-WR-CALDESC:Events from your PalmVellum Date Book. Refreshes hourly.');
+  lines.push('X-WR-CALDESC:Events + open to-dos with due dates. Refreshes hourly. Completed to-dos disappear on the next refresh.');
   lines.push('X-PUBLISHED-TTL:PT1H');
   lines.push('REFRESH-INTERVAL;VALUE=DURATION:PT1H');
 
   const now = nowUtc();
+
+  // ── 4a. Events ─────────────────────────────────────────
   for (const e of events) {
     const dtstart = formatDate(e.start_at, e.all_day);
     const dtend   = e.end_at
@@ -158,6 +200,45 @@ function buildIcs(events: EventRow[]): string {
     }
     lines.push(`CREATED:${utc(e.created_at)}`);
     lines.push(`LAST-MODIFIED:${utc(e.updated_at)}`);
+    lines.push('END:VEVENT');
+  }
+
+  // ── 4b. Open to-dos with a due date, rendered as all-day events.
+  //
+  //   A different UID namespace (todo-<id>@palmvellum.dev) ensures
+  //   the row never collides with a real event of the same ULID.
+  //
+  //   When a to-do is marked complete in PalmVellum the next feed
+  //   refresh simply omits it; iCal clients honour 'METHOD:PUBLISH'
+  //   semantics and drop any UID that has fallen out of the feed.
+  for (const t of todos) {
+    const md   = t.metadata ?? {};
+    const due  = (md.palm_due_date ?? '').trim(); // YYYY-MM-DD
+    const dt   = due.replace(/-/g, '');            // YYYYMMDD
+    const txt  = (t.body ?? '').trim() || '(untitled to-do)';
+    // Visual marker so the user can distinguish to-dos from real events
+    // on their calendar grid.
+    const summary = `[to-do] ${txt}`;
+
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:todo-${t.id}@palmvellum.dev`);
+    lines.push(`DTSTAMP:${now}`);
+    lines.push(`SUMMARY:${escapeText(summary)}`);
+    lines.push(`DTSTART;VALUE=DATE:${dt}`);
+    // Single-day all-day event; clients infer DTEND as the day after.
+
+    const descParts: string[] = [];
+    if (md.palm_priority != null) {
+      descParts.push(`Priority: ${md.palm_priority}`);
+    }
+    if (md.palm_notes && md.palm_notes.trim()) {
+      descParts.push(md.palm_notes.trim());
+    }
+    descParts.push('Mark this to-do done in PalmVellum to remove it from your calendar at the next refresh.');
+    lines.push(`DESCRIPTION:${escapeText(descParts.join('\n\n'))}`);
+
+    lines.push(`CREATED:${utc(t.created_at)}`);
+    lines.push(`LAST-MODIFIED:${utc(t.updated_at)}`);
     lines.push('END:VEVENT');
   }
 

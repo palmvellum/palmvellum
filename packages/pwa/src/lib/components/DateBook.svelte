@@ -431,83 +431,39 @@
   <p class="muted">loading…</p>
 {:else}
   <div class="layout">
-    <!-- LEFT: Calendar -->
-    <section class="left">
-      <header class="hdr">
-        <div class="nav-l">
-          <button type="button" class="step" onclick={prevMonth} aria-label="previous month">&lt;</button>
-          <h1>{monthLabel(viewMonth)}</h1>
-          <button type="button" class="step" onclick={nextMonth} aria-label="next month">&gt;</button>
-          <button type="button" class="today" onclick={gotoToday}>today</button>
-        </div>
-        <div class="nav-r">
-          {#if loading}<span class="muted">syncing…</span>{/if}
-        </div>
-      </header>
-
+    <!-- 1. Today's / selected day events -->
+    <section class="day-panel">
+      <h2>{shortDayLabel(selectedDay)}{sameDay(selectedDay, now) ? ' · today' : ''}</h2>
       {#if cloudError}<p class="error">{cloudError}</p>{/if}
-
-      <div class="dow-row">
-        {#each DOW as d}<span>{d}</span>{/each}
-      </div>
-      <div class="grid">
-        {#each grid as d (d.toISOString())}
-          {@const isCur = d.getMonth() === viewMonth.getMonth()}
-          {@const isToday = sameDay(d, now)}
-          {@const isSel = sameDay(d, selectedDay)}
-          {@const dayEvents = byDay.get(ymd(d)) ?? []}
-          <button
-            type="button"
-            class="cell {isCur ? '' : 'out'} {isToday ? 'today' : ''} {isSel ? 'sel' : ''}"
-            onclick={() => selectDay(d)}
-            aria-label={shortDayLabel(d)}
-          >
-            <span class="num">{d.getDate()}</span>
-            {#if dayEvents.length > 0}
-              <span class="dots">
-                {#each dayEvents.slice(0, 3) as _e (_e.id)}<span class="dot"></span>{/each}
-                {#if dayEvents.length > 3}<span class="more">+{dayEvents.length - 3}</span>{/if}
-              </span>
-            {/if}
-          </button>
-        {/each}
-      </div>
-
-      <section class="day-panel">
-        <h2>{shortDayLabel(selectedDay)}</h2>
-        {#if selectedEvents.length === 0}
-          <p class="empty">Nothing scheduled.</p>
-        {:else}
-          <ul class="day-list">
-            {#each selectedEvents as e (e.id)}
-              <li class="ev">
-                <div class="ev-time">
-                  {#if e.all_day}all-day{:else}{hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}{/if}
-                </div>
-                <div class="ev-body">
-                  <div class="ev-title">{e.title}</div>
-                  {#if e.location}<div class="ev-meta">at {e.location}</div>{/if}
-                  {#if e.notes}<div class="ev-meta notes">{e.notes}</div>{/if}
-                  {#if e.alarm_minutes != null}<div class="ev-meta">alarm: {e.alarm_minutes} min before</div>{/if}
-                </div>
-                <div class="ev-actions">
-                  <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
-                  <button type="button" class="link danger" onclick={() => deleteEvent(e)}>×</button>
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
+      {#if selectedEvents.length === 0}
+        <p class="empty">Nothing scheduled.</p>
+      {:else}
+        <ul class="day-list">
+          {#each selectedEvents as e (e.id)}
+            <li class="ev">
+              <div class="ev-time">
+                {#if e.all_day}all-day{:else}{hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}{/if}
+              </div>
+              <div class="ev-body">
+                <div class="ev-title">{e.title}</div>
+                {#if e.location}<div class="ev-meta">at {e.location}</div>{/if}
+                {#if e.notes}<div class="ev-meta notes">{e.notes}</div>{/if}
+                {#if e.alarm_minutes != null}<div class="ev-meta">alarm: {e.alarm_minutes} min before</div>{/if}
+              </div>
+              <div class="ev-actions">
+                <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
+                <button type="button" class="link danger" onclick={() => deleteEvent(e)}>×</button>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </section>
 
-    <!-- RIGHT: AI panel + manual form -->
-    <aside class="right">
+    <!-- 2. Plan with AI -->
+    <section class="right">
       <section class="ai-card">
         <h2>plan with AI</h2>
-        <p class="sub">
-          Paste anything — free-form notes, conversations, "next week: gym Mon Wed Fri 7am, dentist Thu 3pm" — and the AI extracts events you can review.
-        </p>
         <form onsubmit={submitAI}>
           <textarea
             bind:value={aiInput}
@@ -576,8 +532,51 @@
           </div>
         {/if}
       </section>
+    </section>
 
-      <!-- Manual form trigger / inline form -->
+    <!-- 3. Calendar (month grid) -->
+    <section class="left">
+      <header class="hdr">
+        <div class="nav-l">
+          <button type="button" class="step" onclick={prevMonth} aria-label="previous month">&lt;</button>
+          <h1>{monthLabel(viewMonth)}</h1>
+          <button type="button" class="step" onclick={nextMonth} aria-label="next month">&gt;</button>
+          <button type="button" class="today" onclick={gotoToday}>today</button>
+        </div>
+        <div class="nav-r">
+          {#if loading}<span class="muted">syncing…</span>{/if}
+        </div>
+      </header>
+
+      <div class="dow-row">
+        {#each DOW as d}<span>{d}</span>{/each}
+      </div>
+      <div class="grid">
+        {#each grid as d (d.toISOString())}
+          {@const isCur = d.getMonth() === viewMonth.getMonth()}
+          {@const isToday = sameDay(d, now)}
+          {@const isSel = sameDay(d, selectedDay)}
+          {@const dayEvents = byDay.get(ymd(d)) ?? []}
+          <button
+            type="button"
+            class="cell {isCur ? '' : 'out'} {isToday ? 'today' : ''} {isSel ? 'sel' : ''}"
+            onclick={() => selectDay(d)}
+            aria-label={shortDayLabel(d)}
+          >
+            <span class="num">{d.getDate()}</span>
+            {#if dayEvents.length > 0}
+              <span class="dots">
+                {#each dayEvents.slice(0, 3) as _e (_e.id)}<span class="dot"></span>{/each}
+                {#if dayEvents.length > 3}<span class="more">+{dayEvents.length - 3}</span>{/if}
+              </span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </section>
+
+    <!-- 4. Add event manually -->
+    <section class="manual">
       {#if !showManualForm}
         <button type="button" class="manual-trigger" onclick={openCreate}>
           + add event manually
@@ -631,36 +630,25 @@
           </form>
         </section>
       {/if}
-    </aside>
+    </section>
   </div>
 {/if}
 
 <style>
   .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    display: flex;
+    flex-direction: column; /* 1. today / 2. AI / 3. calendar / 4. manual */
     gap: 1.5rem;
-    align-items: start;
-  }
-  @media (max-width: 920px) {
-    .layout {
-      grid-template-columns: 1fr;
-    }
   }
 
-  .left {
+  .left,
+  .right,
+  .manual {
     min-width: 0;
   }
   .right {
     display: grid;
     gap: 1rem;
-    position: sticky;
-    top: 1rem;
-  }
-  @media (max-width: 920px) {
-    .right {
-      position: static;
-    }
   }
 
   .hdr {

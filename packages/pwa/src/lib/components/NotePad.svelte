@@ -8,13 +8,12 @@
    * in by the process-sketch Edge Function calling a vision model
    * with the user's BYOK key.
    *
-   * Phase 3 ships the platform side: PWA upload + grid + AI text
-   * inline. The CLI side that ingests NpadDB.pdb bitmap records
-   * from a real Palm follows in a later iteration.
+   * PWA is read-only: sketches arrive via vellum-sync notepad push
+   * from the user's Palm NpadDB. No browser upload — the platform
+   * only displays + AI-transcribes what the Palm produced.
    */
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
-  import { newUlid } from '$lib/ulid';
 
   interface SketchMeta {
     image_path?: string;
@@ -48,13 +47,6 @@
   let loading = $state(true);
   let loadError = $state<string | null>(null);
 
-  // Upload UI
-  let fileInput: HTMLInputElement | null = $state(null);
-  let uploadTitle = $state('');
-  let uploadBusy = $state(false);
-  let uploadError = $state<string | null>(null);
-  let dragOver = $state(false);
-
   // Detail view
   let activeId = $state<string | null>(null);
   let editingTitle = $state(false);
@@ -78,83 +70,9 @@
     sketches = (data ?? []) as Sketch[];
   }
 
-  async function uploadFile(file: File, title: string) {
-    if (!authState.userId) return;
-    if (!file.type.startsWith('image/')) {
-      uploadError = 'pick an image file';
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      uploadError = 'image must be ≤ 5MB';
-      return;
-    }
-    uploadError = null;
-    uploadBusy = true;
-
-    // Derive a stable extension; Supabase Storage cares about the
-    // suffix for content-type sniffing.
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-    const recordId = newUlid();
-    const path = `${authState.userId}/${recordId}.${ext}`;
-
-    const { error: upErr } = await supabase.storage
-      .from('notepad')
-      .upload(path, file, {
-        contentType: file.type,
-        upsert: false,
-      });
-    if (upErr) {
-      uploadBusy = false;
-      uploadError = upErr.message;
-      return;
-    }
-
-    const cleanTitle = title.trim() || `Sketch ${new Date().toLocaleDateString()}`;
-    const { error: insErr } = await supabase.from('records').insert({
-      id: recordId,
-      user_id: authState.userId,
-      type: 'sketch',
-      posture: 'open',
-      body: null,
-      source: 'web',
-      ai_status: 'pending',
-      metadata: {
-        image_path: path,
-        palm_title: cleanTitle,
-        palm_modified_at: new Date().toISOString(),
-      } satisfies SketchMeta,
-    });
-    uploadBusy = false;
-    if (insErr) {
-      // try to roll back the storage upload
-      await supabase.storage.from('notepad').remove([path]);
-      uploadError = insErr.message;
-      return;
-    }
-    uploadTitle = '';
-    if (fileInput) fileInput.value = '';
-    await load();
-  }
-
-  function onPickFile(e: Event) {
-    const target = e.target as HTMLInputElement;
-    const file = target.files?.[0];
-    if (file) void uploadFile(file, uploadTitle);
-  }
-
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    dragOver = false;
-    const file = e.dataTransfer?.files?.[0];
-    if (file) void uploadFile(file, uploadTitle);
-  }
-  function onDragOver(e: DragEvent) {
-    e.preventDefault();
-    dragOver = true;
-  }
-  function onDragLeave() {
-    dragOver = false;
-  }
+  // Upload paths removed in v0.5 — the Palm Note Pad is the only
+  // source of truth; the platform just displays what HotSync brings
+  // in via vellum-sync notepad push.
 
   async function deleteSketch(s: Sketch) {
     if (!confirm(`Delete sketch "${s.metadata?.palm_title ?? '(untitled)'}"?`)) return;
@@ -266,53 +184,19 @@
   <header class="head">
     <h2>note pad</h2>
     <p class="sub">
-      drop a sketch (or photo of paper) and the AI transcribes any
-      text + describes the drawing. mirrors what'll arrive from your
-      Palm's Note Pad once the CLI's <code>vellum notepad push</code>
-      is wired up.
+      Sketches arrive from your Palm's Note Pad on each HotSync. The
+      platform AI transcribes any handwritten text and describes the
+      drawing. Browser upload is intentionally off — the Palm is the
+      only source of truth here.
     </p>
   </header>
-
-  <div
-    class="upload"
-    class:drag-over={dragOver}
-    onclick={() => fileInput?.click()}
-    onkeydown={(e) => e.key === 'Enter' && fileInput?.click()}
-    ondrop={onDrop}
-    ondragover={onDragOver}
-    ondragleave={onDragLeave}
-    role="button"
-    tabindex="0"
-    aria-label="upload sketch"
-  >
-    <input
-      bind:this={fileInput}
-      type="file"
-      accept="image/*"
-      onchange={onPickFile}
-      hidden
-    />
-    {#if uploadBusy}
-      <p>uploading…</p>
-    {:else}
-      <p>click or drop image (≤ 5MB)</p>
-      <input
-        class="title-input"
-        bind:value={uploadTitle}
-        placeholder="optional title (defaults to date)"
-        maxlength="64"
-        onclick={(e) => e.stopPropagation()}
-      />
-    {/if}
-    {#if uploadError}<p class="error">{uploadError}</p>{/if}
-  </div>
 
   {#if loading}
     <p class="status">loading…</p>
   {:else if loadError}
     <p class="status error">{loadError}</p>
   {:else if sketches.length === 0}
-    <p class="status">no sketches yet — upload one above.</p>
+    <p class="status">No sketches yet. Draw on your Palm Note Pad and HotSync to populate this gallery.</p>
   {:else}
     <ul class="grid">
       {#each sketches as s (s.id)}

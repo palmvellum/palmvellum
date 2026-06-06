@@ -21,10 +21,10 @@
     <nav class="links">
       {#if authState.phase === 'ready'}
         <a href="{base}/palm">Organizers</a>
-        <a href="{base}/settings">platform setting</a>
+        <a href="{base}/settings">Setting</a>
       {/if}
-      <a href="/palmvellum/">manifesto</a>
-      <a href="https://github.com/palmvellum/palmvellum" rel="noopener">github</a>
+      <a href="/palmvellum/">Manifesto</a>
+      <a href="https://github.com/palmvellum/palmvellum" rel="noopener">Github</a>
       {#if authState.phase === 'ready'}
         <button class="signout" onclick={() => void authState.signOut()}>
           sign out

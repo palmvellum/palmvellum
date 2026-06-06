@@ -75,7 +75,7 @@
   let loading = $state(true);
   let loadError = $state<string | null>(null);
 
-  let showSources = $state(true);
+  let showSources = $state(false);
 
   // Add-source form state
   let showAdd = $state(false);

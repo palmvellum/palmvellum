@@ -637,7 +637,7 @@
 <style>
   .layout {
     display: flex;
-    flex-direction: column; /* 1. today / 2. AI / 3. calendar / 4. manual */
+    flex-direction: column; /* mobile: 1. today / 2. AI / 3. calendar / 4. manual */
     gap: 1.5rem;
   }
 
@@ -646,26 +646,29 @@
   .manual {
     min-width: 0;
   }
-  /* Desktop: cap the calendar width so it doesn't sprawl across the
-     full 880-px shell. Mobile still uses the full container. */
-  @media (min-width: 720px) {
-    .left {
-      max-width: 560px;
-      margin: 0 auto;
-      width: 100%;
-    }
-    .right,
-    .day-panel,
-    .manual {
-      max-width: 720px;
-      margin-left: auto;
-      margin-right: auto;
-      width: 100%;
-    }
-  }
   .right {
     display: grid;
     gap: 1rem;
+  }
+  /* Desktop: today full-width, then AI + Calendar side-by-side, then
+     manual full-width. The grid-area names match the DOM order so the
+     flex column stays mobile-friendly while desktop rearranges into a
+     two-column band. */
+  @media (min-width: 720px) {
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        'today today'
+        'ai    calendar'
+        'manual manual';
+      gap: 1.25rem 1.5rem;
+      align-items: start;
+    }
+    .day-panel { grid-area: today; }
+    .right    { grid-area: ai; }
+    .left     { grid-area: calendar; }
+    .manual   { grid-area: manual; }
   }
 
   .hdr {

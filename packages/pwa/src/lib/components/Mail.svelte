@@ -13,6 +13,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
+  import { t } from '$lib/i18n.svelte';
 
   type SourceType = 'url' | 'topic';
 
@@ -360,21 +361,17 @@
 
 <section class="mail">
   <header class="head">
-    <h2>mail</h2>
-    <p class="sub">
-      add a URL, pick a time, and the AI delivers a daily digest to your
-      Palm's mail every morning. cron checks every 5 min; missed days
-      retry automatically.
-    </p>
+    <h2>{t('mail.heading')}</h2>
+    <p class="sub">{t('mail.sub')}</p>
   </header>
 
   <section class="sources">
     <header class="sec-h">
       <button class="link" onclick={() => (showSources = !showSources)} aria-expanded={showSources}>
-        {showSources ? '[-]' : '[+]'} sources ({sources.length})
+        {showSources ? '[-]' : '[+]'} {t('mail.sourcesLabel')} ({sources.length})
       </button>
       <button class="add" onclick={() => (showAdd = !showAdd)}>
-        {showAdd ? 'cancel' : '+ add source'}
+        {showAdd ? t('common.cancel') : t('mail.addSource')}
       </button>
     </header>
 
@@ -758,9 +755,16 @@
     color: var(--ink-mute);
     margin-right: 0.4rem;
   }
+  .type-pill.type-url {
+    color: var(--cat-mail);
+    border-color: var(--cat-mail);
+  }
   .type-pill.type-topic {
-    color: var(--accent);
-    border-color: var(--accent-dim);
+    color: var(--cat-research);
+    border-color: var(--cat-research);
+  }
+  .mail-row {
+    border-left: 3px solid var(--cat-mail);
   }
   .src-url.topic em {
     color: var(--ink);

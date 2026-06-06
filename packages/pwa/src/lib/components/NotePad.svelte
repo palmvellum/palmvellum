@@ -14,6 +14,7 @@
    */
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
+  import { t } from '$lib/i18n.svelte';
 
   interface SketchMeta {
     image_path?: string;
@@ -182,13 +183,8 @@
 
 <section class="notepad">
   <header class="head">
-    <h2>note pad</h2>
-    <p class="sub">
-      Sketches arrive from your Palm's Note Pad on each HotSync. The
-      platform AI transcribes any handwritten text and describes the
-      drawing. Browser upload is intentionally off — the Palm is the
-      only source of truth here.
-    </p>
+    <h2>{t('notepad.heading')}</h2>
+    <p class="sub">{t('notepad.sub')}</p>
   </header>
 
   {#if loading}
@@ -196,7 +192,7 @@
   {:else if loadError}
     <p class="status error">{loadError}</p>
   {:else if sketches.length === 0}
-    <p class="status">No sketches yet. Draw on your Palm Note Pad and HotSync to populate this gallery.</p>
+    <p class="status">{t('notepad.empty')}</p>
   {:else}
     <ul class="grid">
       {#each sketches as s (s.id)}
@@ -366,6 +362,7 @@
     width: 100%;
     background: var(--surface-lo);
     border: 1px solid var(--line);
+    border-top: 3px solid var(--cat-sketch);
     color: var(--ink);
     padding: 0;
     text-align: left;

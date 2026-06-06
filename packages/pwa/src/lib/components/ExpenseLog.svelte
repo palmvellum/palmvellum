@@ -13,6 +13,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
+  import { t } from '$lib/i18n.svelte';
 
   // Palm Expense defaults
   const EXPENSE_TYPES = [
@@ -266,13 +267,13 @@
 
 <section class="expenselog">
   <header class="head">
-    <input class="search" type="search" bind:value={search} placeholder="search vendor / type / city…" />
-    <button class="add" onclick={openNew}>+ new expense</button>
+    <input class="search" type="search" bind:value={search} placeholder={t('expense.searchPh')} />
+    <button class="add" onclick={openNew}>{t('expense.newExpense')}</button>
   </header>
 
   {#if totals.length > 0}
     <div class="totals">
-      <span class="label">total:</span>
+      <span class="label">{t('expense.total')}</span>
       {#each totals as [cur, sum] (cur)}
         <span class="total-chip">{cur} {sum.toFixed(2)}</span>
       {/each}

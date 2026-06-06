@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Palm Organizers</string>
+    <string name="title_activity_main">Palm Organizers</string>
+    <string name="package_name">dev.tatliving.palmvellum.organizers</string>
+    <string name="custom_url_scheme">dev.tatliving.palmvellum.organizers</string>
+</resources>

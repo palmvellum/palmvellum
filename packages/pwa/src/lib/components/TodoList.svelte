@@ -19,6 +19,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
+  import { t } from '$lib/i18n.svelte';
 
   interface Todo {
     id: string;
@@ -264,12 +265,12 @@
 <section class="todolist">
   <header class="head">
     <div class="filters">
-      <button class:active={filter === 'open'} onclick={() => (filter = 'open')}>open ({openCount})</button>
-      <button class:active={filter === 'done'} onclick={() => (filter = 'done')}>done ({doneCount})</button>
-      <button class:active={filter === 'all'} onclick={() => (filter = 'all')}>all ({todos.length})</button>
+      <button class:active={filter === 'open'} onclick={() => (filter = 'open')}>{t('todo.filterOpen')} ({openCount})</button>
+      <button class:active={filter === 'done'} onclick={() => (filter = 'done')}>{t('todo.filterDone')} ({doneCount})</button>
+      <button class:active={filter === 'all'} onclick={() => (filter = 'all')}>{t('todo.filterAll')} ({todos.length})</button>
     </div>
     <button class="add" onclick={() => (showCreate = !showCreate)}>
-      {showCreate ? 'cancel' : '+ new task'}
+      {showCreate ? t('common.cancel') : t('todo.newTask')}
     </button>
   </header>
 

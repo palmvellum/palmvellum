@@ -13,6 +13,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
+  import { t } from '$lib/i18n.svelte';
 
   type PhoneType = 'Work' | 'Home' | 'Fax' | 'Other' | 'E-mail' | 'Main' | 'Pager' | 'Mobile';
   const PHONE_TYPES: PhoneType[] = [
@@ -275,9 +276,9 @@
       class="search"
       type="search"
       bind:value={search}
-      placeholder="search by name / company / phone…"
+      placeholder={t('address.searchPh')}
     />
-    <button class="add" onclick={openNew}>+ new contact</button>
+    <button class="add" onclick={openNew}>{t('address.newContact')}</button>
   </header>
 
   {#if showForm}

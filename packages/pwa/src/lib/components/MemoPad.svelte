@@ -15,6 +15,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
+  import { t } from '$lib/i18n.svelte';
 
   interface Memo {
     id: string;
@@ -318,17 +319,17 @@
 <section class="memopad">
   <header class="head">
     <div class="filters">
-      <button class:active={filter === 'all'} onclick={() => (filter = 'all')}>all ({memos.length})</button>
+      <button class:active={filter === 'all'} onclick={() => (filter = 'all')}>{t('memo.filterAll')} ({memos.length})</button>
       <button class:active={filter === 'ai'} onclick={() => (filter = 'ai')}>
-        AI ({memos.filter((m) => m.type === 'aiquery').length})
+        {t('memo.filterAi')} ({memos.filter((m) => m.type === 'aiquery').length})
         {#if aiPendingCount > 0}<span class="pending-dot" title="{aiPendingCount} awaiting AI">[{aiPendingCount}]</span>{/if}
       </button>
       <button class:active={filter === 'note'} onclick={() => (filter = 'note')}
-        >note ({memos.filter((m) => m.type === 'thought').length})</button
+        >{t('memo.filterNote')} ({memos.filter((m) => m.type === 'thought').length})</button
       >
     </div>
     <button class="add" onclick={() => (showCreate = !showCreate)}>
-      {showCreate ? 'cancel' : '+ new memo'}
+      {showCreate ? t('common.cancel') : t('memo.newMemo')}
     </button>
   </header>
 
@@ -357,8 +358,7 @@
       <p>uploading…</p>
     {:else}
       <p class="upload-line">
-        <strong>drop a file</strong> or click here — PDF / DOCX / image (≤ 20 MB).
-        AI reads it and creates a memo summary.
+        <strong>{t('memo.uploadDrop')}</strong> {t('memo.uploadHint')}
       </p>
     {/if}
     {#if uploadError}<p class="error">{uploadError}</p>{/if}
@@ -366,11 +366,7 @@
 
   {#if showCreate}
     <form class="create" onsubmit={(e) => { e.preventDefault(); void createMemo(); }}>
-      <p class="ai-hint">
-        Plain text becomes a note. Start with <code>(AI)</code> to run
-        the AI agent — it answers, and if your text implies events
-        or tasks it'll also create them in Date Book / To Do List.
-      </p>
+      <p class="ai-hint">{t('memo.aiHint')}</p>
       <textarea
         bind:value={createBody}
         placeholder={"What's on your mind? Prefix with (AI) to involve the agent."}

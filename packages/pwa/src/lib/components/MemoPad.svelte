@@ -46,6 +46,15 @@
   let editBody = $state('');
   let editBusy = $state(false);
 
+  // File upload state
+  let fileInput: HTMLInputElement | null = $state(null);
+  let uploadBusy = $state(false);
+  let uploadError = $state<string | null>(null);
+  let dragOver = $state(false);
+
+  const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
+  const ACCEPT_TYPES = '.pdf,.docx,image/jpeg,image/png,image/webp,image/heic';
+
   async function load() {
     if (!authState.userId) return;
     loading = true;
@@ -166,6 +175,99 @@
     return m.type === 'thought' && /^\s*\(ai\)/i.test(m.body ?? '');
   }
 
+  function isUploadMemo(m: Memo): boolean {
+    return !!(m.metadata as { upload_path?: string } | null)?.upload_path;
+  }
+
+  function uploadFilenameOf(m: Memo): string {
+    return (
+      ((m.metadata as { upload_filename?: string } | null)?.upload_filename ?? '') ||
+      'file'
+    );
+  }
+
+  async function handleFiles(files: FileList | File[]) {
+    if (!authState.userId) return;
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    uploadError = null;
+    uploadBusy = true;
+    try {
+      for (const file of list) {
+        await uploadOne(file);
+      }
+    } catch (e) {
+      uploadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      uploadBusy = false;
+      if (fileInput) fileInput.value = '';
+    }
+  }
+
+  async function uploadOne(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error(`${file.name} too large (max 20 MB)`);
+    }
+    const lowered = file.name.toLowerCase();
+    const okExt =
+      lowered.endsWith('.pdf') ||
+      lowered.endsWith('.docx') ||
+      file.type.startsWith('image/');
+    if (!okExt) {
+      throw new Error(`${file.name} — only PDF / DOCX / image accepted`);
+    }
+    const recordId = newUlid();
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+    const path = `${authState.userId}/${recordId}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from('memo-uploads')
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) throw new Error(`upload: ${upErr.message}`);
+
+    const placeholder = `📎 ${file.name}\n\n⏳ AI is reading the file. This memo will fill in within a few seconds.`;
+    const { error: insErr } = await supabase.from('records').insert({
+      id: recordId,
+      user_id: authState.userId,
+      type: 'thought',
+      posture: 'open',
+      body: placeholder,
+      source: 'web',
+      ai_status: 'pending',
+      metadata: {
+        palm_category_name: 'Uploads',
+        upload_path: path,
+        upload_filename: file.name,
+        upload_mimetype: file.type,
+        upload_size: file.size,
+      },
+    });
+    if (insErr) {
+      // best-effort cleanup of storage object
+      await supabase.storage.from('memo-uploads').remove([path]);
+      throw new Error(`record: ${insErr.message}`);
+    }
+  }
+
+  function onPickFile(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.files && target.files.length > 0) void handleFiles(target.files);
+  }
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) void handleFiles(files);
+  }
+  function onDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
+  }
+  function onDragLeave() {
+    dragOver = false;
+  }
+
   function fmtTime(s: string): string {
     return new Date(s).toLocaleString(undefined, {
       month: 'short',
@@ -184,7 +286,7 @@
   const aiPendingCount = $derived(
     memos.filter(
       (m) =>
-        (m.type === 'aiquery' || isAgentMemo(m)) &&
+        (m.type === 'aiquery' || isAgentMemo(m) || isUploadMemo(m)) &&
         (m.ai_status === 'pending' || m.ai_status === 'processing'),
     ).length,
   );
@@ -229,6 +331,38 @@
       {showCreate ? 'cancel' : '+ new memo'}
     </button>
   </header>
+
+  <div
+    class="upload"
+    class:drag-over={dragOver}
+    class:busy={uploadBusy}
+    onclick={() => fileInput?.click()}
+    onkeydown={(e) => e.key === 'Enter' && fileInput?.click()}
+    ondrop={onDrop}
+    ondragover={onDragOver}
+    ondragleave={onDragLeave}
+    role="button"
+    tabindex="0"
+    aria-label="upload file for AI summary"
+  >
+    <input
+      bind:this={fileInput}
+      type="file"
+      accept={ACCEPT_TYPES}
+      multiple
+      onchange={onPickFile}
+      hidden
+    />
+    {#if uploadBusy}
+      <p>uploading…</p>
+    {:else}
+      <p class="upload-line">
+        📎 <strong>drop a file</strong> or click here — PDF / DOCX / image (≤ 20 MB).
+        AI reads it and creates a memo summary.
+      </p>
+    {/if}
+    {#if uploadError}<p class="error">{uploadError}</p>{/if}
+  </div>
 
   {#if showCreate}
     <form class="create" onsubmit={(e) => { e.preventDefault(); void createMemo(); }}>
@@ -281,18 +415,29 @@
           {:else}
             <header class="item-h">
               <span class="tag tag-{m.type}">
-                {isAI(m) ? 'AI Q' : isAgentMemo(m) ? '🤖 agent' : 'note'}
+                {isUploadMemo(m)
+                  ? '📎 upload'
+                  : isAI(m)
+                    ? 'AI Q'
+                    : isAgentMemo(m)
+                      ? '🤖 agent'
+                      : 'note'}
               </span>
+              {#if isUploadMemo(m)}
+                <span class="upload-name" title={uploadFilenameOf(m)}>{uploadFilenameOf(m)}</span>
+              {/if}
               {#if m.ai_status === 'pending'}
-                <span class="pending">⟳ {isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
+                <span class="pending">⟳ {isUploadMemo(m) ? 'reading file' : isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
               {:else if m.ai_status === 'processing'}
-                <span class="pending">⟳ {isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
+                <span class="pending">⟳ {isUploadMemo(m) ? 'reading file' : isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
               {:else if m.ai_status === 'done' && m.ai_response}
                 <span class="answered">✓ answered</span>
               {:else if m.ai_status === 'done' && isAgentMemo(m)}
                 <span class="answered">✓ agent done</span>
+              {:else if m.ai_status === 'done' && isUploadMemo(m)}
+                <span class="answered">✓ summary ready</span>
               {:else if m.ai_status === 'error'}
-                <span class="errored">⚠ AI error</span>
+                <span class="errored">⚠ {m.ai_status === 'error' ? 'AI error' : ''}</span>
               {/if}
               <time>{fmtTime(m.updated_at)}</time>
               <button class="link" onclick={() => startEdit(m)}>edit</button>
@@ -436,6 +581,42 @@
   }
   .item.ai-item {
     border-left: 3px solid var(--accent);
+  }
+  .upload {
+    background: var(--surface-lo);
+    border: 1px dashed var(--line);
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    cursor: pointer;
+    color: var(--ink-mute);
+    border-radius: 2px;
+    transition: border-color 0.1s, background 0.1s, color 0.1s;
+  }
+  .upload:hover,
+  .upload.drag-over {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--surface);
+  }
+  .upload.busy {
+    opacity: 0.6;
+    cursor: progress;
+  }
+  .upload p {
+    margin: 0;
+    font-size: 0.88rem;
+  }
+  .upload .upload-line strong {
+    color: var(--ink);
+  }
+  .upload-name {
+    color: var(--ink-mute);
+    font-size: 0.75rem;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .item-h {
     display: flex;

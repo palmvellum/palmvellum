@@ -26,12 +26,17 @@
     type: 'todo';
     body: string; // description
     source: string;
+    ai_status: string | null;
+    ai_error: string | null;
     metadata: {
       palm_due_date?: string;
       palm_priority?: number;
       palm_completed?: boolean;
       palm_notes?: string;
       palm_category_name?: string;
+      agent_summary?: string;
+      agent_result_memo?: string;
+      agent_processed?: boolean;
     } | null;
     created_at: string;
     updated_at: string;
@@ -361,9 +366,20 @@
               </label>
               <span class="prio prio-{priority(t)}" title="priority {priority(t)}">{priority(t)}</span>
               <div class="body">
-                {#if ai}<span class="ai-badge" title="agentic task">AI</span>{/if}
+                {#if ai}<span class="ai-badge" title="agentic task">🤖 AI</span>{/if}
                 <span class="desc" class:strike={done}>{t.body}</span>
                 {#if t.metadata?.palm_notes}<div class="notes">{t.metadata.palm_notes}</div>{/if}
+                {#if ai && (t.ai_status === 'pending' || t.ai_status === 'processing')}
+                  <div class="agent-status pending">⟳ agent working…</div>
+                {:else if ai && t.ai_status === 'done' && t.metadata?.agent_summary}
+                  <div class="agent-status done">
+                    ✓ <strong>agent done.</strong>
+                    {t.metadata.agent_summary}
+                    <span class="result-note">(full result in Memo Pad)</span>
+                  </div>
+                {:else if ai && t.ai_status === 'error'}
+                  <div class="agent-status err">⚠ {t.ai_error ?? 'agent failed'}</div>
+                {/if}
               </div>
               {#if due}
                 <span class="due {dueClass(due)}">{fmtDue(due)}</span>
@@ -595,6 +611,28 @@
     margin-right: 0.4rem;
     font-weight: 700;
     letter-spacing: 0.05em;
+  }
+  .agent-status {
+    font-size: 0.78rem;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+  }
+  .agent-status.pending {
+    color: #ffaf60;
+  }
+  .agent-status.done {
+    color: var(--ink-dim);
+  }
+  .agent-status.done strong {
+    color: var(--accent);
+  }
+  .agent-status.err {
+    color: #ff6b6b;
+  }
+  .result-note {
+    color: var(--ink-mute);
+    font-size: 0.72rem;
+    margin-left: 0.3rem;
   }
   .due {
     color: var(--ink-mute);

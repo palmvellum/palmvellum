@@ -76,20 +76,26 @@
     createError = null;
     createBusy = true;
 
-    // (AI) prefix override — case-insensitive, anywhere in first 8 chars.
-    const aiByPrefix = /^\s*\(ai\)/i.test(body);
-    const isAI = createMode === 'ai' || aiByPrefix;
+    // Two AI paths:
+    //   - createMode 'ai' (radio)        → records.type='aiquery'
+    //                                      → simple Q&A worker
+    //   - body prefix "(AI)" on a note   → records.type='thought'
+    //                                      → AGENTIC worker that
+    //                                      → can create events / todos
+    //                                      → and append a summary
+    const isAIQuery = createMode === 'ai';
+    const isAgent = !isAIQuery && /^\s*\(ai\)/i.test(body);
 
     const { error } = await supabase.from('records').insert({
       id: newUlid(),
       user_id: authState.userId,
-      type: isAI ? 'aiquery' : 'thought',
+      type: isAIQuery ? 'aiquery' : 'thought',
       posture: 'open',
       body,
       source: 'web',
-      ai_status: isAI ? 'pending' : null,
+      ai_status: isAIQuery || isAgent ? 'pending' : null,
       metadata: {
-        palm_category_name: isAI ? 'AI' : 'Unfiled',
+        palm_category_name: isAIQuery ? 'AI' : isAgent ? 'AI Agent' : 'Unfiled',
       },
     });
     createBusy = false;
@@ -165,6 +171,10 @@
     return m.type === 'aiquery';
   }
 
+  function isAgentMemo(m: Memo): boolean {
+    return m.type === 'thought' && /^\s*\(ai\)/i.test(m.body ?? '');
+  }
+
   function fmtTime(s: string): string {
     return new Date(s).toLocaleString(undefined, {
       month: 'short',
@@ -181,7 +191,11 @@
   );
 
   const aiPendingCount = $derived(
-    memos.filter((m) => m.type === 'aiquery' && m.ai_status === 'pending').length,
+    memos.filter(
+      (m) =>
+        (m.type === 'aiquery' || isAgentMemo(m)) &&
+        (m.ai_status === 'pending' || m.ai_status === 'processing'),
+    ).length,
   );
 
   $effect(() => {
@@ -232,9 +246,13 @@
           <input type="radio" bind:group={createMode} value="note" /> note
         </label>
         <label>
-          <input type="radio" bind:group={createMode} value="ai" /> AI query
+          <input type="radio" bind:group={createMode} value="ai" /> AI query (Q&A)
         </label>
-        <span class="hint">memos starting with <code>(AI)</code> also route to AI</span>
+        <span class="hint">
+          tip: a note starting with <code>(AI)</code> runs an
+          <strong>agent</strong> that can create events / todos and
+          append a summary to this memo
+        </span>
       </div>
       <textarea
         bind:value={createBody}
@@ -268,7 +286,7 @@
   {:else}
     <ul class="list">
       {#each filteredMemos as m (m.id)}
-        <li class="item" class:ai-item={isAI(m)}>
+        <li class="item" class:ai-item={isAI(m) || isAgentMemo(m)}>
           {#if editingId === m.id}
             <div class="edit-form">
               <div class="mode">
@@ -289,11 +307,17 @@
             </div>
           {:else}
             <header class="item-h">
-              <span class="tag tag-{m.type}">{isAI(m) ? 'AI' : 'note'}</span>
+              <span class="tag tag-{m.type}">
+                {isAI(m) ? 'AI Q' : isAgentMemo(m) ? '🤖 agent' : 'note'}
+              </span>
               {#if m.ai_status === 'pending'}
-                <span class="pending">⟳ AI parsing…</span>
+                <span class="pending">⟳ {isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
+              {:else if m.ai_status === 'processing'}
+                <span class="pending">⟳ {isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
               {:else if m.ai_status === 'done' && m.ai_response}
                 <span class="answered">✓ answered</span>
+              {:else if m.ai_status === 'done' && isAgentMemo(m)}
+                <span class="answered">✓ agent done</span>
               {:else if m.ai_status === 'error'}
                 <span class="errored">⚠ AI error</span>
               {/if}

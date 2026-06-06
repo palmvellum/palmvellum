@@ -14,7 +14,7 @@
 
 <p class="redirect">
   Per-device pages were removed — all Palms now share one dataset.
-  <a href="{base}/palm">Go to my palm →</a>
+  <a href="{base}/palm">Go to my palm &gt;</a>
 </p>
 
 <style>

@@ -16,7 +16,7 @@
 
 <p class="redirect">
   Devices moved — every Palm now shares one dataset.
-  <a href="{base}/palm">Go to my palm →</a>
+  <a href="{base}/palm">Go to my palm &gt;</a>
 </p>
 
 <style>

@@ -18,7 +18,7 @@
 
 <p class="redirect">
   The calendar moved — each Palm now has its own Date Book tab.
-  <a href="{base}/devices">Go to my devices →</a>
+  <a href="{base}/devices">Go to my devices &gt;</a>
 </p>
 
 <style>

@@ -116,6 +116,9 @@
     }
     createError = null;
     createBusy = true;
+    // (AI) prefix routes through the agentic worker — mark pending so
+    // the Edge Function's claim filter matches before the trigger fires.
+    const isAgent = /^\s*\(ai\)/i.test(body);
     const { error } = await supabase.from('records').insert({
       id: newUlid(),
       user_id: authState.userId,
@@ -123,6 +126,7 @@
       posture: 'open',
       body,
       source: 'web',
+      ai_status: isAgent ? 'pending' : null,
       metadata: {
         palm_due_date: createDue || '',
         palm_priority: createPriority,

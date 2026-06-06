@@ -54,12 +54,12 @@ const DIGEST_SCHEMA = {
     subject: {
       type: 'string',
       description:
-        'Email subject line, ≤ 90 chars. Today\'s date in YYYY-MM-DD prepended, then a short headline.',
+        'Email subject line, ≤ 100 chars. Date in YYYY-MM-DD prepended, then a short summary headline for the day.',
     },
     body: {
       type: 'string',
       description:
-        'Plain-text email body, ≤ 800 words. Palm-friendly: short paragraphs, no markdown, no emoji. Lead with the single most important item.',
+        'Plain-text email body — a COMPREHENSIVE enumeration of every distinct news item / post / story you can see on the page. For each item: one-line headline on its own line, then 1-3 lines of summary (who/what/when/why). Blank line between items. No markdown, no emoji, no bullet symbols. Palm-friendly plain text. Up to ~3000 words is fine if the page has lots of items.',
     },
   },
   required: ['subject', 'body'],
@@ -68,18 +68,20 @@ const DIGEST_SCHEMA = {
 
 function systemPrompt(source: Source, dateLocal: string): string {
   const hint = source.digest_hint?.trim();
-  return `You produce a daily email digest of one website for the user's Palm Pilot mail inbox.
+  return `You produce a daily digest of one website for the user's Palm Pilot mail inbox. The user wants COMPREHENSIVE coverage — enumerate every distinct news item / story / post on the page, not just the top one.
 
 Today: ${dateLocal} (${source.timezone}).
 Source name: ${source.name}.
 Source URL: ${source.url}.
 
 Rules:
-- Write as if you're a friend who reads this site every morning and tells the user what mattered today.
-- Plain text only. Short paragraphs. No markdown, no emoji, no bullet symbols.
-- Subject: prepend "${dateLocal} · " then a short headline (≤ 90 chars total).
-- Body: ≤ 800 words. Lead with the single most important item. Group related items.
-- If the page is paywalled / login-walled / contains no recent content, output subject "${dateLocal} · (no fresh content)" and body explaining briefly.
+1. Enumerate EVERY distinct news item / story / post you can identify on the page. Don't pick favourites; the user wants a full scan of what's there today.
+2. Format per item — one-line headline on its own line, then 1-3 lines of summary (who, what, when, key fact). Blank line between items.
+3. Plain text only. No markdown headers, no bullet symbols (* - •), no emoji. Short paragraphs.
+4. Match the source language. RTHK Chinese → write in Traditional Chinese. English source → English.
+5. Subject: "${dateLocal} · " prepended, then a short headline summarising today's biggest story (≤ 100 chars total).
+6. If a section header divides the page (e.g. local / china / world / sport), keep that grouping with the header as a single line before its items.
+7. If the page is paywalled / login-walled / shows no fresh content, output subject "${dateLocal} · (no fresh content)" and body explaining briefly.
 ${hint ? `\nUser hint for this source:\n${hint}` : ''}`;
 }
 
@@ -351,7 +353,7 @@ async function callOpenAIDigest(
           schema: DIGEST_SCHEMA,
         },
       },
-      max_completion_tokens: 2048,
+      max_completion_tokens: 4096,
     }),
   });
   if (!resp.ok) throw new Error(`openai ${resp.status}: ${await resp.text()}`);
@@ -382,7 +384,7 @@ async function callAnthropicDigest(
     },
     body: JSON.stringify({
       model: model || 'claude-sonnet-4-5-20250929',
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: [
         {
           type: 'text',

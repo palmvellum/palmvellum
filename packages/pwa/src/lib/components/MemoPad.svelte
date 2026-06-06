@@ -38,14 +38,12 @@
   let filter = $state<'all' | 'ai' | 'note'>('all');
 
   let showCreate = $state(false);
-  let createMode = $state<'note' | 'ai'>('note');
   let createBody = $state('');
   let createBusy = $state(false);
   let createError = $state<string | null>(null);
 
   let editingId = $state<string | null>(null);
   let editBody = $state('');
-  let editMode = $state<'note' | 'ai'>('note');
   let editBusy = $state(false);
 
   async function load() {
@@ -76,26 +74,30 @@
     createError = null;
     createBusy = true;
 
-    // Two AI paths:
-    //   - createMode 'ai' (radio)        → records.type='aiquery'
-    //                                      → simple Q&A worker
-    //   - body prefix "(AI)" on a note   → records.type='thought'
-    //                                      → AGENTIC worker that
-    //                                      → can create events / todos
-    //                                      → and append a summary
-    const isAIQuery = createMode === 'ai';
-    const isAgent = !isAIQuery && /^\s*\(ai\)/i.test(body);
+    // One AI path on the platform side:
+    //   body starts with "(AI)"  → records.type='thought' +
+    //                              ai_status='pending'
+    //                              → agentic worker (ai-agent)
+    //                              answers, can also create events /
+    //                              todos, and appends a summary to
+    //                              the memo body.
+    //
+    // Plain notes have no AI involvement and just sync to MemoDB on
+    // the Palm at next HotSync. Older records pushed up from sync-cli
+    // as records.type='aiquery' still display in this list — they
+    // came from the legacy Q&A flow and remain readable.
+    const isAgent = /^\s*\(ai\)/i.test(body);
 
     const { error } = await supabase.from('records').insert({
       id: newUlid(),
       user_id: authState.userId,
-      type: isAIQuery ? 'aiquery' : 'thought',
+      type: 'thought',
       posture: 'open',
       body,
       source: 'web',
-      ai_status: isAIQuery || isAgent ? 'pending' : null,
+      ai_status: isAgent ? 'pending' : null,
       metadata: {
-        palm_category_name: isAIQuery ? 'AI' : isAgent ? 'AI Agent' : 'Unfiled',
+        palm_category_name: isAgent ? 'AI Agent' : 'Unfiled',
       },
     });
     createBusy = false;
@@ -111,7 +113,6 @@
   function startEdit(m: Memo) {
     editingId = m.id;
     editBody = m.body;
-    editMode = m.type === 'aiquery' ? 'ai' : 'note';
   }
 
   function cancelEdit() {
@@ -122,27 +123,17 @@
   async function saveEdit(m: Memo) {
     if (!editBody.trim()) return;
     editBusy = true;
-    const isAI = editMode === 'ai' || /^\s*\(ai\)/i.test(editBody);
-    const newType = isAI ? 'aiquery' : 'thought';
+    const isAgent = /^\s*\(ai\)/i.test(editBody);
     const patch: Record<string, unknown> = {
-      type: newType,
       body: editBody.trim(),
       metadata: {
         ...(m.metadata ?? {}),
-        palm_category_name: isAI ? 'AI' : 'Unfiled',
+        palm_category_name: isAgent ? 'AI Agent' : 'Unfiled',
       },
     };
-    // Re-prompt AI only if newly switched to AI mode and no answer yet,
-    // OR if body changed and the type is AI. The trigger fires only on
-    // INSERT — for UPDATE we'd need a server-side change to refire; here
-    // we just reset ai_status so the user can SEE we need re-processing.
-    if (isAI && (m.type !== 'aiquery' || m.body !== editBody.trim())) {
-      patch.ai_status = 'pending';
-      patch.ai_response = null;
-    } else if (!isAI) {
-      patch.ai_status = null;
-      patch.ai_response = null;
-    }
+    // The agent webhook fires on INSERT only, so UPDATEs can't re-
+    // trigger. Editing here just persists the body; to re-run the
+    // agent the user has to delete and re-create.
     const { error } = await supabase.from('records').update(patch).eq('id', m.id);
     editBusy = false;
     if (error) {
@@ -241,24 +232,14 @@
 
   {#if showCreate}
     <form class="create" onsubmit={(e) => { e.preventDefault(); void createMemo(); }}>
-      <div class="mode">
-        <label>
-          <input type="radio" bind:group={createMode} value="note" /> note
-        </label>
-        <label>
-          <input type="radio" bind:group={createMode} value="ai" /> AI query (Q&A)
-        </label>
-        <span class="hint">
-          tip: a note starting with <code>(AI)</code> runs an
-          <strong>agent</strong> that can create events / todos and
-          append a summary to this memo
-        </span>
-      </div>
+      <p class="ai-hint">
+        Plain text becomes a note. Start with <code>(AI)</code> to run
+        the AI agent — it answers, and if your text implies events
+        or tasks it'll also create them in Date Book / To Do List.
+      </p>
       <textarea
         bind:value={createBody}
-        placeholder={createMode === 'ai'
-          ? 'Ask the Oracle anything — answer arrives in seconds.'
-          : "What's on your mind? Syncs to MemoPad on your Palm."}
+        placeholder={"What's on your mind? Prefix with (AI) to involve the agent."}
         rows="5"
         maxlength="4000"
         required
@@ -289,14 +270,6 @@
         <li class="item" class:ai-item={isAI(m) || isAgentMemo(m)}>
           {#if editingId === m.id}
             <div class="edit-form">
-              <div class="mode">
-                <label>
-                  <input type="radio" bind:group={editMode} value="note" /> note
-                </label>
-                <label>
-                  <input type="radio" bind:group={editMode} value="ai" /> AI
-                </label>
-              </div>
               <textarea bind:value={editBody} rows="5" maxlength="4000"></textarea>
               <div class="row">
                 <button class="primary" onclick={() => saveEdit(m)} disabled={editBusy}>
@@ -401,17 +374,11 @@
     gap: 0.6rem;
     border-radius: 2px;
   }
-  .mode {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    font-size: 0.85rem;
+  .ai-hint {
+    margin: 0;
+    font-size: 0.82rem;
     color: var(--ink-mute);
-  }
-  .mode label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
+    line-height: 1.45;
   }
   code {
     background: var(--surface);

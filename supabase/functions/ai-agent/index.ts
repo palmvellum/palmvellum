@@ -168,15 +168,15 @@ Deno.serve(async (req: Request) => {
     return jsonResp({ skipped: 'no-prefix' }, 200);
   }
 
-  // Claim — flip ai_status to processing
+  // Claim — flip ai_status to processing. `.in()` doesn't match true
+  // NULL, so use a string OR filter that covers both NULL and 'pending'.
   const { data: claimed, error: claimErr } = await supa
     .from('records')
     .update({ ai_status: 'processing' })
     .eq('id', r.id)
-    .in('ai_status', ['pending', null as unknown as string])
+    .or('ai_status.is.null,ai_status.eq.pending')
     .select('id');
   if (claimErr || !claimed || claimed.length === 0) {
-    // Already running or done
     return jsonResp({ skipped: 'already-processing' }, 200);
   }
 

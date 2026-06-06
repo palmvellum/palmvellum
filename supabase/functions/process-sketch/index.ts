@@ -77,25 +77,15 @@ Deno.serve(async (req: Request) => {
     return jsonResp({ error: 'no-image' }, 200);
   }
 
-  // Race guard: claim by flipping ai_status NULL/pending → processing
+  // Race guard: claim by flipping ai_status NULL/pending → processing.
+  // .in() doesn't match true NULL — use an OR filter.
   const { data: claimed, error: claimErr } = await supa
     .from('records')
     .update({ ai_status: 'processing' })
     .eq('id', r.id)
-    .in('ai_status', [null as unknown as string])
+    .or('ai_status.is.null,ai_status.eq.pending')
     .select('id');
-  if (claimErr) {
-    // ai_status might already be set; try a second time with pending
-    const { data: claimed2 } = await supa
-      .from('records')
-      .update({ ai_status: 'processing' })
-      .eq('id', r.id)
-      .eq('ai_status', 'pending')
-      .select('id');
-    if (!claimed2 || claimed2.length === 0) {
-      return jsonResp({ skipped: 'already-processing' }, 200);
-    }
-  } else if (!claimed || claimed.length === 0) {
+  if (claimErr || !claimed || claimed.length === 0) {
     return jsonResp({ skipped: 'already-processing' }, 200);
   }
 

@@ -14,11 +14,16 @@
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
 
+  type SourceType = 'url' | 'topic';
+
   interface MailSource {
     id: string;
     user_id: string;
     name: string;
-    url: string;
+    url: string | null;
+    topic: string | null;
+    source_type: SourceType;
+    output_language: string | null;
     fetch_time: string; // "HH:MM:SS"
     timezone: string;
     enabled: boolean;
@@ -29,12 +34,27 @@
     updated_at: string;
   }
 
+  const LANGUAGES: Array<{ value: string; label: string }> = [
+    { value: 'auto', label: 'Auto (match source)' },
+    { value: 'zh-TW', label: '繁體中文' },
+    { value: 'zh-CN', label: '简体中文' },
+    { value: 'en', label: 'English' },
+    { value: 'ja', label: '日本語' },
+    { value: 'ko', label: '한국어' },
+    { value: 'fr', label: 'Français' },
+    { value: 'de', label: 'Deutsch' },
+    { value: 'es', label: 'Español' },
+  ];
+
   interface MailMeta {
     mail_subject?: string;
     mail_from?: string;
     mail_source_id?: string;
     mail_source_name?: string;
-    mail_source_url?: string;
+    mail_source_url?: string | null;
+    mail_source_type?: SourceType;
+    mail_topic?: string | null;
+    mail_references?: string[];
     mail_fetched_at?: string;
     mail_date_local?: string;
   }
@@ -60,7 +80,10 @@
   // Add-source form state
   let showAdd = $state(false);
   let fName = $state('');
+  let fType = $state<SourceType>('url');
   let fUrl = $state('');
+  let fTopic = $state('');
+  let fLanguage = $state('auto');
   let fTime = $state('07:00');
   let fTimezone = $state(
     (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) ||
@@ -73,7 +96,10 @@
   // Inline edit of a source
   let editingSrcId = $state<string | null>(null);
   let editName = $state('');
+  let editType = $state<SourceType>('url');
   let editUrl = $state('');
+  let editTopic = $state('');
+  let editLanguage = $state('auto');
   let editTime = $state('07:00');
   let editTimezone = $state('UTC');
   let editHint = $state('');
@@ -114,15 +140,26 @@
 
   async function addSource() {
     if (!authState.userId) return;
-    if (!fName.trim() || !fUrl.trim()) {
-      addError = 'name and URL required';
+    if (!fName.trim()) {
+      addError = 'name required';
       return;
     }
-    try {
-      new URL(fUrl.trim());
-    } catch {
-      addError = 'URL must be a full https://… address';
-      return;
+    if (fType === 'url') {
+      if (!fUrl.trim()) {
+        addError = 'URL required';
+        return;
+      }
+      try {
+        new URL(fUrl.trim());
+      } catch {
+        addError = 'URL must be a full https://... address';
+        return;
+      }
+    } else {
+      if (!fTopic.trim()) {
+        addError = 'topic / question required';
+        return;
+      }
     }
     addError = null;
     addBusy = true;
@@ -130,7 +167,10 @@
       id: newUlid(),
       user_id: authState.userId,
       name: fName.trim(),
-      url: fUrl.trim(),
+      source_type: fType,
+      url: fType === 'url' ? fUrl.trim() : null,
+      topic: fType === 'topic' ? fTopic.trim() : null,
+      output_language: fLanguage === 'auto' ? null : fLanguage,
       fetch_time: fTime + ':00',
       timezone: fTimezone,
       enabled: true,
@@ -143,6 +183,9 @@
     }
     fName = '';
     fUrl = '';
+    fTopic = '';
+    fLanguage = 'auto';
+    fType = 'url';
     fTime = '07:00';
     fHint = '';
     showAdd = false;
@@ -152,7 +195,10 @@
   function startEdit(s: MailSource) {
     editingSrcId = s.id;
     editName = s.name;
-    editUrl = s.url;
+    editType = s.source_type;
+    editUrl = s.url ?? '';
+    editTopic = s.topic ?? '';
+    editLanguage = s.output_language ?? 'auto';
     editTime = s.fetch_time.slice(0, 5);
     editTimezone = s.timezone;
     editHint = s.digest_hint ?? '';
@@ -165,18 +211,26 @@
 
   async function saveEdit() {
     if (!editingSrcId) return;
-    if (!editName.trim() || !editUrl.trim()) return;
-    try {
-      new URL(editUrl.trim());
-    } catch {
-      alert('URL must be a full https://… address');
-      return;
+    if (!editName.trim()) return;
+    if (editType === 'url') {
+      if (!editUrl.trim()) return;
+      try {
+        new URL(editUrl.trim());
+      } catch {
+        alert('URL must be a full https://... address');
+        return;
+      }
+    } else {
+      if (!editTopic.trim()) return;
     }
     const { error } = await supabase
       .from('mail_sources')
       .update({
         name: editName.trim(),
-        url: editUrl.trim(),
+        source_type: editType,
+        url: editType === 'url' ? editUrl.trim() : null,
+        topic: editType === 'topic' ? editTopic.trim() : null,
+        output_language: editLanguage === 'auto' ? null : editLanguage,
         fetch_time: editTime + ':00',
         timezone: editTimezone,
         enabled: editEnabled,
@@ -326,15 +380,39 @@
 
     {#if showAdd}
       <form class="src-form" onsubmit={(e) => { e.preventDefault(); void addSource(); }}>
+        <div class="type-row">
+          <label class="radio">
+            <input type="radio" bind:group={fType} value="url" /> specific URL (fetch + digest)
+          </label>
+          <label class="radio">
+            <input type="radio" bind:group={fType} value="topic" /> topic / question (AI researches the web)
+          </label>
+        </div>
         <div class="row-2">
           <label>
             <span>name</span>
-            <input bind:value={fName} placeholder="Hacker News front page" maxlength="120" required />
+            <input
+              bind:value={fName}
+              placeholder={fType === 'url' ? 'Hacker News front page' : 'Latest in AI safety'}
+              maxlength="120"
+              required
+            />
           </label>
-          <label>
-            <span>URL</span>
-            <input bind:value={fUrl} type="url" placeholder="https://news.ycombinator.com/" required />
-          </label>
+          {#if fType === 'url'}
+            <label>
+              <span>URL</span>
+              <input bind:value={fUrl} type="url" placeholder="https://news.ycombinator.com/" />
+            </label>
+          {:else}
+            <label>
+              <span>topic / question</span>
+              <input
+                bind:value={fTopic}
+                placeholder="e.g. 'latest developments in commercial fusion energy'"
+                maxlength="500"
+              />
+            </label>
+          {/if}
         </div>
         <div class="row-3">
           <label>
@@ -346,10 +424,12 @@
             <input bind:value={fTimezone} list="tz-suggest" placeholder="Asia/Hong_Kong" />
           </label>
           <label>
-            <span>&nbsp;</span>
-            <button type="submit" class="primary" disabled={addBusy}>
-              {addBusy ? 'adding…' : 'add'}
-            </button>
+            <span>output language</span>
+            <select bind:value={fLanguage}>
+              {#each LANGUAGES as L (L.value)}
+                <option value={L.value}>{L.label}</option>
+              {/each}
+            </select>
           </label>
         </div>
         <label>
@@ -358,10 +438,15 @@
             bind:value={fHint}
             rows="2"
             maxlength="500"
-            placeholder="e.g. 'Focus on TypeScript and Rust stories, skip crypto.'"
+            placeholder={fType === 'url' ? 'e.g. "Focus on TypeScript and Rust stories, skip crypto."' : 'e.g. "Prefer academic / industry sources over speculation."'}
           ></textarea>
         </label>
-        {#if addError}<p class="error">{addError}</p>{/if}
+        <div class="form-actions-row">
+          {#if addError}<span class="error">{addError}</span>{/if}
+          <button type="submit" class="primary" disabled={addBusy}>
+            {addBusy ? 'adding...' : 'add'}
+          </button>
+        </div>
       </form>
       <datalist id="tz-suggest">
         <option value="Asia/Hong_Kong" />
@@ -384,17 +469,37 @@
             <li class="src" class:disabled={!s.enabled}>
               {#if editingSrcId === s.id}
                 <form class="src-form inline" onsubmit={(e) => { e.preventDefault(); void saveEdit(); }}>
+                  <div class="type-row">
+                    <label class="radio">
+                      <input type="radio" bind:group={editType} value="url" /> URL
+                    </label>
+                    <label class="radio">
+                      <input type="radio" bind:group={editType} value="topic" /> topic
+                    </label>
+                  </div>
                   <div class="row-2">
                     <label><span>name</span><input bind:value={editName} required /></label>
-                    <label><span>URL</span><input type="url" bind:value={editUrl} required /></label>
+                    {#if editType === 'url'}
+                      <label><span>URL</span><input type="url" bind:value={editUrl} /></label>
+                    {:else}
+                      <label><span>topic</span><input bind:value={editTopic} /></label>
+                    {/if}
                   </div>
                   <div class="row-3">
                     <label><span>fetch time</span><input type="time" bind:value={editTime} /></label>
                     <label><span>timezone</span><input bind:value={editTimezone} /></label>
-                    <label class="check">
-                      <input type="checkbox" bind:checked={editEnabled} /> enabled
+                    <label>
+                      <span>language</span>
+                      <select bind:value={editLanguage}>
+                        {#each LANGUAGES as L (L.value)}
+                          <option value={L.value}>{L.label}</option>
+                        {/each}
+                      </select>
                     </label>
                   </div>
+                  <label class="check">
+                    <input type="checkbox" bind:checked={editEnabled} /> enabled
+                  </label>
                   <label><span>hint</span><textarea rows="2" bind:value={editHint}></textarea></label>
                   <div class="row">
                     <button type="button" onclick={cancelEdit}>cancel</button>
@@ -404,13 +509,25 @@
               {:else}
                 <div class="src-main">
                   <div class="src-meta">
-                    <div class="src-name">{s.name}</div>
-                    <div class="src-url">
-                      <a href={s.url} target="_blank" rel="noopener">{s.url}</a>
+                    <div class="src-name">
+                      <span class="type-pill type-{s.source_type}">{s.source_type === 'topic' ? 'topic' : 'URL'}</span>
+                      {s.name}
                     </div>
+                    {#if s.source_type === 'url'}
+                      <div class="src-url">
+                        <a href={s.url} target="_blank" rel="noopener">{s.url}</a>
+                      </div>
+                    {:else}
+                      <div class="src-url topic">
+                        researching: <em>{s.topic}</em>
+                      </div>
+                    {/if}
                     <div class="src-when">
-                      daily {s.fetch_time.slice(0, 5)} {s.timezone} ·
-                      last {fmtTime(s.last_fetched_at)}
+                      daily {s.fetch_time.slice(0, 5)} {s.timezone}
+                      {#if s.output_language}
+                        · lang: {LANGUAGES.find((L) => L.value === s.output_language)?.label ?? s.output_language}
+                      {/if}
+                      · last {fmtTime(s.last_fetched_at)}
                       {#if s.last_error}<span class="err">· [err] {s.last_error}</span>{/if}
                     </div>
                     {#if s.digest_hint}
@@ -489,7 +606,20 @@
         </header>
         <h3 class="m-subj">{subjectOf(activeMail)}</h3>
         <div class="m-date">{fmtTime(activeMail.created_at)}</div>
+        {#if activeMail.metadata?.mail_source_type === 'topic' && activeMail.metadata?.mail_topic}
+          <p class="m-topic">Researched: <strong>{activeMail.metadata.mail_topic}</strong></p>
+        {/if}
         <pre class="m-body">{activeMail.body ?? ''}</pre>
+        {#if activeMail.metadata?.mail_references && activeMail.metadata.mail_references.length > 0}
+          <section class="m-refs">
+            <h4>References</h4>
+            <ul>
+              {#each activeMail.metadata.mail_references as ref (ref)}
+                <li><a href={ref} target="_blank" rel="noopener">{ref}</a></li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
         <footer class="m-foot">
           <button class="del" onclick={() => deleteMail(activeMail!)}>delete</button>
         </footer>
@@ -596,6 +726,74 @@
   }
   .src-form.inline {
     margin: 0;
+  }
+  .type-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .type-row .radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .form-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    justify-content: flex-end;
+  }
+  .form-actions-row .error {
+    margin-right: auto;
+  }
+  .type-pill {
+    display: inline-block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid var(--line);
+    color: var(--ink-mute);
+    margin-right: 0.4rem;
+  }
+  .type-pill.type-topic {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+  .src-url.topic em {
+    color: var(--ink);
+    font-style: normal;
+  }
+  .m-topic {
+    margin: 0.4rem 0 0.6rem;
+    color: var(--ink-mute);
+    font-size: 0.85rem;
+  }
+  .m-refs {
+    margin-top: 1.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--line);
+  }
+  .m-refs h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+  }
+  .m-refs ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+  .m-refs a {
+    color: var(--accent);
+    font-size: 0.82rem;
+    word-break: break-all;
   }
   .src-form label {
     display: grid;

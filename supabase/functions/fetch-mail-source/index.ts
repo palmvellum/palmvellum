@@ -43,9 +43,29 @@ interface Source {
   id: string;
   user_id: string;
   name: string;
-  url: string;
+  url: string | null;
+  topic: string | null;
+  source_type: 'url' | 'topic';
+  output_language: string | null;
   digest_hint: string | null;
   timezone: string;
+}
+
+// Maps the language code stored in mail_sources.output_language to a
+// natural-language instruction we paste into the AI system prompt.
+function languageInstruction(lang: string | null): string {
+  if (!lang || lang === 'auto') return 'Match the source language.';
+  const map: Record<string, string> = {
+    'zh-TW': 'Write the entire body and subject in Traditional Chinese.',
+    'zh-CN': 'Write the entire body and subject in Simplified Chinese.',
+    en: 'Write the entire body and subject in English.',
+    ja: 'Write the entire body and subject in Japanese.',
+    ko: 'Write the entire body and subject in Korean.',
+    fr: 'Write the entire body and subject in French.',
+    de: 'Write the entire body and subject in German.',
+    es: 'Write the entire body and subject in Spanish.',
+  };
+  return map[lang] ?? `Write the entire body and subject in ${lang}.`;
 }
 
 const DIGEST_SCHEMA = {
@@ -68,11 +88,14 @@ const DIGEST_SCHEMA = {
 
 function systemPrompt(source: Source, dateLocal: string): string {
   const hint = source.digest_hint?.trim();
+  const langLine = languageInstruction(source.output_language);
   return `You produce a daily digest of one website for the user's Palm Pilot mail inbox. The user wants COMPREHENSIVE coverage -- enumerate every distinct news item / story / post on the page, not just the top one.
 
 Today: ${dateLocal} (${source.timezone}).
 Source name: ${source.name}.
 Source URL: ${source.url}.
+
+LANGUAGE: ${langLine}
 
 PALM CHARACTER SET CONSTRAINT -- subject and body are shown on a Palm Pilot:
 - ASCII or Mac Roman / Palm Roman characters ONLY.
@@ -85,11 +108,86 @@ Rules:
 1. Enumerate EVERY distinct news item / story / post you can identify on the page. Don't pick favourites; the user wants a full scan of what's there today.
 2. Format per item -- one-line headline on its own line, then 1-3 lines of summary (who, what, when, key fact). Blank line between items.
 3. Plain text only. No markdown headers. Short paragraphs.
-4. Match the source language. RTHK Chinese -> write in Traditional Chinese. English source -> English.
-5. Subject: "${dateLocal} - " prepended, then a short headline summarising today's biggest story (max 100 chars total).
-6. If a section header divides the page (e.g. local / china / world / sport), keep that grouping with the header as a single line before its items.
-7. If the page is paywalled / login-walled / shows no fresh content, output subject "${dateLocal} - (no fresh content)" and body explaining briefly.
+4. Subject: "${dateLocal} - " prepended, then a short headline summarising today's biggest story (max 100 chars total).
+5. If a section header divides the page (e.g. local / china / world / sport), keep that grouping with the header as a single line before its items.
+6. If the page is paywalled / login-walled / shows no fresh content, output subject "${dateLocal} - (no fresh content)" and body explaining briefly.
 ${hint ? `\nUser hint for this source:\n${hint}` : ''}`;
+}
+
+// ─── Topic research prompt + helpers ────────────────────────────
+
+function researchSystemPrompt(source: Source, dateLocal: string): string {
+  const hint = source.digest_hint?.trim();
+  const langLine = languageInstruction(source.output_language);
+  return `You research a topic for the user's daily mail digest and write a long-form article they read on a Palm Pilot.
+
+Today: ${dateLocal} (${source.timezone}).
+Topic / interest: ${source.topic}.
+
+LANGUAGE: ${langLine}
+
+Process:
+1. Use the web search tool to find recent (last 7 days preferred), high-quality sources covering the topic.
+2. Read the most relevant 3-8 results, synthesise across them, and write a 5-10 minute reading article (target 1000-2000 words).
+3. The article should be coherent narrative paragraphs, not bullet lists. Lead with the most important development, then group related angles.
+4. After the article body, output a section EXACTLY in this form (separator line included):
+
+==REFERENCES==
+<url 1>
+<url 2>
+<url 3>
+...
+
+PALM CHARACTER SET CONSTRAINT -- output is shown on a Palm Pilot:
+- ASCII or Mac Roman / Palm Roman characters ONLY.
+- NO emoji whatsoever.
+- NO arrow / star / checkmark / etc. symbols.
+- NO bullet glyphs.
+- ASCII quotes only.
+
+Output format -- nothing else, no preamble:
+SUBJECT: <one-line subject, max 100 chars, prefixed with "${dateLocal} - ">
+
+<article body 1000-2000 words>
+
+==REFERENCES==
+<url 1>
+<url 2>
+...
+${hint ? `\nUser hint:\n${hint}` : ''}`;
+}
+
+// Parse "SUBJECT: ...\n\n<body>\n==REFERENCES==\n<urls>" into structure.
+function parseResearchOutput(text: string): {
+  subject: string;
+  body: string;
+  references: string[];
+} {
+  let subject = '';
+  let body = text;
+  let references: string[] = [];
+
+  const subjMatch = text.match(/^\s*SUBJECT:\s*(.+)$/m);
+  if (subjMatch) {
+    subject = subjMatch[1].trim();
+    body = text.slice(subjMatch.index! + subjMatch[0].length).trim();
+  }
+
+  const refMarker = body.search(/==\s*REFERENCES\s*==/i);
+  if (refMarker >= 0) {
+    const refText = body.slice(refMarker).replace(/^==\s*REFERENCES\s*==/i, '').trim();
+    body = body.slice(0, refMarker).trim();
+    references = refText
+      .split(/\r?\n/)
+      .map((s) => s.replace(/^[-*\s>]+/, '').trim())
+      .filter((s) => /^https?:\/\//i.test(s));
+  }
+
+  if (!subject) {
+    const firstLine = body.split(/\r?\n/, 1)[0];
+    subject = firstLine?.slice(0, 100) ?? 'Daily research digest';
+  }
+  return { subject, body, references };
 }
 
 // @ts-expect-error Deno-only API
@@ -106,7 +204,7 @@ Deno.serve(async (req: Request) => {
   // Load source
   const { data: source, error: srcErr } = await supa
     .from('mail_sources')
-    .select('id, user_id, name, url, digest_hint, timezone, enabled')
+    .select('id, user_id, name, url, topic, source_type, output_language, digest_hint, timezone, enabled')
     .eq('id', sourceId)
     .single();
   if (srcErr || !source) {
@@ -145,62 +243,68 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Fetch the page
-  let pageText: string;
-  try {
-    pageText = await fetchPageText(source.url);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    await markError(sourceId, `fetch failed: ${msg}`);
-    return jsonResp({ error: msg }, 200);
-  }
-
-  // Summarize
   const dateLocal = nowLocalISODate(source.timezone);
   let digest: { subject: string; body: string };
+  let references: string[] = [];
   let model = '';
   let tokensIn = 0;
   let tokensOut = 0;
-  try {
-    if (settings.preferred_provider === 'openai') {
-      const r = await callOpenAIDigest(
-        apiKey,
-        settings.openai_model,
-        source,
-        pageText,
-        dateLocal,
-      );
-      digest = r.digest;
+
+  if (source.source_type === 'topic') {
+    // ── Topic research path ─────────────────────────────────
+    try {
+      const r = settings.preferred_provider === 'openai'
+        ? await callOpenAIResearch(apiKey, source, dateLocal)
+        : await callAnthropicResearch(apiKey, settings.anthropic_model, source, dateLocal);
+      digest = { subject: r.subject, body: r.body };
+      references = r.references;
       model = r.model;
       tokensIn = r.tokensIn;
       tokensOut = r.tokensOut;
-    } else {
-      const r = await callAnthropicDigest(
-        apiKey,
-        settings.anthropic_model,
-        source,
-        pageText,
-        dateLocal,
-      );
-      digest = r.digest;
-      model = r.model;
-      tokensIn = r.tokensIn;
-      tokensOut = r.tokensOut;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await markError(sourceId, `research failed: ${msg}`);
+      return jsonResp({ error: msg }, 200);
     }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    await markError(sourceId, `AI failed: ${msg}`);
-    return jsonResp({ error: msg }, 200);
+  } else {
+    // ── URL fetch + summarise path (existing) ────────────────
+    let pageText: string;
+    try {
+      pageText = await fetchPageText(source.url!);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await markError(sourceId, `fetch failed: ${msg}`);
+      return jsonResp({ error: msg }, 200);
+    }
+    try {
+      const r = settings.preferred_provider === 'openai'
+        ? await callOpenAIDigest(apiKey, settings.openai_model, source, pageText, dateLocal)
+        : await callAnthropicDigest(apiKey, settings.anthropic_model, source, pageText, dateLocal);
+      digest = r.digest;
+      model = r.model;
+      tokensIn = r.tokensIn;
+      tokensOut = r.tokensOut;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await markError(sourceId, `AI failed: ${msg}`);
+      return jsonResp({ error: msg }, 200);
+    }
   }
 
-  // Insert the mail record
+  // Append references to body for Palm visibility (Palm doesn't have
+  // a separate UI for them but reads them inline at the bottom).
+  let finalBody = digest.body;
+  if (references.length > 0) {
+    finalBody += '\n\n==REFERENCES==\n' + references.join('\n');
+  }
+
   const recordId = newUlid();
   const { error: insErr } = await supa.from('records').insert({
     id: recordId,
     user_id: source.user_id,
     type: 'mail',
     posture: 'open',
-    body: digest.body,
+    body: finalBody,
     source: 'mail-fetcher',
     ai_status: 'done',
     ai_model: model,
@@ -208,10 +312,13 @@ Deno.serve(async (req: Request) => {
     ai_tokens_out: tokensOut,
     metadata: {
       mail_subject: digest.subject,
-      mail_from: hostnameOf(source.url),
+      mail_from: source.source_type === 'topic' ? 'AI research' : hostnameOf(source.url!),
       mail_source_id: source.id,
       mail_source_name: source.name,
       mail_source_url: source.url,
+      mail_source_type: source.source_type,
+      mail_topic: source.topic,
+      mail_references: references,
       mail_fetched_at: new Date().toISOString(),
       mail_date_local: dateLocal,
     },
@@ -331,6 +438,127 @@ interface DigestResult {
   model: string;
   tokensIn: number;
   tokensOut: number;
+}
+
+// ─── Topic research callers (built-in web search) ───────────────
+
+interface ResearchResult {
+  subject: string;
+  body: string;
+  references: string[];
+  model: string;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+async function callOpenAIResearch(
+  apiKey: string,
+  source: Source,
+  dateLocal: string,
+): Promise<ResearchResult> {
+  // gpt-4o-mini-search-preview has built-in web search; the user's
+  // openai_model setting is ignored here because not all OpenAI models
+  // support search.
+  const model = 'gpt-4o-mini-search-preview';
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: researchSystemPrompt(source, dateLocal) },
+        {
+          role: 'user',
+          content: `Research the topic and write the daily article: ${source.topic}. End with ==REFERENCES== listing every URL you consulted.`,
+        },
+      ],
+      web_search_options: { search_context_size: 'high' },
+      max_completion_tokens: 8000,
+    }),
+  });
+  if (!resp.ok) throw new Error(`openai research ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const txt: string = j.choices?.[0]?.message?.content ?? '';
+  const parsed = parseResearchOutput(txt);
+  // Harvest any URLs OpenAI cites via annotations (in case the model
+  // forgot to repeat them in ==REFERENCES==).
+  const ann = j.choices?.[0]?.message?.annotations as
+    | Array<{ type?: string; url_citation?: { url?: string } }>
+    | undefined;
+  if (ann) {
+    for (const a of ann) {
+      const u = a?.url_citation?.url;
+      if (u && !parsed.references.includes(u)) parsed.references.push(u);
+    }
+  }
+  return {
+    ...parsed,
+    model: j.model ?? model,
+    tokensIn: j.usage?.prompt_tokens ?? 0,
+    tokensOut: j.usage?.completion_tokens ?? 0,
+  };
+}
+
+async function callAnthropicResearch(
+  apiKey: string,
+  model: string,
+  source: Source,
+  dateLocal: string,
+): Promise<ResearchResult> {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: model || 'claude-sonnet-4-5-20250929',
+      max_tokens: 8000,
+      system: [
+        {
+          type: 'text',
+          text: researchSystemPrompt(source, dateLocal),
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      tools: [
+        {
+          type: 'web_search_20250305',
+          name: 'web_search',
+          max_uses: 10,
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: `Research the topic and write the daily article: ${source.topic}. End with ==REFERENCES== listing every URL you consulted.`,
+        },
+      ],
+    }),
+  });
+  if (!resp.ok) throw new Error(`anthropic research ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  let text = '';
+  const visitedUrls = new Set<string>();
+  for (const block of j.content ?? []) {
+    if (block.type === 'text') text += block.text;
+    if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
+      for (const r of block.content) {
+        if (r?.url) visitedUrls.add(r.url);
+      }
+    }
+  }
+  const parsed = parseResearchOutput(text);
+  for (const u of visitedUrls) {
+    if (!parsed.references.includes(u)) parsed.references.push(u);
+  }
+  return {
+    ...parsed,
+    model: j.model ?? model,
+    tokensIn: j.usage?.input_tokens ?? 0,
+    tokensOut: j.usage?.output_tokens ?? 0,
+  };
 }
 
 async function callOpenAIDigest(

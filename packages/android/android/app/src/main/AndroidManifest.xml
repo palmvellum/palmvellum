@@ -15,11 +15,28 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:exported="true">
+            android:exported="true"
+            android:resizeableActivity="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep link: catch magic-link callbacks from Supabase Auth
+                 so the email link reopens the app instead of the browser.
+                 autoVerify=false: without assetlinks.json on tatliving.dev,
+                 first-time taps show Android's chooser dialog. Good enough
+                 for a debug build; switch to true once assetlinks.json is
+                 deployed. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="tatliving.dev"
+                    android:pathPrefix="/palmvellum/app/" />
             </intent-filter>
 
         </activity>

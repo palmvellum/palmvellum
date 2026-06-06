@@ -198,6 +198,7 @@
   // ── Live subscriptions ─────────────────────────────────
   let eventsChannel: ReturnType<typeof supabase.channel> | null = null;
   let draftsChannel: ReturnType<typeof supabase.channel> | null = null;
+  let todosChannel: ReturnType<typeof supabase.channel> | null = null;
 
   $effect(() => {
     if (authState.phase !== 'ready') return;
@@ -224,11 +225,27 @@
       )
       .subscribe();
 
+    // To-do records: filter to type=todo so we only reload when the
+    // record kind we actually surface on the calendar changes. Catches
+    // TodoList ticking a checkbox (UPDATE), new (AI)-triggered todos
+    // (INSERT), and todo deletions (UPDATE deleted_at).
+    todosChannel?.unsubscribe();
+    todosChannel = supabase
+      .channel('cal-todos')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'records', filter: 'type=eq.todo' },
+        async () => { await loadEvents(); },
+      )
+      .subscribe();
+
     return () => {
       eventsChannel?.unsubscribe();
       draftsChannel?.unsubscribe();
+      todosChannel?.unsubscribe();
       eventsChannel = null;
       draftsChannel = null;
+      todosChannel = null;
     };
   });
 

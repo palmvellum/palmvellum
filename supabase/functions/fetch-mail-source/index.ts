@@ -39,6 +39,17 @@ const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 const MAX_HTML_TEXT = 80_000; // chars of stripped text passed to AI
 
+// CORS headers so the PWA can invoke this function directly from the
+// browser via supabase.functions.invoke('fetch-mail-source', ...).
+// Server-to-server callers (the cron sweeper, pg_net webhooks)
+// ignore them.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 interface Source {
   id: string;
   user_id: string;
@@ -192,6 +203,10 @@ function parseResearchOutput(text: string): {
 
 // @ts-expect-error Deno-only API
 Deno.serve(async (req: Request) => {
+  // Preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
   let payload: { source_id?: string };
   try {
     payload = await req.json();
@@ -358,7 +373,7 @@ async function markError(id: string, msg: string): Promise<void> {
 function jsonResp(body: unknown, status: number = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
   });
 }
 

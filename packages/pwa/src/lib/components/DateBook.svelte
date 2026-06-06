@@ -99,7 +99,7 @@
     }
   });
 
-  // ── Load events ────────────────────────────────────────
+  // ── Load events + open to-dos with due dates ────────────
   async function loadEvents() {
     if (!authState.userId) return;
     loading = true;
@@ -109,15 +109,77 @@
     from.setDate(from.getDate() - 7);
     to.setDate(to.getDate() + 7);
 
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .is('deleted_at', null)
-      .gte('start_at', from.toISOString())
-      .lt('start_at', to.toISOString())
-      .order('start_at');
-    if (error) cloudError = error.message;
-    else if (data) events = data as CalendarEvent[];
+    const [evRes, todoRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select('*')
+        .is('deleted_at', null)
+        .gte('start_at', from.toISOString())
+        .lt('start_at', to.toISOString())
+        .order('start_at'),
+      // Open to-dos with a due date in the visible window.
+      supabase
+        .from('records')
+        .select('id, user_id, body, metadata, updated_at, deleted_at')
+        .eq('type', 'todo')
+        .is('deleted_at', null)
+        .limit(500),
+    ]);
+
+    if (evRes.error) cloudError = evRes.error.message;
+    const evs = (evRes.data ?? []) as CalendarEvent[];
+
+    // Map to-do records with a due date into pseudo CalendarEvents.
+    type TodoRow = {
+      id: string;
+      user_id: string;
+      body: string | null;
+      metadata: {
+        palm_due_date?: string;
+        palm_completed?: boolean;
+        palm_priority?: number;
+        palm_notes?: string;
+      } | null;
+      updated_at: string;
+      deleted_at: string | null;
+    };
+    const fromMs = from.getTime();
+    const toMs = to.getTime();
+    const todoEvs: CalendarEvent[] = ((todoRes.data ?? []) as TodoRow[])
+      .map((r) => {
+        const md = r.metadata ?? {};
+        const due = (md.palm_due_date ?? '').trim();
+        if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return null;
+        // All-day at local midnight of the due date.
+        const [y, m, d] = due.split('-').map(Number);
+        const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
+        const ms = dt.getTime();
+        if (ms < fromMs || ms >= toMs) return null;
+        const completed = md.palm_completed === true;
+        const ce: CalendarEvent = {
+          id: `todo-${r.id}`,
+          user_id: r.user_id,
+          title: (r.body ?? '').trim() || '(untitled to-do)',
+          start_at: dt.toISOString(),
+          end_at: null,
+          all_day: true,
+          location: null,
+          notes: md.palm_notes ?? null,
+          alarm_minutes: null,
+          repeat_rule: null,
+          source: 'todo',
+          deleted_at: null,
+          updated_at: r.updated_at,
+          kind: 'todo',
+          todo_completed: completed,
+        };
+        return ce;
+      })
+      .filter((x): x is CalendarEvent => x !== null);
+
+    events = [...evs, ...todoEvs].sort(
+      (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+    );
     loading = false;
   }
 
@@ -498,9 +560,15 @@
       {:else}
         <ul class="day-list">
           {#each selectedEvents as e (e.id)}
-            <li class="ev">
+            <li class="ev {e.kind === 'todo' ? 'is-todo' : ''}">
               <div class="ev-time">
-                {#if e.all_day}all-day{:else}{hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}{/if}
+                {#if e.kind === 'todo'}
+                  to-do
+                {:else if e.all_day}
+                  all-day
+                {:else}
+                  {hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}
+                {/if}
               </div>
               <div class="ev-body">
                 <div class="ev-title">{e.title}</div>
@@ -509,8 +577,12 @@
                 {#if e.alarm_minutes != null}<div class="ev-meta">alarm: {e.alarm_minutes} min before</div>{/if}
               </div>
               <div class="ev-actions">
-                <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
-                <button type="button" class="link danger" onclick={() => deleteEvent(e)}>×</button>
+                {#if e.kind === 'todo'}
+                  <a class="link" href={base + '/palm?tab=todo'}>open</a>
+                {:else}
+                  <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
+                  <button type="button" class="link danger" onclick={() => deleteEvent(e)}>×</button>
+                {/if}
               </div>
             </li>
           {/each}
@@ -624,7 +696,9 @@
             <span class="num">{d.getDate()}</span>
             {#if dayEvents.length > 0}
               <span class="dots">
-                {#each dayEvents.slice(0, 3) as _e (_e.id)}<span class="dot"></span>{/each}
+                {#each dayEvents.slice(0, 3) as _e (_e.id)}
+                  <span class="dot {_e.kind === 'todo' ? 'dot-todo' : ''}"></span>
+                {/each}
                 {#if dayEvents.length > 3}<span class="more">+{dayEvents.length - 3}</span>{/if}
               </span>
             {/if}
@@ -896,6 +970,12 @@
     background: var(--accent);
     border-radius: 50%;
   }
+  .dot.dot-todo {
+    background: var(--cat-todo, #f4d35e);
+    border: 1px solid var(--ink-mute);
+    width: 4px;
+    height: 4px;
+  }
   .more {
     color: var(--accent-dim);
     font-size: 0.65rem;
@@ -949,6 +1029,15 @@
     border: 1px solid var(--line);
     border-left: 3px solid var(--cat-event);
     padding: 0.5rem 0.75rem;
+  }
+  .ev.is-todo {
+    border-left-color: var(--cat-todo, #f4d35e);
+  }
+  .ev.is-todo .ev-time {
+    color: var(--cat-todo, #f4d35e);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.72rem;
   }
   @media (max-width: 600px) {
     .ev {

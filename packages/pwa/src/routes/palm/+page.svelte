@@ -37,7 +37,7 @@
 {:else}
   <section class="palm">
     <header class="head">
-      <h1>my palm</h1>
+      <h1>Organizers</h1>
       <p class="sub">
         one shared dataset for every Palm you own — Date Book / To Do List /
         Address / Memo Pad / Note Pad / Mail / Expense.

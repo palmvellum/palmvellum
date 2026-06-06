@@ -603,39 +603,8 @@
         </div>
         <div class="nav-r">
           {#if loading}<span class="muted">syncing…</span>{/if}
-          <button
-            type="button"
-            class="ical-btn"
-            onclick={openIcalPanel}
-            disabled={icalBusy}
-            title={t('datebook.icalGetLinkTitle')}
-          >
-            {icalBusy ? '...' : t('datebook.icalGetLink')}
-          </button>
         </div>
       </header>
-
-      {#if icalOpen && authState.settings?.ical_token}
-        <div class="ical-panel">
-          <p class="ical-explain">{t('datebook.icalExplain')}</p>
-          <div class="ical-url-box">
-            <code>{icalHttpsUrl()}</code>
-          </div>
-          <div class="ical-row">
-            <a class="ical-apple" href={icalWebcalUrl()} rel="noopener">
-              {t('datebook.icalSubscribeApple')}
-            </a>
-            <button type="button" onclick={copyIcalUrl} disabled={icalBusy}>
-              {icalCopied ? t('datebook.icalCopied') : t('datebook.icalCopy')}
-            </button>
-            <button type="button" class="ical-revoke" onclick={revokeIcal} disabled={icalBusy}>
-              {t('datebook.icalRevoke')}
-            </button>
-            <button type="button" class="ical-close" onclick={() => (icalOpen = false)} aria-label="close">×</button>
-          </div>
-          {#if icalError}<p class="ical-err">{icalError}</p>{/if}
-        </div>
-      {/if}
 
       <div class="dow-row">
         {#each DOW as d}<span>{d}</span>{/each}
@@ -664,12 +633,45 @@
       </div>
     </section>
 
-    <!-- 4. Add event manually -->
+    <!-- 4. Add event manually + iCal subscription -->
     <section class="manual">
       {#if !showManualForm}
-        <button type="button" class="manual-trigger" onclick={openCreate}>
-          + add event manually
-        </button>
+        <div class="manual-actions">
+          <button type="button" class="manual-trigger" onclick={openCreate}>
+            + add event manually
+          </button>
+          <button
+            type="button"
+            class="manual-trigger"
+            onclick={openIcalPanel}
+            disabled={icalBusy}
+            title={t('datebook.icalGetLinkTitle')}
+          >
+            {icalBusy ? '...' : t('datebook.icalGetLink')}
+          </button>
+        </div>
+
+        {#if icalOpen && authState.settings?.ical_token}
+          <div class="ical-panel">
+            <p class="ical-explain">{t('datebook.icalExplain')}</p>
+            <div class="ical-url-box">
+              <code>{icalHttpsUrl()}</code>
+            </div>
+            <div class="ical-row">
+              <a class="ical-apple" href={icalWebcalUrl()} rel="noopener">
+                {t('datebook.icalSubscribeApple')}
+              </a>
+              <button type="button" onclick={copyIcalUrl} disabled={icalBusy}>
+                {icalCopied ? t('datebook.icalCopied') : t('datebook.icalCopy')}
+              </button>
+              <button type="button" class="ical-revoke" onclick={revokeIcal} disabled={icalBusy}>
+                {t('datebook.icalRevoke')}
+              </button>
+              <button type="button" class="ical-close" onclick={() => (icalOpen = false)} aria-label="close">×</button>
+            </div>
+            {#if icalError}<p class="ical-err">{icalError}</p>{/if}
+          </div>
+        {/if}
       {:else}
         <section class="form-card">
           <header class="form-h">
@@ -1252,23 +1254,18 @@
     margin-left: auto;
   }
 
-  /* iCal subscription button + inline panel */
-  .ical-btn {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: inherit;
-    font-size: 0.75rem;
-    padding: 0.3rem 0.6rem;
-    cursor: pointer;
-    text-transform: lowercase;
-    letter-spacing: 0.04em;
+  /* iCal subscription inline panel (button itself reuses .manual-trigger) */
+  .manual-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
   }
-  .ical-btn:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--bg);
+  @media (max-width: 480px) {
+    .manual-actions {
+      grid-template-columns: 1fr;
+    }
   }
-  .ical-btn:disabled {
+  .manual-actions .manual-trigger:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }

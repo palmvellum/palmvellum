@@ -486,9 +486,9 @@
                 </div>
                 <div class="ev-body">
                   <div class="ev-title">{e.title}</div>
-                  {#if e.location}<div class="ev-meta">📍 {e.location}</div>{/if}
+                  {#if e.location}<div class="ev-meta">at {e.location}</div>{/if}
                   {#if e.notes}<div class="ev-meta notes">{e.notes}</div>{/if}
-                  {#if e.alarm_minutes != null}<div class="ev-meta">⏰ {e.alarm_minutes} min before</div>{/if}
+                  {#if e.alarm_minutes != null}<div class="ev-meta">alarm: {e.alarm_minutes} min before</div>{/if}
                 </div>
                 <div class="ev-actions">
                   <button type="button" class="link" onclick={() => openEdit(e)}>edit</button>
@@ -504,7 +504,7 @@
     <!-- RIGHT: AI panel + manual form -->
     <aside class="right">
       <section class="ai-card">
-        <h2><span class="sparkle">✨</span> plan with AI</h2>
+        <h2>plan with AI</h2>
         <p class="sub">
           Paste anything — free-form notes, conversations, "next week: gym Mon Wed Fri 7am, dentist Thu 3pm" — and the AI extracts events you can review.
         </p>
@@ -536,9 +536,9 @@
                 </header>
 
                 {#if draft.status === 'pending' || draft.status === 'parsing'}
-                  <p class="muted parsing">⟳ AI parsing…</p>
+                  <p class="muted parsing">[...] AI parsing</p>
                 {:else if draft.status === 'error'}
-                  <p class="error">⚠ {draft.ai_error ?? 'parse failed'}</p>
+                  <p class="error">[err] {draft.ai_error ?? 'parse failed'}</p>
                   <button type="button" class="link" onclick={() => rejectDraft(draft)}>dismiss</button>
                 {:else if draft.parsed_events.length === 0}
                   <p class="muted">No events found in that input.</p>
@@ -553,8 +553,8 @@
                         </div>
                         <div class="prop-body">
                           <div class="prop-title">{pe.title}</div>
-                          {#if pe.location}<div class="muted small">📍 {pe.location}</div>{/if}
-                          {#if pe.alarm_minutes != null}<div class="muted small">⏰ {pe.alarm_minutes} min</div>{/if}
+                          {#if pe.location}<div class="muted small">at {pe.location}</div>{/if}
+                          {#if pe.alarm_minutes != null}<div class="muted small">alarm: {pe.alarm_minutes} min</div>{/if}
                           {#if pe.notes}<div class="muted small notes">{pe.notes}</div>{/if}
                         </div>
                         <div class="prop-actions">

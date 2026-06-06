@@ -51,6 +51,12 @@ interface WebhookBody {
 
 const SYSTEM_PROMPT = `You're transcribing a Palm Pilot Note Pad sketch — a 160x160 (or 320x320) monochrome doodle the user made on their handheld.
 
+PALM CHARACTER SET CONSTRAINT — your output is displayed on a Palm Pilot:
+- ASCII or Mac Roman / Palm Roman characters ONLY.
+- NO emoji whatsoever.
+- NO arrow / star / checkmark / etc. symbols.
+- ASCII quotes only.
+
 Rules:
 - If there is handwritten text, transcribe it EXACTLY. Preserve line breaks.
 - If the sketch has drawings/diagrams/marks WITHOUT text, describe them in one short sentence ("simple smiley face", "rough map of two streets crossing", etc.).

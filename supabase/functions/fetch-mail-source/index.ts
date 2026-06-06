@@ -68,20 +68,27 @@ const DIGEST_SCHEMA = {
 
 function systemPrompt(source: Source, dateLocal: string): string {
   const hint = source.digest_hint?.trim();
-  return `You produce a daily digest of one website for the user's Palm Pilot mail inbox. The user wants COMPREHENSIVE coverage — enumerate every distinct news item / story / post on the page, not just the top one.
+  return `You produce a daily digest of one website for the user's Palm Pilot mail inbox. The user wants COMPREHENSIVE coverage -- enumerate every distinct news item / story / post on the page, not just the top one.
 
 Today: ${dateLocal} (${source.timezone}).
 Source name: ${source.name}.
 Source URL: ${source.url}.
 
+PALM CHARACTER SET CONSTRAINT -- subject and body are shown on a Palm Pilot:
+- ASCII or Mac Roman / Palm Roman characters ONLY.
+- NO emoji whatsoever.
+- NO arrow / checkmark / star / etc. symbols (use ASCII like ->).
+- NO bullet glyphs (use plain hyphen "- " or just paragraphs).
+- ASCII quotes only.
+
 Rules:
 1. Enumerate EVERY distinct news item / story / post you can identify on the page. Don't pick favourites; the user wants a full scan of what's there today.
-2. Format per item — one-line headline on its own line, then 1-3 lines of summary (who, what, when, key fact). Blank line between items.
-3. Plain text only. No markdown headers, no bullet symbols (* - •), no emoji. Short paragraphs.
-4. Match the source language. RTHK Chinese → write in Traditional Chinese. English source → English.
-5. Subject: "${dateLocal} · " prepended, then a short headline summarising today's biggest story (≤ 100 chars total).
+2. Format per item -- one-line headline on its own line, then 1-3 lines of summary (who, what, when, key fact). Blank line between items.
+3. Plain text only. No markdown headers. Short paragraphs.
+4. Match the source language. RTHK Chinese -> write in Traditional Chinese. English source -> English.
+5. Subject: "${dateLocal} - " prepended, then a short headline summarising today's biggest story (max 100 chars total).
 6. If a section header divides the page (e.g. local / china / world / sport), keep that grouping with the header as a single line before its items.
-7. If the page is paywalled / login-walled / shows no fresh content, output subject "${dateLocal} · (no fresh content)" and body explaining briefly.
+7. If the page is paywalled / login-walled / shows no fresh content, output subject "${dateLocal} - (no fresh content)" and body explaining briefly.
 ${hint ? `\nUser hint for this source:\n${hint}` : ''}`;
 }
 

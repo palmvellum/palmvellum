@@ -40,7 +40,7 @@ const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 const MAX_ITERATIONS = 5;
 
-const AGENT_SEPARATOR = '\n\n— AI agent —\n';
+const AGENT_SEPARATOR = '\n\n-- AI agent --\n';
 
 interface RecordRow {
   id: string;
@@ -379,6 +379,12 @@ Tools available:
 - create_todo(description, due_date, priority, notes)
 - create_memo(title, body)
 - finish(summary)
+
+PALM CHARACTER SET CONSTRAINT — content you write into tools (title, body, summary, etc.) is shown on a Palm Pilot:
+- ASCII or Mac Roman / Palm Roman characters ONLY.
+- NO emoji whatsoever.
+- NO arrow / checkmark / star / etc. symbols (use ASCII like -> [done] [!] ).
+- ASCII quotes only.
 
 When done, you MUST call finish(summary). Summary is the user-facing recap of what you did.
 Keep tool calls under five total. Resolve relative dates ("tomorrow", "next Friday") using the now timestamp above.`;

@@ -38,11 +38,19 @@ const SIGNED_URL_TTL = 600; // seconds
 const SYSTEM_PROMPT_TEXT =
   `You read uploaded documents for a Palm Pilot user and produce a Palm-friendly memo summary they can read on a 160x160 monochrome screen.
 
-Rules:
-- Output PLAIN TEXT only. Short paragraphs. No markdown, no emoji, no bullet symbols (no - or * or •).
-- First line: a tight headline (≤ 80 chars).
+PALM CHARACTER SET CONSTRAINT — this is critical:
+- Output ASCII or Mac Roman / Palm Roman characters ONLY.
+- NO emoji whatsoever (no document/folder/checkmark/star icons).
+- NO arrow symbols (use -> instead).
+- NO bullet glyphs (use plain "- " hyphen or just paragraphs).
+- ASCII quotes ' " only (not curly quotes).
+- Em dash (--) and middle dot are OK, but prefer plain hyphens.
+
+Content rules:
+- Plain text. Short paragraphs. No markdown.
+- First line: a tight headline (max 80 chars).
 - Body: 150-500 words depending on content density. Capture the gist, key facts, dates / numbers / names, and any actionable items mentioned.
-- Match the source language. Chinese source → Traditional Chinese output; English source → English.
+- Match the source language. Chinese source -> Traditional Chinese. English source -> English.
 - If the document is essentially empty, output exactly: (no readable content)`;
 
 const SYSTEM_PROMPT_IMAGE =
@@ -50,9 +58,16 @@ const SYSTEM_PROMPT_IMAGE =
 
 If the image contains text (a receipt, document scan, screenshot, handwritten note): transcribe the text. If it's a photo / chart / diagram: describe what it shows and the key information.
 
-Rules:
-- Output PLAIN TEXT only. Short paragraphs. No markdown, no emoji, no bullet symbols.
-- First line: a tight headline (≤ 80 chars).
+PALM CHARACTER SET CONSTRAINT — this is critical:
+- ASCII or Mac Roman / Palm Roman characters ONLY.
+- NO emoji at all.
+- NO arrow symbols (use -> instead).
+- NO bullet glyphs.
+- ASCII quotes only.
+
+Content rules:
+- Plain text. Short paragraphs. No markdown.
+- First line: a tight headline (max 80 chars).
 - Body: 100-400 words depending on content density.
 - Match the source language.
 - If image is blank / unrecognisable, output exactly: (no readable content)`;
@@ -203,7 +218,7 @@ Deno.serve(async (req: Request) => {
     return jsonResp({ error: msg });
   }
 
-  const newBody = `📎 ${filename}\n\n${summary}`;
+  const newBody = `${filename}\n\n${summary}`;
   await supa
     .from('records')
     .update({

@@ -321,7 +321,7 @@
       {todos.length === 0
         ? 'No tasks on this Palm yet. Add one above or push from ToDo via vellum-sync.'
         : filter === 'open'
-          ? '🎉 nothing open.'
+          ? 'nothing open.'
           : 'No completed tasks.'}
     </p>
   {:else}
@@ -370,19 +370,19 @@
               </label>
               <span class="prio prio-{priority(t)}" title="priority {priority(t)}">{priority(t)}</span>
               <div class="body">
-                {#if ai}<span class="ai-badge" title="agentic task">🤖 AI</span>{/if}
+                {#if ai}<span class="ai-badge" title="agentic task">AI</span>{/if}
                 <span class="desc" class:strike={done}>{t.body}</span>
                 {#if t.metadata?.palm_notes}<div class="notes">{t.metadata.palm_notes}</div>{/if}
                 {#if ai && (t.ai_status === 'pending' || t.ai_status === 'processing')}
-                  <div class="agent-status pending">⟳ agent working…</div>
+                  <div class="agent-status pending">[...] agent working</div>
                 {:else if ai && t.ai_status === 'done' && t.metadata?.agent_summary}
                   <div class="agent-status done">
-                    ✓ <strong>agent done.</strong>
+                    [done] <strong>agent.</strong>
                     {t.metadata.agent_summary}
                     <span class="result-note">(full result in Memo Pad)</span>
                   </div>
                 {:else if ai && t.ai_status === 'error'}
-                  <div class="agent-status err">⚠ {t.ai_error ?? 'agent failed'}</div>
+                  <div class="agent-status err">[err] {t.ai_error ?? 'agent failed'}</div>
                 {/if}
               </div>
               {#if due}

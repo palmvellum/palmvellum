@@ -225,7 +225,7 @@
       .upload(path, file, { contentType: file.type, upsert: false });
     if (upErr) throw new Error(`upload: ${upErr.message}`);
 
-    const placeholder = `📎 ${file.name}\n\n⏳ AI is reading the file. This memo will fill in within a few seconds.`;
+    const placeholder = `${file.name}\n\nAI is reading the file. This memo will fill in within a few seconds.`;
     const { error: insErr } = await supabase.from('records').insert({
       id: recordId,
       user_id: authState.userId,
@@ -357,7 +357,7 @@
       <p>uploading…</p>
     {:else}
       <p class="upload-line">
-        📎 <strong>drop a file</strong> or click here — PDF / DOCX / image (≤ 20 MB).
+        <strong>drop a file</strong> or click here — PDF / DOCX / image (≤ 20 MB).
         AI reads it and creates a memo summary.
       </p>
     {/if}
@@ -416,28 +416,26 @@
             <header class="item-h">
               <span class="tag tag-{m.type}">
                 {isUploadMemo(m)
-                  ? '📎 upload'
+                  ? 'upload'
                   : isAI(m)
                     ? 'AI Q'
                     : isAgentMemo(m)
-                      ? '🤖 agent'
+                      ? 'agent'
                       : 'note'}
               </span>
               {#if isUploadMemo(m)}
                 <span class="upload-name" title={uploadFilenameOf(m)}>{uploadFilenameOf(m)}</span>
               {/if}
-              {#if m.ai_status === 'pending'}
-                <span class="pending">⟳ {isUploadMemo(m) ? 'reading file' : isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
-              {:else if m.ai_status === 'processing'}
-                <span class="pending">⟳ {isUploadMemo(m) ? 'reading file' : isAgentMemo(m) ? 'agent working' : 'AI parsing'}…</span>
+              {#if m.ai_status === 'pending' || m.ai_status === 'processing'}
+                <span class="pending">[...] {isUploadMemo(m) ? 'reading file' : isAgentMemo(m) ? 'agent working' : 'AI parsing'}</span>
               {:else if m.ai_status === 'done' && m.ai_response}
-                <span class="answered">✓ answered</span>
+                <span class="answered">[done] answered</span>
               {:else if m.ai_status === 'done' && isAgentMemo(m)}
-                <span class="answered">✓ agent done</span>
+                <span class="answered">[done] agent</span>
               {:else if m.ai_status === 'done' && isUploadMemo(m)}
-                <span class="answered">✓ summary ready</span>
+                <span class="answered">[done] summary ready</span>
               {:else if m.ai_status === 'error'}
-                <span class="errored">⚠ {m.ai_status === 'error' ? 'AI error' : ''}</span>
+                <span class="errored">[err] AI error</span>
               {/if}
               <time>{fmtTime(m.updated_at)}</time>
               <button class="link" onclick={() => startEdit(m)}>edit</button>
@@ -446,7 +444,7 @@
             <pre class="body">{m.body}</pre>
             {#if m.ai_response}
               <div class="ai-resp">
-                <div class="ai-resp-label">— AI —</div>
+                <div class="ai-resp-label">-- AI --</div>
                 <pre>{m.ai_response}</pre>
               </div>
             {/if}

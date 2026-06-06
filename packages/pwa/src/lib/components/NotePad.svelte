@@ -335,11 +335,11 @@
               <div class="title">{s.metadata?.palm_title ?? '(untitled)'}</div>
               <div class="when">{fmtTime(s.created_at)}</div>
               {#if s.ai_status === 'pending' || s.ai_status === 'processing'}
-                <div class="badge pending">⟳ analyzing</div>
+                <div class="badge pending">[...] analyzing</div>
               {:else if s.ai_status === 'done'}
                 <div class="snippet">{(s.body ?? '').slice(0, 80)}{(s.body ?? '').length > 80 ? '…' : ''}</div>
               {:else if s.ai_status === 'error'}
-                <div class="badge errored">⚠ {s.ai_error ?? 'failed'}</div>
+                <div class="badge errored">[err] {s.ai_error ?? 'failed'}</div>
               {/if}
             </div>
           </button>
@@ -379,11 +379,11 @@
           <div class="ai-area">
             <div class="ai-h">AI transcription</div>
             {#if activeSketch.ai_status === 'pending' || activeSketch.ai_status === 'processing'}
-              <p class="pending">⟳ vision model is reading your sketch…</p>
+              <p class="pending">[...] vision model is reading your sketch</p>
             {:else if activeSketch.ai_status === 'done'}
               <pre class="extracted">{activeSketch.body || '(blank)'}</pre>
             {:else if activeSketch.ai_status === 'error'}
-              <p class="errored">⚠ {activeSketch.ai_error ?? 'failed'}</p>
+              <p class="errored">[err] {activeSketch.ai_error ?? 'failed'}</p>
               <button class="link" onclick={() => reprocess(activeSketch!)}>retry / set manually</button>
             {:else}
               <p class="pending">queued…</p>

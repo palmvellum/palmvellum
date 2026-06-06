@@ -411,7 +411,7 @@
                     <div class="src-when">
                       daily {s.fetch_time.slice(0, 5)} {s.timezone} ·
                       last {fmtTime(s.last_fetched_at)}
-                      {#if s.last_error}<span class="err">· ⚠ {s.last_error}</span>{/if}
+                      {#if s.last_error}<span class="err">· [err] {s.last_error}</span>{/if}
                     </div>
                     {#if s.digest_hint}
                       <div class="src-hint">hint: {s.digest_hint}</div>

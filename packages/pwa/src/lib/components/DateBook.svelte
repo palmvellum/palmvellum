@@ -435,9 +435,9 @@
     <section class="left">
       <header class="hdr">
         <div class="nav-l">
-          <button type="button" class="step" onclick={prevMonth} aria-label="previous month">◄</button>
+          <button type="button" class="step" onclick={prevMonth} aria-label="previous month">&lt;</button>
           <h1>{monthLabel(viewMonth)}</h1>
-          <button type="button" class="step" onclick={nextMonth} aria-label="next month">►</button>
+          <button type="button" class="step" onclick={nextMonth} aria-label="next month">&gt;</button>
           <button type="button" class="today" onclick={gotoToday}>today</button>
         </div>
         <div class="nav-r">

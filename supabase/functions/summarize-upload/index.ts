@@ -9,7 +9,7 @@
  *   *wordprocessing*  → mammoth extracts text → text LLM summarises
  *
  * Output goes into records.body as a Palm-friendly plain-text memo.
- * The 📎 filename header is preserved at the top so the user knows
+ * The filename header is preserved at the top so the user knows
  * which file this memo represents.
  */
 

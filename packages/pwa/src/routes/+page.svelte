@@ -183,11 +183,11 @@
   function emptyMessageFor(mode: string): string {
     switch (mode) {
       case 'aiquery':
-        return 'No questions yet. Ask the Oracle above ↑';
+        return 'No questions yet. Ask the Oracle above.';
       case 'thought':
-        return 'No thoughts captured yet ↑';
+        return 'No thoughts captured yet.';
       case 'todo':
-        return 'Nothing on your list. Add a task above ↑';
+        return 'Nothing on your list. Add a task above.';
       default:
         return 'No records yet.';
     }
@@ -340,7 +340,7 @@
     <section class="card">
       <h2>Join the waitlist</h2>
       {#if waitlistDone}
-        <p class="ok">✓ On the list. We'll email when invites open.</p>
+        <p class="ok">[ok] On the list. We'll email when invites open.</p>
       {:else}
         <form onsubmit={submitWaitlist}>
           <label>
@@ -373,7 +373,7 @@
     <section class="card">
       <h2>Already invited?</h2>
       {#if signinSent}
-        <p class="ok">✓ Magic link sent to {signinEmail}. Check your inbox.</p>
+        <p class="ok">[ok] Magic link sent to {signinEmail}. Check your inbox.</p>
       {:else}
         <form onsubmit={submitSignin}>
           <label>
@@ -839,12 +839,13 @@
     border-color: var(--green);
   }
   .todo input[type='checkbox']:checked::after {
-    content: '✓';
+    content: 'x';
     position: absolute;
-    left: 1px;
-    top: -3px;
+    left: 3px;
+    top: -2px;
     color: var(--bg);
-    font-size: 0.95rem;
+    font-size: 0.85rem;
+    font-weight: 700;
     font-weight: 700;
   }
   .todo .body {

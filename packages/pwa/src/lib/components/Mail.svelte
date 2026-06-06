@@ -317,7 +317,7 @@
   <section class="sources">
     <header class="sec-h">
       <button class="link" onclick={() => (showSources = !showSources)} aria-expanded={showSources}>
-        {showSources ? '▼' : '▶'} sources ({sources.length})
+        {showSources ? '[-]' : '[+]'} sources ({sources.length})
       </button>
       <button class="add" onclick={() => (showAdd = !showAdd)}>
         {showAdd ? 'cancel' : '+ add source'}

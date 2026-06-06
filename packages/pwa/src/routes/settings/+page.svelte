@@ -97,7 +97,7 @@
       <div>
         <span class="label">openai</span>
         {#if authState.settings.openai_secret_id}
-          <span class="ok">✓ stored</span>
+          <span class="ok">[ok] stored</span>
         {:else}
           <span class="warn">not set</span>
         {/if}
@@ -106,7 +106,7 @@
       <div>
         <span class="label">anthropic</span>
         {#if authState.settings.anthropic_secret_id}
-          <span class="ok">✓ stored</span>
+          <span class="ok">[ok] stored</span>
         {:else}
           <span class="warn">not set</span>
         {/if}
@@ -147,7 +147,7 @@
         <p class="error">{saveError}</p>
       {/if}
       {#if saveOk}
-        <p class="ok">✓ saved (encrypted to Vault)</p>
+        <p class="ok">[ok] saved (encrypted to Vault)</p>
       {/if}
       <button type="submit" disabled={saving}>
         {saving ? 'storing…' : 'store key'}
@@ -160,7 +160,7 @@
     <h2>Palm enrollment</h2>
     {#if authState.settings.palm_enrolled}
       <p class="ok">
-        ✓ A Palm is enrolled
+        [ok] A Palm is enrolled
         {#if authState.settings.palm_model}
           (<strong>{authState.settings.palm_model}</strong>)
         {/if}
@@ -184,7 +184,7 @@
 
     {#if enrollToken}
       <div class="token-box">
-        <p class="muted">⚠️ shown once. copy it now.</p>
+        <p class="muted">[!] shown once. copy it now.</p>
         <code class="token">{enrollToken}</code>
         <button type="button" onclick={copyToken}>copy to clipboard</button>
       </div>

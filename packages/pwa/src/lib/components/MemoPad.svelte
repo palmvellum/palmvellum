@@ -321,7 +321,7 @@
       <button class:active={filter === 'all'} onclick={() => (filter = 'all')}>all ({memos.length})</button>
       <button class:active={filter === 'ai'} onclick={() => (filter = 'ai')}>
         AI ({memos.filter((m) => m.type === 'aiquery').length})
-        {#if aiPendingCount > 0}<span class="pending-dot" title="{aiPendingCount} awaiting AI">●</span>{/if}
+        {#if aiPendingCount > 0}<span class="pending-dot" title="{aiPendingCount} awaiting AI">[{aiPendingCount}]</span>{/if}
       </button>
       <button class:active={filter === 'note'} onclick={() => (filter = 'note')}
         >note ({memos.filter((m) => m.type === 'thought').length})</button

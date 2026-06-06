@@ -4,7 +4,6 @@ packages:
   - 'packages/android'
 
 # packages/mac-daemon is a Go module (go.mod), not pnpm-managed
-# packages/palm-app uses Make + Docker, not pnpm-managed
 # packages/sync-cli is a Go module (go.mod), not pnpm-managed
 
 # pnpm 11 requires explicit allowlist for git-hosted deps with build scripts:

@@ -122,6 +122,32 @@
     letter-spacing: 0.04em;
     min-width: 90px;
   }
+  /* On narrow viewports, swap to a single horizontal scroller so all
+     seven tabs stay accessible without stacking into 2-3 rows. */
+  @media (max-width: 720px) {
+    .tabs {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    .tabs button {
+      flex: 0 0 auto;
+      min-width: auto;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+  }
+  @media (max-width: 480px) {
+    h1 {
+      font-size: 1.15rem;
+    }
+    .sub {
+      font-size: 0.8rem;
+    }
+  }
   .tabs button:last-child {
     border-right: none;
   }

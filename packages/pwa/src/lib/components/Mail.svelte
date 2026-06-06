@@ -835,6 +835,42 @@
     gap: 0.7rem;
     align-items: end;
   }
+  @media (max-width: 600px) {
+    .row-2,
+    .row-3 {
+      grid-template-columns: 1fr;
+    }
+    .src-main {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .src-actions {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+    .mail-row {
+      grid-template-columns: 1fr auto;
+      gap: 0.2rem 0.6rem;
+    }
+    .from {
+      grid-column: 1 / -1;
+      font-size: 0.78rem;
+    }
+    .subj {
+      grid-column: 1;
+      white-space: normal;
+    }
+    .date {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .modal {
+      padding: 1rem 0.9rem;
+    }
+    .m-subj {
+      font-size: 1rem;
+    }
+  }
   .check {
     display: flex;
     align-items: center;

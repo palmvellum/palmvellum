@@ -465,6 +465,31 @@
     grid-template-columns: 1fr 1fr 1fr;
     gap: 0.7rem;
   }
+  @media (max-width: 600px) {
+    .row-2,
+    .row-3 {
+      grid-template-columns: 1fr;
+    }
+    .head {
+      flex-wrap: wrap;
+    }
+    .search {
+      flex: 1 1 100%;
+      order: -1;
+    }
+    .card {
+      grid-template-columns: 1fr;
+      gap: 0.15rem;
+    }
+    .amt {
+      grid-row: auto;
+      grid-column: 1;
+      justify-self: start;
+    }
+    .totals {
+      font-size: 0.8rem;
+    }
+  }
   .form-actions {
     display: flex;
     align-items: center;

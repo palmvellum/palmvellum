@@ -684,6 +684,33 @@
     padding-top: 0.7rem;
     border-top: 1px dashed var(--line);
   }
+  @media (max-width: 600px) {
+    .head {
+      flex-wrap: wrap;
+    }
+    .filters {
+      flex: 1 1 100%;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+    .add {
+      order: -1;
+      flex: 1 1 100%;
+    }
+    .upload p {
+      font-size: 0.82rem;
+    }
+    .item-h {
+      gap: 0.4rem;
+    }
+    .item-h time {
+      flex: 1 1 100%;
+      order: 5;
+    }
+    .item-h .link {
+      margin-left: 0;
+    }
+  }
   .ai-resp-label {
     font-size: 0.7rem;
     color: var(--accent);

@@ -448,6 +448,34 @@
     grid-template-columns: 2fr 1fr 1fr;
     gap: 0.7rem;
   }
+  @media (max-width: 600px) {
+    .row-2,
+    .row-3 {
+      grid-template-columns: 1fr;
+    }
+    .phone-row {
+      grid-template-columns: 1fr auto !important;
+    }
+    .phone-row select {
+      grid-column: 1;
+    }
+    .phone-row input {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+    .phone-row button {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: start;
+    }
+    .head {
+      flex-wrap: wrap;
+    }
+    .search {
+      flex: 1 1 100%;
+      order: -1;
+    }
+  }
   fieldset.phones {
     border: 1px solid var(--line);
     padding: 0.6rem 0.8rem;

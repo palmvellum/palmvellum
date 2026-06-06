@@ -57,3 +57,34 @@ code,
 pre {
   font-family: inherit;
 }
+
+/* ── Mobile + narrow tablet ──────────────────────────────── */
+@media (max-width: 720px) {
+  html,
+  body {
+    font-size: 14px;
+  }
+  .shell {
+    padding: 0.9rem 0.85rem 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  html,
+  body {
+    font-size: 13.5px;
+  }
+  .shell {
+    padding: 0.75rem 0.7rem 3rem;
+  }
+}
+
+/* Allow long words/URLs to break instead of overflowing horizontally */
+@media (max-width: 720px) {
+  pre,
+  code,
+  a {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+}

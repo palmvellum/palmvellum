@@ -49,6 +49,33 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
+  @media (max-width: 720px) {
+    .topnav {
+      padding: 0.45rem 0 0.9rem;
+      margin-bottom: 1rem;
+      gap: 0.4rem 0.5rem;
+    }
+    .links {
+      gap: 0.55rem;
+      font-size: 0.78rem;
+    }
+    .brand {
+      font-size: 0.95rem;
+    }
+  }
+  @media (max-width: 480px) {
+    .topnav {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.4rem;
+    }
+    .links {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 0.6rem 0.8rem;
+      font-size: 0.78rem;
+    }
+  }
   .brand {
     font-weight: 600;
     color: var(--ink);

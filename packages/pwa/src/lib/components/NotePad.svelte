@@ -350,6 +350,18 @@
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.7rem;
   }
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.5rem;
+    }
+    .modal {
+      padding: 0;
+    }
+    .modal-body {
+      padding: 0.85rem;
+    }
+  }
   .card {
     width: 100%;
     background: var(--surface-lo);

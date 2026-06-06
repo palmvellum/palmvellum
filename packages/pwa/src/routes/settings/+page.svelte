@@ -221,6 +221,14 @@
     font-size: 1.4rem;
     margin: 0 0 0.25rem;
   }
+  @media (max-width: 600px) {
+    h1 {
+      font-size: 1.15rem;
+    }
+    .card {
+      padding: 0.85rem;
+    }
+  }
   .hint {
     color: var(--ink-mute);
     font-size: 0.85rem;

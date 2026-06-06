@@ -482,6 +482,28 @@
     gap: 1rem;
     flex-wrap: wrap;
   }
+  @media (max-width: 600px) {
+    .meta-row {
+      gap: 0.6rem 1rem;
+    }
+    .meta-row label {
+      flex: 1 1 calc(50% - 0.5rem);
+    }
+    .main {
+      flex-wrap: wrap;
+    }
+    .body {
+      flex: 1 1 100%;
+      order: 4;
+      margin-top: 0.2rem;
+    }
+    .due {
+      order: 5;
+    }
+    .head {
+      flex-wrap: wrap;
+    }
+  }
   .meta-row label {
     display: grid;
     gap: 0.25rem;

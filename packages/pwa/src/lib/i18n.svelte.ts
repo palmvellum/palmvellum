@@ -18,35 +18,62 @@ import { browser } from '$app/environment';
 import en from './i18n/en';
 import zhTW from './i18n/zh-TW';
 import zhCN from './i18n/zh-CN';
+import ja from './i18n/ja';
+import ko from './i18n/ko';
+import ru from './i18n/ru';
 
-export type Lang = 'en' | 'zh-TW' | 'zh-CN';
+export type Lang = 'en' | 'zh-TW' | 'zh-CN' | 'ja' | 'ko' | 'ru';
 
 export const SUPPORTED_LANGUAGES: Array<{ code: Lang; label: string }> = [
   { code: 'en', label: 'English' },
   { code: 'zh-TW', label: '繁體中文' },
   { code: 'zh-CN', label: '简体中文' },
+  { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' },
+  { code: 'ru', label: 'Русский' },
 ];
 
 const DICTIONARIES: Record<Lang, Record<string, string>> = {
   en,
   'zh-TW': zhTW,
   'zh-CN': zhCN,
+  ja,
+  ko,
+  ru,
 };
 
 const STORAGE_KEY = 'palmvellum.lang';
+const KNOWN_LANGS: ReadonlyArray<Lang> = [
+  'en',
+  'zh-TW',
+  'zh-CN',
+  'ja',
+  'ko',
+  'ru',
+];
 
 function detectInitial(): Lang {
   if (!browser) return 'en';
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'en' || stored === 'zh-TW' || stored === 'zh-CN') return stored;
+    if (stored && (KNOWN_LANGS as ReadonlyArray<string>).includes(stored)) {
+      return stored as Lang;
+    }
   } catch {
     /* localStorage might be blocked in private mode */
   }
-  const bl = navigator?.language ?? 'en';
-  if (bl.startsWith('zh-TW') || bl.startsWith('zh-HK') || bl.startsWith('zh-Hant')) return 'zh-TW';
-  if (bl.startsWith('zh-CN') || bl.startsWith('zh-SG') || bl.startsWith('zh-Hans') || bl.startsWith('zh'))
+  const bl = (navigator?.language ?? 'en').toLowerCase();
+  if (bl.startsWith('zh-tw') || bl.startsWith('zh-hk') || bl.startsWith('zh-hant')) return 'zh-TW';
+  if (
+    bl.startsWith('zh-cn') ||
+    bl.startsWith('zh-sg') ||
+    bl.startsWith('zh-hans') ||
+    bl.startsWith('zh')
+  )
     return 'zh-CN';
+  if (bl.startsWith('ja')) return 'ja';
+  if (bl.startsWith('ko')) return 'ko';
+  if (bl.startsWith('ru')) return 'ru';
   return 'en';
 }
 

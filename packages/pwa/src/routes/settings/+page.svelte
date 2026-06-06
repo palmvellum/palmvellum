@@ -41,30 +41,6 @@
     if (!error) await authState.refreshSettings();
   }
 
-  // ── Palm enrollment ─────────────────────────────────────
-  let enrolling = $state(false);
-  let enrollToken = $state<string | null>(null);
-  let enrollError = $state<string | null>(null);
-
-  async function enrollPalm() {
-    enrolling = true;
-    enrollError = null;
-    const { data, error } = await supabase.rpc('enroll_palm');
-    enrolling = false;
-    if (error) {
-      enrollError = error.message;
-      return;
-    }
-    enrollToken = String(data);
-    await authState.refreshSettings();
-  }
-
-  function copyToken() {
-    if (enrollToken) {
-      void navigator.clipboard.writeText(enrollToken);
-    }
-  }
-
   // Guard: redirect to / if not signed in
   $effect(() => {
     if (authState.phase === 'unauthenticated') {
@@ -177,44 +153,6 @@
         {saving ? t('settings.storing') : t('settings.storeKey')}
       </button>
     </form>
-  </section>
-
-  <!-- Palm enrollment -->
-  <section class="card">
-    <h2>{t('settings.palmEnrollHeading')}</h2>
-    {#if authState.settings.palm_enrolled}
-      <p class="ok">
-        [ok] {t('settings.palmEnrolled')}
-        {#if authState.settings.palm_model}
-          (<strong>{authState.settings.palm_model}</strong>)
-        {/if}
-      </p>
-      <p class="muted">
-        {t('settings.tokenIssued')}: {authState.settings.hotsync_token_issued_at &&
-          new Date(authState.settings.hotsync_token_issued_at).toLocaleString()}
-      </p>
-      <p class="hint">{t('settings.enrollAnotherHint')}</p>
-    {:else}
-      <p>{t('settings.enrollInstructions')}</p>
-    {/if}
-
-    {#if enrollToken}
-      <div class="token-box">
-        <p class="muted">[!] {t('settings.tokenOnceWarning')}</p>
-        <code class="token">{enrollToken}</code>
-        <button type="button" onclick={copyToken}>{t('settings.copyClipboard')}</button>
-      </div>
-    {/if}
-
-    {#if enrollError}
-      <p class="error">{enrollError}</p>
-    {/if}
-
-    <button type="button" onclick={enrollPalm} disabled={enrolling}>
-      {enrolling ? t('settings.minting') : authState.settings.palm_enrolled
-        ? t('settings.reissueToken')
-        : t('settings.enrollPalm')}
-    </button>
   </section>
 
   <!-- Credits + subscription -->
@@ -331,22 +269,6 @@
   button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-  .token-box {
-    background: var(--bg);
-    border: 1px solid var(--accent);
-    padding: 0.8rem;
-    margin: 0.8rem 0;
-  }
-  .token {
-    display: block;
-    background: transparent;
-    color: var(--accent);
-    font-family: inherit;
-    font-size: 0.85rem;
-    word-break: break-all;
-    margin: 0.4rem 0;
-    user-select: all;
   }
   code {
     background: var(--bg);

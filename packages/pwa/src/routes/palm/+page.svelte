@@ -17,6 +17,7 @@
   import AddressBook from '$lib/components/AddressBook.svelte';
   import ExpenseLog from '$lib/components/ExpenseLog.svelte';
   import NotePad from '$lib/components/NotePad.svelte';
+  import Mail from '$lib/components/Mail.svelte';
 
   const TABS = [
     { key: 'datebook', label: 'Date Book' },
@@ -68,19 +69,8 @@
       <div class="host" role="tabpanel"><ExpenseLog /></div>
     {:else if activeTab === 'notepad'}
       <div class="host" role="tabpanel"><NotePad /></div>
-    {:else}
-      <div class="panel" role="tabpanel">
-        {#if activeTab === 'mail'}
-          <h2>Mail</h2>
-          <p>
-            Configure websites; AI visits each at your chosen daily
-            time, summarizes the day's content, and delivers it to
-            your Palm's <em>MailDB.pdb</em> as a regular email
-            message — like a personalized morning paper.
-          </p>
-          <p class="phase-note">Phase 5 — needs scheduled Edge Function + per-user mail_sources table.</p>
-        {/if}
-      </div>
+    {:else if activeTab === 'mail'}
+      <div class="host" role="tabpanel"><Mail /></div>
     {/if}
   </section>
 {/if}

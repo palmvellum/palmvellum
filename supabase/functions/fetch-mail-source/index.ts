@@ -32,6 +32,7 @@ const SUPABASE_URL = env('SUPABASE_URL');
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 const PLATFORM_OPENAI = env('PLATFORM_OPENAI_API_KEY');
 const PLATFORM_ANTHROPIC = env('PLATFORM_ANTHROPIC_API_KEY');
+const PLATFORM_GEMINI    = env('PLATFORM_GEMINI_API_KEY');
 
 const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -233,7 +234,7 @@ Deno.serve(async (req: Request) => {
   // Resolve BYOK API key
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model')
     .eq('user_id', source.user_id)
     .single();
   if (!settings) {
@@ -252,7 +253,9 @@ Deno.serve(async (req: Request) => {
     }
     apiKey = String(k);
   } else {
-    apiKey = settings.preferred_provider === 'openai' ? PLATFORM_OPENAI : PLATFORM_ANTHROPIC;
+    apiKey = settings.preferred_provider === 'openai'    ? PLATFORM_OPENAI
+           : settings.preferred_provider === 'anthropic'  ? PLATFORM_ANTHROPIC
+           :                                                PLATFORM_GEMINI;
     if (!apiKey) {
       await markError(sourceId, 'platform key not configured');
       return jsonResp({ error: 'no-platform-key' }, 200);
@@ -271,7 +274,9 @@ Deno.serve(async (req: Request) => {
     try {
       const r = settings.preferred_provider === 'openai'
         ? await callOpenAIResearch(apiKey, source, dateLocal)
-        : await callAnthropicResearch(apiKey, settings.anthropic_model, source, dateLocal);
+        : settings.preferred_provider === 'anthropic'
+        ? await callAnthropicResearch(apiKey, settings.anthropic_model, source, dateLocal)
+        : await callGeminiResearch(apiKey, settings.gemini_model, source, dateLocal);
       digest = { subject: r.subject, body: r.body };
       references = r.references;
       model = r.model;
@@ -295,7 +300,9 @@ Deno.serve(async (req: Request) => {
     try {
       const r = settings.preferred_provider === 'openai'
         ? await callOpenAIDigest(apiKey, settings.openai_model, source, pageText, dateLocal)
-        : await callAnthropicDigest(apiKey, settings.anthropic_model, source, pageText, dateLocal);
+        : settings.preferred_provider === 'anthropic'
+        ? await callAnthropicDigest(apiKey, settings.anthropic_model, source, pageText, dateLocal)
+        : await callGeminiDigest(apiKey, settings.gemini_model, source, pageText, dateLocal);
       digest = r.digest;
       model = r.model;
       tokensIn = r.tokensIn;
@@ -673,6 +680,106 @@ async function callAnthropicDigest(
     model: j.model ?? model,
     tokensIn: j.usage?.input_tokens ?? 0,
     tokensOut: j.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callGeminiDigest(
+  apiKey: string,
+  model: string,
+  source: Source,
+  pageText: string,
+  dateLocal: string,
+): Promise<DigestResult> {
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt(source, dateLocal) }] },
+      contents: [{
+        role: 'user',
+        parts: [{ text: `Source page text:\n\n${pageText}` }],
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: DIGEST_SCHEMA,
+        maxOutputTokens: 4096,
+      },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let txt = '';
+  for (const p of parts) if (typeof p.text === 'string') txt += p.text;
+  let digest = { subject: '', body: '' };
+  try {
+    digest = JSON.parse(txt || '{"subject":"","body":""}') as { subject: string; body: string };
+  } catch {
+    digest = { subject: '', body: txt };
+  }
+  return {
+    digest,
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+}
+
+async function callGeminiResearch(
+  apiKey: string,
+  model: string,
+  source: Source,
+  dateLocal: string,
+): Promise<ResearchResult> {
+  // Gemini's built-in google_search tool grounds the response and
+  // returns citations on candidates[0].groundingMetadata.
+  // responseMimeType / responseSchema are NOT supported alongside
+  // google_search, so we parse the SUBJECT/body/==REFERENCES== text
+  // format the same way the OpenAI / Anthropic paths do.
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: researchSystemPrompt(source, dateLocal) }] },
+      contents: [{
+        role: 'user',
+        parts: [{
+          text: `Research the topic and write the daily article: ${source.topic}. End with ==REFERENCES== listing every URL you consulted.`,
+        }],
+      }],
+      tools: [{ google_search: {} }],
+      generationConfig: { maxOutputTokens: 16000, temperature: 0.7 },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini research ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let text = '';
+  for (const p of parts) if (typeof p.text === 'string') text += p.text;
+  const parsed = parseResearchOutput(text);
+
+  // Harvest grounding URLs the model may not have repeated in
+  // ==REFERENCES==.
+  const grounding = j.candidates?.[0]?.groundingMetadata;
+  const chunks = grounding?.groundingChunks as
+    | Array<{ web?: { uri?: string; title?: string } }>
+    | undefined;
+  if (chunks) {
+    for (const c of chunks) {
+      const u = c?.web?.uri;
+      if (u && !parsed.references.includes(u)) parsed.references.push(u);
+    }
+  }
+
+  return {
+    ...parsed,
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
   };
 }
 

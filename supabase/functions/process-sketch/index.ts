@@ -26,6 +26,7 @@ const SUPABASE_URL = env('SUPABASE_URL');
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 const PLATFORM_OPENAI = env('PLATFORM_OPENAI_API_KEY');
 const PLATFORM_ANTHROPIC = env('PLATFORM_ANTHROPIC_API_KEY');
+const PLATFORM_GEMINI    = env('PLATFORM_GEMINI_API_KEY');
 
 const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -98,7 +99,7 @@ Deno.serve(async (req: Request) => {
   // BYOK key resolution
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model')
     .eq('user_id', r.user_id)
     .single();
   if (!settings) {
@@ -118,7 +119,9 @@ Deno.serve(async (req: Request) => {
     }
     apiKey = String(k);
   } else {
-    apiKey = settings.preferred_provider === 'openai' ? PLATFORM_OPENAI : PLATFORM_ANTHROPIC;
+    apiKey = settings.preferred_provider === 'openai'    ? PLATFORM_OPENAI
+           : settings.preferred_provider === 'anthropic'  ? PLATFORM_ANTHROPIC
+           :                                                PLATFORM_GEMINI;
     if (!apiKey) {
       await failSketch(r.id, `platform ${settings.preferred_provider} key not configured`);
       return jsonResp({ error: 'no-platform-key' }, 200);
@@ -131,7 +134,9 @@ Deno.serve(async (req: Request) => {
     const result =
       settings.preferred_provider === 'openai'
         ? await callOpenAIVision(apiKey, settings.openai_model, imgUrl)
-        : await callAnthropicVision(apiKey, settings.anthropic_model, imgUrl);
+        : settings.preferred_provider === 'anthropic'
+        ? await callAnthropicVision(apiKey, settings.anthropic_model, imgUrl)
+        : await callGeminiVision(apiKey, settings.gemini_model, imgUrl);
 
     await supa
       .from('records')
@@ -265,5 +270,49 @@ async function callAnthropicVision(
     model: j.model ?? model,
     tokensIn: j.usage?.input_tokens ?? 0,
     tokensOut: j.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callGeminiVision(
+  apiKey: string,
+  model: string,
+  imgUrl: string,
+): Promise<VisionResult> {
+  // Gemini's generateContent expects image bytes inline as base64.
+  // The sketch is a PNG stored in the public 'notepad' bucket.
+  const imgResp = await fetch(imgUrl);
+  if (!imgResp.ok) throw new Error(`fetch sketch ${imgResp.status}`);
+  const buf = new Uint8Array(await imgResp.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  const b64 = btoa(bin);
+
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: 'image/png', data: b64 } },
+          { text: 'Transcribe / describe this sketch.' },
+        ],
+      }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.2 },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let text = '';
+  for (const p of parts) if (typeof p.text === 'string') text += p.text;
+  return {
+    text: text.trim(),
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
   };
 }

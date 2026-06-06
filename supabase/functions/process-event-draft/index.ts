@@ -29,6 +29,7 @@ const SUPABASE_URL = env('SUPABASE_URL');
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 const PLATFORM_OPENAI = env('PLATFORM_OPENAI_API_KEY');
 const PLATFORM_ANTHROPIC = env('PLATFORM_ANTHROPIC_API_KEY');
+const PLATFORM_GEMINI    = env('PLATFORM_GEMINI_API_KEY');
 const WEBHOOK_SECRET = env('WEBHOOK_SHARED_SECRET');
 
 const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -149,7 +150,7 @@ Deno.serve(async (req: Request) => {
   // Settings + Vault key
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model, timezone')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model, timezone')
     .eq('user_id', item.user_id)
     .single();
   if (!settings) {
@@ -169,7 +170,9 @@ Deno.serve(async (req: Request) => {
     }
     apiKey = String(k);
   } else {
-    apiKey = settings.preferred_provider === 'openai' ? PLATFORM_OPENAI : PLATFORM_ANTHROPIC;
+    apiKey = settings.preferred_provider === 'openai'    ? PLATFORM_OPENAI
+           : settings.preferred_provider === 'anthropic'  ? PLATFORM_ANTHROPIC
+           :                                                PLATFORM_GEMINI;
     if (!apiKey) {
       await failDraft(item.id, `platform ${settings.preferred_provider} key not configured`);
       return jsonResp({ error: 'no-platform-key' }, 200);
@@ -184,7 +187,9 @@ Deno.serve(async (req: Request) => {
     const result =
       settings.preferred_provider === 'openai'
         ? await callOpenAIStructured(apiKey, settings.openai_model, item.raw_input, userNow, tz)
-        : await callAnthropicTool(apiKey, settings.anthropic_model, item.raw_input, userNow, tz);
+        : settings.preferred_provider === 'anthropic'
+        ? await callAnthropicTool(apiKey, settings.anthropic_model, item.raw_input, userNow, tz)
+        : await callGeminiStructured(apiKey, settings.gemini_model, item.raw_input, userNow, tz);
 
     await supa
       .from('event_drafts')
@@ -355,5 +360,47 @@ async function callAnthropicTool(
     model: j.model ?? model,
     tokensIn: j.usage?.input_tokens ?? 0,
     tokensOut: j.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callGeminiStructured(
+  apiKey: string,
+  model: string,
+  raw: string,
+  userNow: string,
+  tz: string,
+): Promise<{ events: ParsedEvent[]; model: string; tokensIn: number; tokensOut: number }> {
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt() }] },
+      contents: [{
+        role: 'user',
+        parts: [{ text: `user_now: ${userNow}\nuser_tz: ${tz}\n\nINPUT:\n${raw}` }],
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: 2048,
+      },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let txt = '';
+  for (const p of parts) if (typeof p.text === 'string') txt += p.text;
+  let events: ParsedEvent[] = [];
+  try {
+    const parsed = JSON.parse(txt || '{"events":[]}') as { events?: ParsedEvent[] };
+    events = parsed.events ?? [];
+  } catch { events = []; }
+  return {
+    events,
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
   };
 }

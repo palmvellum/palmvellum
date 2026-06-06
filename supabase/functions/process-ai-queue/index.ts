@@ -32,6 +32,7 @@ const SUPABASE_URL = env('SUPABASE_URL');
 const SERVICE_KEY  = env('SUPABASE_SERVICE_ROLE_KEY');
 const PLATFORM_OPENAI    = env('PLATFORM_OPENAI_API_KEY');
 const PLATFORM_ANTHROPIC = env('PLATFORM_ANTHROPIC_API_KEY');
+const PLATFORM_GEMINI    = env('PLATFORM_GEMINI_API_KEY');
 const WEBHOOK_SECRET     = env('WEBHOOK_SHARED_SECRET');
 
 const ORACLE_PROMPT = `You are the PalmVellum Oracle.
@@ -143,9 +144,10 @@ async function processOne(item: QueueRow): Promise<{ status: number; ok?: boolea
 
   const settings = settingsR.data as {
     api_mode: 'byok' | 'platform';
-    preferred_provider: 'openai' | 'anthropic';
+    preferred_provider: 'openai' | 'anthropic' | 'gemini';
     openai_model: string;
     anthropic_model: string;
+    gemini_model: string;
   };
   const rec = recR.data as { id: string; body: string | null };
 
@@ -168,7 +170,9 @@ async function processOne(item: QueueRow): Promise<{ status: number; ok?: boolea
     }
     apiKey = String(k);
   } else {
-    apiKey = settings.preferred_provider === 'openai' ? PLATFORM_OPENAI : PLATFORM_ANTHROPIC;
+    apiKey = settings.preferred_provider === 'openai'   ? PLATFORM_OPENAI
+           : settings.preferred_provider === 'anthropic' ? PLATFORM_ANTHROPIC
+           :                                              PLATFORM_GEMINI;
     if (!apiKey) {
       await failRecord(rec.id, item.user_id, 'platform', settings.preferred_provider,
                        `platform ${settings.preferred_provider} key not configured on edge function`);
@@ -184,7 +188,9 @@ async function processOne(item: QueueRow): Promise<{ status: number; ok?: boolea
   try {
     reply = settings.preferred_provider === 'openai'
       ? await callOpenAI(apiKey, settings.openai_model, rec.body)
-      : await callAnthropic(apiKey, settings.anthropic_model, rec.body);
+      : settings.preferred_provider === 'anthropic'
+      ? await callAnthropic(apiKey, settings.anthropic_model, rec.body)
+      : await callGemini(apiKey, settings.gemini_model, rec.body);
   } catch (e) {
     await failRecord(rec.id, item.user_id, settings.api_mode, settings.preferred_provider,
                      e instanceof Error ? e.message : String(e));
@@ -292,6 +298,31 @@ async function callAnthropic(apiKey: string, model: string, query: string): Prom
     model: j.model ?? model,
     tokensIn: j.usage?.input_tokens ?? 0,
     tokensOut: j.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callGemini(apiKey: string, model: string, query: string): Promise<OracleReply> {
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: ORACLE_PROMPT }] },
+      contents: [{ role: 'user', parts: [{ text: query }] }],
+      generationConfig: { maxOutputTokens: 512, temperature: 0.7 },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let text = '';
+  for (const p of parts) if (typeof p.text === 'string') text += p.text;
+  return {
+    text,
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
   };
 }
 

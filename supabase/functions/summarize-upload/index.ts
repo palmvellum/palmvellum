@@ -27,6 +27,7 @@ const SUPABASE_URL = env('SUPABASE_URL');
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 const PLATFORM_OPENAI = env('PLATFORM_OPENAI_API_KEY');
 const PLATFORM_ANTHROPIC = env('PLATFORM_ANTHROPIC_API_KEY');
+const PLATFORM_GEMINI    = env('PLATFORM_GEMINI_API_KEY');
 
 const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -119,7 +120,7 @@ Deno.serve(async (req: Request) => {
   // Resolve BYOK key
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model')
     .eq('user_id', r.user_id)
     .single();
   if (!settings) {
@@ -139,7 +140,9 @@ Deno.serve(async (req: Request) => {
     }
     apiKey = String(k);
   } else {
-    apiKey = settings.preferred_provider === 'openai' ? PLATFORM_OPENAI : PLATFORM_ANTHROPIC;
+    apiKey = settings.preferred_provider === 'openai'    ? PLATFORM_OPENAI
+           : settings.preferred_provider === 'anthropic'  ? PLATFORM_ANTHROPIC
+           :                                                PLATFORM_GEMINI;
     if (!apiKey) {
       await markError(r, 'platform key not configured');
       return jsonResp({ error: 'no-platform-key' });
@@ -166,7 +169,9 @@ Deno.serve(async (req: Request) => {
       }
       const result = settings.preferred_provider === 'openai'
         ? await callOpenAIVision(apiKey, settings.openai_model, signed.signedUrl)
-        : await callAnthropicVision(apiKey, settings.anthropic_model, signed.signedUrl);
+        : settings.preferred_provider === 'anthropic'
+        ? await callAnthropicVision(apiKey, settings.anthropic_model, signed.signedUrl)
+        : await callGeminiVision(apiKey, settings.gemini_model, signed.signedUrl, mime || 'image/jpeg');
       summary = result.text;
       model = result.model;
       tokensIn = result.tokensIn;
@@ -183,7 +188,9 @@ Deno.serve(async (req: Request) => {
       } else {
         const result = settings.preferred_provider === 'openai'
           ? await callOpenAIText(apiKey, settings.openai_model, trimmed, filename)
-          : await callAnthropicText(apiKey, settings.anthropic_model, trimmed, filename);
+          : settings.preferred_provider === 'anthropic'
+          ? await callAnthropicText(apiKey, settings.anthropic_model, trimmed, filename)
+          : await callGeminiText(apiKey, settings.gemini_model, trimmed, filename);
         summary = result.text;
         model = result.model;
         tokensIn = result.tokensIn;
@@ -203,7 +210,9 @@ Deno.serve(async (req: Request) => {
       } else {
         const result = settings.preferred_provider === 'openai'
           ? await callOpenAIText(apiKey, settings.openai_model, text, filename)
-          : await callAnthropicText(apiKey, settings.anthropic_model, text, filename);
+          : settings.preferred_provider === 'anthropic'
+          ? await callAnthropicText(apiKey, settings.anthropic_model, text, filename)
+          : await callGeminiText(apiKey, settings.gemini_model, text, filename);
         summary = result.text;
         model = result.model;
         tokensIn = result.tokensIn;
@@ -418,5 +427,83 @@ async function callAnthropicText(
     model: j.model ?? model,
     tokensIn: j.usage?.input_tokens ?? 0,
     tokensOut: j.usage?.output_tokens ?? 0,
+  };
+}
+
+async function callGeminiVision(
+  apiKey: string,
+  model: string,
+  imageUrl: string,
+  mimeHint: string,
+): Promise<AIResult> {
+  // Gemini wants the image bytes inline as base64 — fetch the signed URL.
+  const imgResp = await fetch(imageUrl);
+  if (!imgResp.ok) throw new Error(`fetch upload ${imgResp.status}`);
+  const buf = new Uint8Array(await imgResp.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  const b64 = btoa(bin);
+  const mime = mimeHint.startsWith('image/') ? mimeHint : 'image/jpeg';
+
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT_IMAGE }] },
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: mime, data: b64 } },
+          { text: 'Read / describe the image, then summarise.' },
+        ],
+      }],
+      generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini vision ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let out = '';
+  for (const p of parts) if (typeof p.text === 'string') out += p.text;
+  return {
+    text: out.trim(),
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+}
+
+async function callGeminiText(
+  apiKey: string,
+  model: string,
+  text: string,
+  filename: string,
+): Promise<AIResult> {
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT_TEXT }] },
+      contents: [{
+        role: 'user',
+        parts: [{ text: `Document: ${filename}\n\n${text}` }],
+      }],
+      generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
+    }),
+  });
+  if (!resp.ok) throw new Error(`gemini text ${resp.status}: ${await resp.text()}`);
+  const j = await resp.json();
+  const parts = j.candidates?.[0]?.content?.parts ?? [];
+  let out = '';
+  for (const p of parts) if (typeof p.text === 'string') out += p.text;
+  return {
+    text: out.trim(),
+    model: j.modelVersion ?? m,
+    tokensIn:  j.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: j.usageMetadata?.candidatesTokenCount ?? 0,
   };
 }

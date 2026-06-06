@@ -38,9 +38,9 @@ Help you accumulate a slow, deliberate body of personal records — calendar, co
 ### What we promise
 
 - **Apache 2.0.** Code on this GitHub.
-- **BYOK** (Bring Your Own Key) for AI providers. Your OpenAI / Anthropic spend is yours. A platform-credits option (via Airwallex) is opt-in.
+- **BYOK** (Bring Your Own Key) for AI providers — OpenAI, Anthropic, or Google Gemini. Your usage is your own bill. A platform-credits option (via Airwallex) is opt-in.
 - **No social, no analytics, no email marketing.** You write the records, you own them.
-- **Hardware support strictly limited to AAA-battery Palms (1996–2003)** — 19 specific models. Rechargeable Palms, Treos, Tungstens, and any device with an integrated radio are out of scope.
+- **AAA-battery Palms (1996–2003) are our reference target and design focus.** That's the device we believe in and test on. The platform itself just speaks HotSync, so other Palm OS devices outside our target are welcome to use it too; we just won't be testing those.
 - **The Palm stays Palm.** We will never push a custom firmware. The platform speaks the existing HotSync protocol to the existing PalmOS apps. If a conduit doesn't work on your model we fix the conduit — the model itself never changes.
 
 ### What's where in this repo

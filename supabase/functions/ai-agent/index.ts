@@ -33,6 +33,7 @@ const SUPABASE_URL = env('SUPABASE_URL');
 const SERVICE_KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 const PLATFORM_OPENAI = env('PLATFORM_OPENAI_API_KEY');
 const PLATFORM_ANTHROPIC = env('PLATFORM_ANTHROPIC_API_KEY');
+const PLATFORM_GEMINI    = env('PLATFORM_GEMINI_API_KEY');
 
 const supa = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -183,7 +184,7 @@ Deno.serve(async (req: Request) => {
   // Resolve API key
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model, timezone')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model, timezone')
     .eq('user_id', r.user_id)
     .single();
   if (!settings) {
@@ -203,7 +204,9 @@ Deno.serve(async (req: Request) => {
     }
     apiKey = String(k);
   } else {
-    apiKey = settings.preferred_provider === 'openai' ? PLATFORM_OPENAI : PLATFORM_ANTHROPIC;
+    apiKey = settings.preferred_provider === 'openai'    ? PLATFORM_OPENAI
+           : settings.preferred_provider === 'anthropic'  ? PLATFORM_ANTHROPIC
+           :                                                PLATFORM_GEMINI;
     if (!apiKey) {
       await markError(r, 'platform key not configured');
       return jsonResp({ error: 'no-platform-key' }, 200);
@@ -225,7 +228,9 @@ Deno.serve(async (req: Request) => {
     const result =
       settings.preferred_provider === 'openai'
         ? await runOpenAIAgent(apiKey, settings.openai_model, r, sourceKind, prompt, userTz, nowLocal, actions)
-        : await runAnthropicAgent(apiKey, settings.anthropic_model, r, sourceKind, prompt, userTz, nowLocal, actions);
+        : settings.preferred_provider === 'anthropic'
+        ? await runAnthropicAgent(apiKey, settings.anthropic_model, r, sourceKind, prompt, userTz, nowLocal, actions)
+        : await runGeminiAgent(apiKey, settings.gemini_model, r, sourceKind, prompt, userTz, nowLocal, actions);
     summary = result.summary;
     totalIn = result.tokensIn;
     totalOut = result.tokensOut;
@@ -290,7 +295,9 @@ Deno.serve(async (req: Request) => {
     user_id: r.user_id,
     api_mode: settings.api_mode,
     provider: settings.preferred_provider,
-    model: settings.preferred_provider === 'openai' ? settings.openai_model : settings.anthropic_model,
+    model: settings.preferred_provider === 'openai'    ? settings.openai_model
+         : settings.preferred_provider === 'anthropic'  ? settings.anthropic_model
+         :                                                settings.gemini_model,
     tokens_in: totalIn,
     tokens_out: totalOut,
     cost_credits: 0,
@@ -684,4 +691,135 @@ function safeJsonParse(s: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+// ─── Gemini agent ───────────────────────────────────────────────
+
+// Gemini's functionDeclarations use a JSON-Schema subset that does NOT
+// accept array-of-types (e.g. `type: ['string', 'null']`) or
+// `additionalProperties`. Convert each tool schema to Gemini's shape:
+// single `type` + `nullable: true` for the optional fields.
+function toGeminiSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+  const out: any = {};
+  for (const [k, v] of Object.entries(schema)) {
+    if (k === 'additionalProperties') continue;
+    if (k === 'type' && Array.isArray(v)) {
+      const non = (v as string[]).filter((t) => t !== 'null');
+      out.type = non[0] ?? 'string';
+      if ((v as string[]).includes('null')) out.nullable = true;
+      continue;
+    }
+    if (k === 'properties' && v && typeof v === 'object') {
+      const props: Record<string, unknown> = {};
+      for (const [pk, pv] of Object.entries(v as Record<string, unknown>)) {
+        props[pk] = toGeminiSchema(pv);
+      }
+      out.properties = props;
+      continue;
+    }
+    if (k === 'items') {
+      out.items = toGeminiSchema(v);
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
+}
+
+async function runGeminiAgent(
+  apiKey: string,
+  model: string,
+  record: RecordRow,
+  sourceKind: 'thought' | 'todo',
+  prompt: string,
+  userTz: string,
+  nowLocal: string,
+  actions: ToolResult[],
+): Promise<{ summary: string; tokensIn: number; tokensOut: number }> {
+  const sysPrompt = systemPromptFor(sourceKind, prompt, userTz, nowLocal);
+  const functionDeclarations = TOOL_LIST.map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: toGeminiSchema(t.schema),
+  }));
+
+  // Conversation: alternating user / model turns. The model emits
+  // functionCall parts; we reply with functionResponse parts in a
+  // user-role turn (Gemini's accepted convention).
+  const contents: any[] = [
+    { role: 'user', parts: [{ text: 'Begin. Use tools, then call finish.' }] },
+  ];
+
+  const m = model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  let totalIn = 0;
+  let totalOut = 0;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: sysPrompt }] },
+        contents,
+        tools: [{ functionDeclarations }],
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+      }),
+    });
+    if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);
+    const j = await resp.json();
+    totalIn  += j.usageMetadata?.promptTokenCount ?? 0;
+    totalOut += j.usageMetadata?.candidatesTokenCount ?? 0;
+
+    const parts: any[] = j.candidates?.[0]?.content?.parts ?? [];
+    const functionCalls = parts.filter((p) => p && p.functionCall);
+
+    if (functionCalls.length === 0) {
+      // No tool calls — accept any text as the final summary.
+      let text = '';
+      for (const p of parts) if (typeof p.text === 'string') text += p.text;
+      return {
+        summary: text.trim() || '(agent ended without summary)',
+        tokensIn: totalIn,
+        tokensOut: totalOut,
+      };
+    }
+
+    // Echo the model turn back into history so the next request
+    // includes the functionCalls we are about to respond to.
+    contents.push({ role: 'model', parts });
+
+    const responseParts: any[] = [];
+    let finishedSummary: string | null = null;
+    for (const p of functionCalls) {
+      const name: string = p.functionCall?.name ?? '';
+      const args = (p.functionCall?.args ?? {}) as Record<string, unknown>;
+      const call: ToolCall = { id: `gemini-${i}-${name}`, name, args };
+      if (name === 'finish') {
+        finishedSummary = (args.summary as string) ?? '(no summary)';
+        responseParts.push({
+          functionResponse: { name, response: { ok: true } },
+        });
+      } else {
+        const result = await executeTool(record.user_id, call);
+        actions.push({ id: call.id, name, args, result });
+        responseParts.push({
+          functionResponse: { name, response: result },
+        });
+      }
+    }
+    contents.push({ role: 'user', parts: responseParts });
+
+    if (finishedSummary !== null) {
+      return { summary: finishedSummary, tokensIn: totalIn, tokensOut: totalOut };
+    }
+  }
+
+  return {
+    summary: '(agent stopped — reached max iterations without calling finish)',
+    tokensIn: totalIn,
+    tokensOut: totalOut,
+  };
 }

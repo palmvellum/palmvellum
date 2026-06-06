@@ -3,9 +3,12 @@
   import { authState } from '$lib/auth.svelte';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
+  import { t, currentLang, setLang, SUPPORTED_LANGUAGES, type Lang } from '$lib/i18n.svelte';
+
+  type Provider = 'openai' | 'anthropic' | 'gemini';
 
   // ── Settings: BYOK key paste ────────────────────────────
-  let provider = $state<'openai' | 'anthropic'>('openai');
+  let provider = $state<Provider>('openai');
   let plaintext = $state('');
   let saving = $state(false);
   let saveOk = $state(false);
@@ -30,7 +33,7 @@
     await authState.refreshSettings();
   }
 
-  async function updatePreferredProvider(p: 'openai' | 'anthropic') {
+  async function updatePreferredProvider(p: Provider) {
     const { error } = await supabase
       .from('user_settings')
       .update({ preferred_provider: p })
@@ -71,122 +74,135 @@
 </script>
 
 <svelte:head>
-  <title>PalmVellum · settings</title>
+  <title>PalmVellum · {t('settings.heading')}</title>
 </svelte:head>
 
 {#if authState.phase === 'loading'}
-  <p>loading…</p>
+  <p>{t('common.loading')}</p>
 {:else if authState.phase === 'unauthenticated'}
-  <p>redirecting…</p>
+  <p>{t('common.loading')}</p>
 {:else if !authState.settings}
   <p>your settings row hasn't been created yet — try signing out and in again.</p>
 {:else}
-  <h1>settings</h1>
-  <p class="hint">Account: {authState.email}</p>
+  <h1>{t('settings.heading')}</h1>
+  <p class="hint">{t('settings.account')}: {authState.email}</p>
+
+  <!-- Language picker -->
+  <section class="card">
+    <h2>{t('settings.language')}</h2>
+    <p class="sub">{t('settings.languageHint')}</p>
+    <select
+      value={currentLang.value}
+      onchange={(e) => setLang((e.currentTarget as HTMLSelectElement).value as Lang)}
+    >
+      {#each SUPPORTED_LANGUAGES as lng (lng.code)}
+        <option value={lng.code}>{lng.label}</option>
+      {/each}
+    </select>
+  </section>
 
   <!-- BYOK section -->
   <section class="card">
-    <h2>API keys</h2>
-    <p class="sub">
-      Paste your OpenAI or Anthropic key. We push it straight into Supabase
-      Vault — only the encrypted blob ever sits in the database. The
-      worker decrypts it just before each Oracle call.
-    </p>
+    <h2>{t('settings.apiKeys')}</h2>
+    <p class="sub">{t('settings.apiKeysSub')}</p>
 
     <div class="status">
       <div>
         <span class="label">openai</span>
         {#if authState.settings.openai_secret_id}
-          <span class="ok">[ok] stored</span>
+          <span class="ok">{t('settings.stored')}</span>
         {:else}
-          <span class="warn">not set</span>
+          <span class="warn">{t('settings.notSet')}</span>
         {/if}
-        <span class="muted">· model: {authState.settings.openai_model}</span>
+        <span class="muted">· {t('settings.model')}: {authState.settings.openai_model}</span>
       </div>
       <div>
         <span class="label">anthropic</span>
         {#if authState.settings.anthropic_secret_id}
-          <span class="ok">[ok] stored</span>
+          <span class="ok">{t('settings.stored')}</span>
         {:else}
-          <span class="warn">not set</span>
+          <span class="warn">{t('settings.notSet')}</span>
         {/if}
-        <span class="muted">· model: {authState.settings.anthropic_model}</span>
+        <span class="muted">· {t('settings.model')}: {authState.settings.anthropic_model}</span>
       </div>
       <div>
-        <span class="label">preferred</span>
+        <span class="label">gemini</span>
+        {#if authState.settings.gemini_secret_id}
+          <span class="ok">{t('settings.stored')}</span>
+        {:else}
+          <span class="warn">{t('settings.notSet')}</span>
+        {/if}
+        <span class="muted">· {t('settings.model')}: {authState.settings.gemini_model}</span>
+      </div>
+      <div>
+        <span class="label">{t('settings.preferredProvider')}</span>
         <select
           value={authState.settings.preferred_provider}
-          onchange={(e) => updatePreferredProvider((e.currentTarget as HTMLSelectElement).value as 'openai' | 'anthropic')}
+          onchange={(e) => updatePreferredProvider((e.currentTarget as HTMLSelectElement).value as Provider)}
         >
           <option value="openai">openai</option>
           <option value="anthropic">anthropic</option>
+          <option value="gemini">gemini</option>
         </select>
       </div>
     </div>
 
     <form onsubmit={saveKey}>
       <label>
-        provider
+        {t('settings.providerLabel')}
         <select bind:value={provider}>
-          <option value="openai">openai (sk-…)</option>
-          <option value="anthropic">anthropic (sk-ant-…)</option>
+          <option value="openai">openai (sk-...)</option>
+          <option value="anthropic">anthropic (sk-ant-...)</option>
+          <option value="gemini">gemini (AIza...)</option>
         </select>
       </label>
       <label>
-        api key
+        {t('settings.apiKeyLabel')}
         <input
           type="password"
           bind:value={plaintext}
           required
           autocomplete="off"
           spellcheck="false"
-          placeholder="paste here — encrypted in Vault on submit"
+          placeholder={t('settings.apiKeyPh')}
         />
       </label>
       {#if saveError}
         <p class="error">{saveError}</p>
       {/if}
       {#if saveOk}
-        <p class="ok">[ok] saved (encrypted to Vault)</p>
+        <p class="ok">{t('settings.saveOk')}</p>
       {/if}
       <button type="submit" disabled={saving}>
-        {saving ? 'storing…' : 'store key'}
+        {saving ? t('settings.storing') : t('settings.storeKey')}
       </button>
     </form>
   </section>
 
   <!-- Palm enrollment -->
   <section class="card">
-    <h2>Palm enrollment</h2>
+    <h2>{t('settings.palmEnrollHeading')}</h2>
     {#if authState.settings.palm_enrolled}
       <p class="ok">
-        [ok] A Palm is enrolled
+        [ok] {t('settings.palmEnrolled')}
         {#if authState.settings.palm_model}
           (<strong>{authState.settings.palm_model}</strong>)
         {/if}
       </p>
       <p class="muted">
-        token issued {authState.settings.hotsync_token_issued_at &&
+        {t('settings.tokenIssued')}: {authState.settings.hotsync_token_issued_at &&
           new Date(authState.settings.hotsync_token_issued_at).toLocaleString()}
       </p>
-      <p class="hint">
-        Need to enroll a second Palm or rotate the token? Click below — the
-        previous token is invalidated immediately.
-      </p>
+      <p class="hint">{t('settings.enrollAnotherHint')}</p>
     {:else}
-      <p>
-        Generate a one-time HotSync token. Paste it into your Mac daemon's
-        <code>.env</code> as <code>PALMVELLUM_HOTSYNC_TOKEN</code>. The
-        daemon trades it for your user_id on startup and uses it for every
-        sync from your Palm.
-      </p>
+      <p>{t('settings.enrollInstructions')}</p>
     {/if}
 
     {#if enrollToken}
       <div class="token-box">
-        <p class="muted">[!] shown once. copy it now.</p>
+        <p class="muted">[!] {t('settings.tokenOnceWarning')}</p>
         <code class="token">{enrollToken}</code>
-        <button type="button" onclick={copyToken}>copy to clipboard</button>
+        <button type="button" onclick={copyToken}>{t('settings.copyClipboard')}</button>
       </div>
     {/if}
 
@@ -195,24 +211,21 @@
     {/if}
 
     <button type="button" onclick={enrollPalm} disabled={enrolling}>
-      {enrolling ? 'minting…' : authState.settings.palm_enrolled
-        ? 're-issue token'
-        : 'enroll a Palm'}
+      {enrolling ? t('settings.minting') : authState.settings.palm_enrolled
+        ? t('settings.reissueToken')
+        : t('settings.enrollPalm')}
     </button>
   </section>
 
   <!-- Credits + subscription -->
   <section class="card">
-    <h2>credits</h2>
+    <h2>{t('settings.creditsHeading')}</h2>
     <p>
-      <strong>{authState.settings.credits_remaining}</strong> remaining,
-      {authState.settings.credits_used_month} used this month.
-      Subscription: <strong>{authState.settings.subscription_status}</strong>.
+      <strong>{authState.settings.credits_remaining}</strong> {t('settings.creditsRemaining')},
+      {authState.settings.credits_used_month} {t('settings.creditsUsed')}.
+      {t('settings.subscription')}: <strong>{authState.settings.subscription_status}</strong>.
     </p>
-    <p class="hint">
-      BYOK keys are free forever. Platform credits (via Airwallex
-      checkout, US$5 = 1000 credits) ship in v0.3.
-    </p>
+    <p class="hint">{t('settings.creditsHint')}</p>
   </section>
 {/if}
 

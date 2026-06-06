@@ -19,11 +19,13 @@ export type AuthPhase =
 
 export interface UserSettings {
   api_mode: 'byok' | 'platform';
-  preferred_provider: 'openai' | 'anthropic';
+  preferred_provider: 'openai' | 'anthropic' | 'gemini';
   openai_secret_id: string | null;
   openai_model: string;
   anthropic_secret_id: string | null;
   anthropic_model: string;
+  gemini_secret_id: string | null;
+  gemini_model: string;
   subscription_status: string;
   credits_remaining: number;
   credits_used_month: number;

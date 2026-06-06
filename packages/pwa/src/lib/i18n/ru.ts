@@ -120,4 +120,13 @@ export default {
   'settings.creditsRemaining': 'осталось',
   'settings.creditsUsed': 'использовано в этом месяце',
   'settings.subscription': 'Подписка',
+  'settings.icalHeading': 'Календарный фид',
+  'settings.icalSub': 'Создайте приватный URL подписки, чтобы Apple Calendar, Google Calendar или любой другой клиент мог тянуть события из Date Book. Обновляется раз в час.',
+  'settings.icalEnableExplain': 'Фид ещё не создан. Сгенерируйте URL ниже — подписаться смогут только те, с кем вы им поделитесь.',
+  'settings.icalEnable': 'включить фид',
+  'settings.icalSubscribeApple': 'открыть в Apple Calendar',
+  'settings.icalCopy': 'скопировать URL',
+  'settings.icalCopied': '[ok] скопировано',
+  'settings.icalRevoke': 'отозвать',
+  'settings.icalRefreshHint': 'Apple Calendar и большинство клиентов обновляют раз в час. Отзыв сразу делает URL недействительным; повторное включение выдаёт новый URL.',
 };

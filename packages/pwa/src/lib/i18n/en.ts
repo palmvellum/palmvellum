@@ -131,4 +131,13 @@ export default {
   'settings.subscription': 'Subscription',
   'settings.language': 'language',
   'settings.languageHint': 'Switches the platform UI between English, Chinese, Japanese, Korean, and Russian.',
+  'settings.icalHeading': 'Calendar feed',
+  'settings.icalSub': 'Generate a private subscription URL so Apple Calendar, Google Calendar, or any other client can pull your Date Book events. Refreshes every hour.',
+  'settings.icalEnableExplain': 'No feed yet. Generate a private URL below — only people you share it with can subscribe.',
+  'settings.icalEnable': 'enable feed',
+  'settings.icalSubscribeApple': 'subscribe in Apple Calendar',
+  'settings.icalCopy': 'copy URL',
+  'settings.icalCopied': '[ok] copied',
+  'settings.icalRevoke': 'revoke',
+  'settings.icalRefreshHint': 'Apple Calendar and most clients refresh hourly. Revoke to invalidate the URL immediately — a fresh enable mints a new one.',
 };

@@ -120,4 +120,13 @@ export default {
   'settings.creditsRemaining': '残り',
   'settings.creditsUsed': '今月の使用量',
   'settings.subscription': 'サブスクリプション',
+  'settings.icalHeading': 'カレンダーフィード',
+  'settings.icalSub': 'プライベートな購読 URL を生成し、Apple カレンダー、Google カレンダー、その他のクライアントが Date Book の予定を取得できるようにします。1 時間ごとに自動更新。',
+  'settings.icalEnableExplain': 'まだフィードがありません。下のボタンで生成 — 共有した相手だけが購読できます。',
+  'settings.icalEnable': 'フィードを有効にする',
+  'settings.icalSubscribeApple': 'Apple カレンダーで開く',
+  'settings.icalCopy': 'URL をコピー',
+  'settings.icalCopied': '[ok] コピーしました',
+  'settings.icalRevoke': 'フィードを無効にする',
+  'settings.icalRefreshHint': 'Apple カレンダーとほとんどのクライアントは 1 時間ごとに更新します。無効化すれば URL は即時に失効。再度有効にすると新しい URL が発行されます。',
 };

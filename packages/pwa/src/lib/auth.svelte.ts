@@ -26,6 +26,7 @@ export interface UserSettings {
   anthropic_model: string;
   gemini_secret_id: string | null;
   gemini_model: string;
+  ical_token: string | null;
   subscription_status: string;
   credits_remaining: number;
   credits_used_month: number;

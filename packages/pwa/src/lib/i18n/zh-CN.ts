@@ -120,4 +120,13 @@ export default {
   'settings.creditsRemaining': '剩余',
   'settings.creditsUsed': '本月已用',
   'settings.subscription': '订阅',
+  'settings.icalHeading': '日历订阅链接',
+  'settings.icalSub': '生成一条私人订阅 URL，让 Apple Calendar、Google Calendar 或其他 client 拉取你日历的事项。每小时自动 refresh 一次。',
+  'settings.icalEnableExplain': '尚未生成链接。点击下方按钮生成 — 只有你亲手分享给的人才能订阅。',
+  'settings.icalEnable': '启用日历链接',
+  'settings.icalSubscribeApple': '加入 Apple Calendar',
+  'settings.icalCopy': '复制链接',
+  'settings.icalCopied': '[ok] 已复制',
+  'settings.icalRevoke': '撤回链接',
+  'settings.icalRefreshHint': 'Apple Calendar 及大部分 client 每小时自动 refresh。撤回后该 URL 即时失效；再次启用会生成新 URL。',
 };

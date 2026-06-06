@@ -41,6 +41,57 @@
     if (!error) await authState.refreshSettings();
   }
 
+  // ── iCal feed token ─────────────────────────────────────
+  // Public Supabase Function base. The token is appended as /<token>.ics.
+  const ICAL_FN_BASE = 'https://jrkwncplngmznfzzqwee.supabase.co/functions/v1/ical-feed';
+  let icalBusy = $state(false);
+  let icalCopied = $state(false);
+  let icalError = $state<string | null>(null);
+
+  function icalHttpsUrl(): string | null {
+    const tok = authState.settings?.ical_token;
+    return tok ? `${ICAL_FN_BASE}/${tok}.ics` : null;
+  }
+
+  function icalWebcalUrl(): string | null {
+    const u = icalHttpsUrl();
+    return u ? u.replace(/^https?:\/\//, 'webcal://') : null;
+  }
+
+  async function mintIcal() {
+    icalBusy = true;
+    icalError = null;
+    icalCopied = false;
+    const { error } = await supabase.rpc('mint_ical_token');
+    icalBusy = false;
+    if (error) {
+      icalError = error.message;
+      return;
+    }
+    await authState.refreshSettings();
+  }
+
+  async function revokeIcal() {
+    icalBusy = true;
+    icalError = null;
+    icalCopied = false;
+    const { error } = await supabase.rpc('revoke_ical_token');
+    icalBusy = false;
+    if (error) {
+      icalError = error.message;
+      return;
+    }
+    await authState.refreshSettings();
+  }
+
+  async function copyIcal() {
+    const u = icalHttpsUrl();
+    if (!u) return;
+    await navigator.clipboard.writeText(u);
+    icalCopied = true;
+    setTimeout(() => { icalCopied = false; }, 2000);
+  }
+
   // Guard: redirect to / if not signed in
   $effect(() => {
     if (authState.phase === 'unauthenticated') {
@@ -153,6 +204,37 @@
         {saving ? t('settings.storing') : t('settings.storeKey')}
       </button>
     </form>
+  </section>
+
+  <!-- iCal subscription feed -->
+  <section class="card">
+    <h2>{t('settings.icalHeading')}</h2>
+    <p class="sub">{t('settings.icalSub')}</p>
+
+    {#if authState.settings.ical_token}
+      <div class="ical-url">
+        <code>{icalHttpsUrl()}</code>
+      </div>
+      <div class="ical-actions">
+        <a class="btn-link" href={icalWebcalUrl()} rel="noopener">
+          {t('settings.icalSubscribeApple')}
+        </a>
+        <button type="button" onclick={copyIcal} disabled={icalBusy}>
+          {icalCopied ? t('settings.icalCopied') : t('settings.icalCopy')}
+        </button>
+        <button type="button" class="secondary" onclick={revokeIcal} disabled={icalBusy}>
+          {icalBusy ? t('common.loading') : t('settings.icalRevoke')}
+        </button>
+      </div>
+      <p class="hint">{t('settings.icalRefreshHint')}</p>
+    {:else}
+      <p>{t('settings.icalEnableExplain')}</p>
+      <button type="button" onclick={mintIcal} disabled={icalBusy}>
+        {icalBusy ? t('common.loading') : t('settings.icalEnable')}
+      </button>
+    {/if}
+
+    {#if icalError}<p class="error">{icalError}</p>{/if}
   </section>
 
   <!-- Credits + subscription -->
@@ -275,5 +357,47 @@
     color: var(--ink);
     padding: 0 0.25rem;
     font-family: inherit;
+  }
+  .ical-url {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 0.55rem 0.7rem;
+    margin: 0.5rem 0 0.7rem;
+    overflow-x: auto;
+  }
+  .ical-url code {
+    background: transparent;
+    color: var(--accent);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    user-select: all;
+  }
+  .ical-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.6rem;
+  }
+  .ical-actions .btn-link {
+    background: var(--accent);
+    color: var(--bg);
+    border: 1px solid var(--accent);
+    padding: 0.45rem 0.85rem;
+    font-family: inherit;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .ical-actions .btn-link:hover {
+    background: var(--accent-dim);
+  }
+  .ical-actions button.secondary {
+    background: transparent;
+    color: var(--ink-mute);
+    border: 1px solid var(--line);
+  }
+  .ical-actions button.secondary:hover:not(:disabled) {
+    background: var(--surface-hi);
+    color: var(--ink);
   }
 </style>

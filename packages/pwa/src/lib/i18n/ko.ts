@@ -120,4 +120,13 @@ export default {
   'settings.creditsRemaining': '남음',
   'settings.creditsUsed': '이번 달 사용량',
   'settings.subscription': '구독',
+  'settings.icalHeading': '캘린더 피드',
+  'settings.icalSub': '개인 구독 URL을 생성하여 Apple Calendar, Google Calendar 등에서 Date Book 일정을 가져올 수 있도록 합니다. 매시간 자동으로 새로 고침됩니다.',
+  'settings.icalEnableExplain': '아직 피드가 없습니다. 아래 버튼으로 생성하세요 — 직접 공유한 사람만 구독할 수 있습니다.',
+  'settings.icalEnable': '피드 활성화',
+  'settings.icalSubscribeApple': 'Apple Calendar에서 구독',
+  'settings.icalCopy': 'URL 복사',
+  'settings.icalCopied': '[ok] 복사됨',
+  'settings.icalRevoke': '피드 폐기',
+  'settings.icalRefreshHint': 'Apple Calendar와 대부분의 클라이언트는 매시간 새로 고침됩니다. 폐기하면 URL은 즉시 무효화되며, 다시 활성화하면 새 URL이 발급됩니다.',
 };

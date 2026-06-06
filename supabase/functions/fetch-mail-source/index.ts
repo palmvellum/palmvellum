@@ -138,10 +138,11 @@ Topic / interest: ${source.topic}.
 LANGUAGE: ${langLine}
 
 Process:
-1. Use the web search tool to find recent (last 7 days preferred), high-quality sources covering the topic.
-2. Read the most relevant 3-8 results, synthesise across them, and write a 5-10 minute reading article (target 1000-2000 words).
-3. The article should be coherent narrative paragraphs, not bullet lists. Lead with the most important development, then group related angles.
-4. After the article body, output a section EXACTLY in this form (separator line included):
+1. Use the web search tool aggressively -- run 6-10 distinct queries covering different angles of the topic (recent news, primary sources, expert analysis, contrasting viewpoints, background context). Prefer results from the last 7 days but include foundational pieces when they help the reader understand context.
+2. Read the most relevant 6-12 results, synthesise across them, and write a 10-20 minute reading article (target 2000-4000 words).
+3. The article should be coherent narrative paragraphs, not bullet lists. Lead with the most important development, then unfold across related angles, contrasting views, expert quotes, numbers / dates / names, and what to watch next. Use section break paragraphs (a blank line and a short subhead line such as "Background.", "What happened.", "Why it matters.", "What's next.") rather than markdown headers.
+4. Aim for depth and detail rather than brevity -- the user explicitly wants a long read. Don't repeat yourself; keep moving forward with new facts and analysis.
+5. After the article body, output a section EXACTLY in this form (separator line included):
 
 ==REFERENCES==
 <url 1>
@@ -159,7 +160,7 @@ PALM CHARACTER SET CONSTRAINT -- output is shown on a Palm Pilot:
 Output format -- nothing else, no preamble:
 SUBJECT: <one-line subject, max 100 chars, prefixed with "${dateLocal} - ">
 
-<article body 1000-2000 words>
+<article body 2000-4000 words>
 
 ==REFERENCES==
 <url 1>
@@ -488,7 +489,7 @@ async function callOpenAIResearch(
         },
       ],
       web_search_options: { search_context_size: 'high' },
-      max_completion_tokens: 8000,
+      max_completion_tokens: 16000,
     }),
   });
   if (!resp.ok) throw new Error(`openai research ${resp.status}: ${await resp.text()}`);
@@ -529,7 +530,7 @@ async function callAnthropicResearch(
     },
     body: JSON.stringify({
       model: model || 'claude-sonnet-4-5-20250929',
-      max_tokens: 8000,
+      max_tokens: 16000,
       system: [
         {
           type: 'text',
@@ -541,7 +542,7 @@ async function callAnthropicResearch(
         {
           type: 'web_search_20250305',
           name: 'web_search',
-          max_uses: 10,
+          max_uses: 12,
         },
       ],
       messages: [

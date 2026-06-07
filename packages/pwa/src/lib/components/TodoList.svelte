@@ -16,9 +16,15 @@
    * agentic — visual badge for now; Phase 4 will wire the
    * actual AI executor that turns the prompt into a Memo result.
    */
-  import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
-  import { newUlid } from '$lib/ulid';
+  import { sync } from '$lib/sync.svelte';
+  import {
+    listTodos,
+    createTodo as createTodoStore,
+    updateTodo as updateTodoStore,
+    toggleTodoDone,
+    deleteTodo as deleteTodoStore,
+  } from '$lib/stores/todos.svelte';
   import { t } from '$lib/i18n.svelte';
 
   interface Todo {
@@ -71,18 +77,14 @@
     if (!authState.userId) return;
     loading = true;
     loadError = null;
-    const { data, error } = await supabase
-      .from('records')
-      .select('*')
-      .eq('type', 'todo')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false });
-    loading = false;
-    if (error) {
-      loadError = error.message;
-      return;
+    try {
+      const data = await listTodos();
+      todos = data as unknown as Todo[];
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading = false;
     }
-    todos = (data ?? []) as Todo[];
   }
 
   function isAIBody(body: string): boolean {
@@ -117,30 +119,22 @@
     }
     createError = null;
     createBusy = true;
-    // (AI) prefix routes through the agentic worker — mark pending so
-    // the Edge Function's claim filter matches before the trigger fires.
-    const isAgent = /^\s*\(ai\)/i.test(body);
-    const { error } = await supabase.from('records').insert({
-      id: newUlid(),
-      user_id: authState.userId,
-      type: 'todo',
-      posture: 'open',
-      body,
-      source: 'web',
-      ai_status: isAgent ? 'pending' : null,
-      metadata: {
-        palm_due_date: createDue || '',
-        palm_priority: createPriority,
-        palm_completed: false,
-        palm_notes: createNotes.trim(),
-        palm_category_name: 'Unfiled',
-      },
-    });
-    createBusy = false;
-    if (error) {
-      createError = error.message;
+    // (AI) prefix routes through the agentic worker — the store
+    // detects it and sets ai_status='pending' automatically.
+    try {
+      await createTodoStore({
+        body,
+        due: createDue || undefined,
+        priority: createPriority,
+        notes: createNotes.trim(),
+        category: 'Unfiled',
+      });
+    } catch (e) {
+      createBusy = false;
+      createError = e instanceof Error ? e.message : String(e);
       return;
     }
+    createBusy = false;
     showCreate = false;
     resetCreate();
     await load();
@@ -167,25 +161,27 @@
       palm_priority: editPriority,
       palm_notes: editNotes.trim(),
     };
-    const { error } = await supabase
-      .from('records')
-      .update({ body: editBody.trim(), metadata: meta })
-      .eq('id', t.id);
-    editBusy = false;
-    if (error) {
-      alert(error.message);
+    try {
+      await updateTodoStore(t.id, {
+        body: editBody.trim(),
+        metadata: meta,
+      });
+    } catch (e) {
+      editBusy = false;
+      alert(e instanceof Error ? e.message : String(e));
       return;
     }
+    editBusy = false;
     cancelEdit();
     await load();
   }
 
   async function toggleDone(t: Todo) {
     const newCompleted = !completed(t);
-    const meta = { ...(t.metadata ?? {}), palm_completed: newCompleted };
-    const { error } = await supabase.from('records').update({ metadata: meta }).eq('id', t.id);
-    if (error) {
-      alert(error.message);
+    try {
+      await toggleTodoDone(t.id, newCompleted);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
       return;
     }
     await load();
@@ -193,12 +189,10 @@
 
   async function deleteTodo(t: Todo) {
     if (!confirm(`Delete "${t.body.slice(0, 40)}"?`)) return;
-    const { error } = await supabase
-      .from('records')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', t.id);
-    if (error) {
-      alert(error.message);
+    try {
+      await deleteTodoStore(t.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
       return;
     }
     if (editingId === t.id) cancelEdit();
@@ -243,22 +237,14 @@
     if (authState.phase === 'ready') void load();
   });
 
+  // Re-render whenever the sync engine finishes a pull from the
+  // server (which also fires on offline → online transitions, since
+  // handleOnlineChange runs a push then a pull). The local Dexie
+  // store is the source of truth and listTodos() reads from it, so
+  // no realtime channel is needed.
   $effect(() => {
-    const channel = supabase
-      .channel('todo-all')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'records' },
-        async (payload) => {
-          const row = (payload.new ?? payload.old) as { type?: string };
-          if (row?.type !== 'todo') return;
-          await load();
-        },
-      )
-      .subscribe();
-    return () => {
-      channel.unsubscribe();
-    };
+    sync.last_pulled_at; // touched for reactivity
+    void load();
   });
 </script>
 

@@ -4,6 +4,7 @@
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
   import { t, currentLang, setLang, SUPPORTED_LANGUAGES, type Lang } from '$lib/i18n.svelte';
+  import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   type Provider = 'openai' | 'anthropic' | 'gemini';
 
@@ -111,8 +112,9 @@
 {:else if !authState.settings}
   <p>your settings row hasn't been created yet — try signing out and in again.</p>
 {:else}
-  <h1>{t('settings.heading')}</h1>
-  <p class="hint">{t('settings.account')}: {authState.email}</p>
+  <PalmAppShell title={t('settings.heading')}>
+    <h1 class="pg-heading">{t('settings.heading')}</h1>
+    <p class="hint">{t('settings.account')}: {authState.email}</p>
 
   <!-- Language picker -->
   <section class="card">
@@ -247,9 +249,36 @@
     </p>
     <p class="hint">{t('settings.creditsHint')}</p>
   </section>
+
+  <!-- Sign out -->
+  <section class="card">
+    <h2>{t('settings.signOutHeading')}</h2>
+    <p class="sub">{t('settings.signOutHint')}</p>
+    <button type="button" class="signout-btn" onclick={() => void authState.signOut()}>
+      {t('nav.signOut')}
+    </button>
+  </section>
+  </PalmAppShell>
 {/if}
 
 <style>
+  .pg-heading {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0.4rem 0 0.25rem;
+  }
+  .signout-btn {
+    background: var(--surface-dk);
+    color: #fff;
+    border: 1px solid #1a1a1a;
+    padding: 0.55rem 1rem;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+  }
+  .signout-btn:hover { background: #2c2c2a; }
   h1 {
     font-size: 1.4rem;
     margin: 0 0 0.25rem;

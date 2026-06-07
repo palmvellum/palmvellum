@@ -38,6 +38,7 @@
   import PalmButton from './PalmButton.svelte';
   import { listEvents, createEvent, updateEvent, deleteEvent } from '$lib/stores/events.svelte';
   import { listTodos } from '$lib/stores/todos.svelte';
+  import { sync } from '$lib/sync.svelte';
 
   const now = new Date();
 
@@ -72,6 +73,11 @@
     loading = true;
     loadErr = null;
     try {
+      // Kick a sync pull so Dexie has the freshest server rows BEFORE
+      // we read. await so events show up on first open from a cold install.
+      // If offline the pull will reject quickly and we render whatever
+      // Dexie has from the last session.
+      try { await sync.pull(); } catch (_) { /* offline ok */ }
       const from = startOfMonth(viewMonth);
       const to = startOfNextMonth(viewMonth);
       from.setDate(from.getDate() - 7);
@@ -105,6 +111,14 @@
   }
 
   $effect(() => {
+    if (authState.phase === 'ready') void load();
+  });
+
+  // Re-render after every sync pull so the calendar picks up server
+  // rows once they land in Dexie (initial install + offline -> online).
+  $effect(() => {
+    // touch reactive trigger so this effect re-runs on pulls
+    void sync.last_pulled_at;
     if (authState.phase === 'ready') void load();
   });
 

@@ -10,9 +10,14 @@
    * records.body holds a display-formatted name string so list
    * queries can sort/search without hitting metadata.
    */
-  import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
-  import { newUlid } from '$lib/ulid';
+  import { sync } from '$lib/sync.svelte';
+  import {
+    listContacts,
+    createContact as createContactStore,
+    updateContact as updateContactStore,
+    deleteContact as deleteContactStore,
+  } from '$lib/stores/contacts.svelte';
   import { t } from '$lib/i18n.svelte';
 
   type PhoneType = 'Work' | 'Home' | 'Fax' | 'Other' | 'E-mail' | 'Main' | 'Pager' | 'Mobile';
@@ -77,18 +82,14 @@
     if (!authState.userId) return;
     loading = true;
     loadError = null;
-    const { data, error } = await supabase
-      .from('records')
-      .select('*')
-      .eq('type', 'contact')
-      .is('deleted_at', null)
-      .order('body', { ascending: true });
-    loading = false;
-    if (error) {
-      loadError = error.message;
-      return;
+    try {
+      const data = await listContacts();
+      contacts = data as unknown as Contact[];
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading = false;
     }
-    contacts = (data ?? []) as Contact[];
   }
 
   function resetForm() {
@@ -185,43 +186,33 @@
     const body = displayName();
 
     if (editingId) {
-      const { error } = await supabase
-        .from('records')
-        .update({ body, metadata: meta })
-        .eq('id', editingId);
-      formBusy = false;
-      if (error) {
-        formError = error.message;
+      try {
+        await updateContactStore(editingId, { body, metadata: meta });
+      } catch (e) {
+        formBusy = false;
+        formError = e instanceof Error ? e.message : String(e);
         return;
       }
     } else {
-      const { error } = await supabase.from('records').insert({
-        id: newUlid(),
-        user_id: authState.userId,
-        type: 'contact',
-        posture: 'open',
-        body,
-        source: 'web',
-        metadata: meta,
-      });
-      formBusy = false;
-      if (error) {
-        formError = error.message;
+      try {
+        await createContactStore({ displayName: body, metadata: meta });
+      } catch (e) {
+        formBusy = false;
+        formError = e instanceof Error ? e.message : String(e);
         return;
       }
     }
+    formBusy = false;
     closeForm();
     await load();
   }
 
   async function deleteContact(c: Contact) {
     if (!confirm(`Delete contact "${c.body}"?`)) return;
-    const { error } = await supabase
-      .from('records')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', c.id);
-    if (error) {
-      alert(error.message);
+    try {
+      await deleteContactStore(c.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
       return;
     }
     if (editingId === c.id) closeForm();
@@ -251,22 +242,12 @@
     if (authState.phase === 'ready') void load();
   });
 
+  // Re-render whenever the sync engine finishes a pull from the
+  // server (which also fires on offline → online transitions). The
+  // local Dexie store is the source of truth.
   $effect(() => {
-    const channel = supabase
-      .channel('contact-all')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'records' },
-        async (payload) => {
-          const row = (payload.new ?? payload.old) as { type?: string };
-          if (row?.type !== 'contact') return;
-          await load();
-        },
-      )
-      .subscribe();
-    return () => {
-      channel.unsubscribe();
-    };
+    sync.last_pulled_at; // touched for reactivity
+    void load();
   });
 </script>
 

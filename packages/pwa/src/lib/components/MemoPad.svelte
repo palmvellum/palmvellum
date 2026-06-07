@@ -15,6 +15,13 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
+  import { sync } from '$lib/sync.svelte';
+  import {
+    listMemos,
+    createMemo as createMemoStore,
+    updateMemo as updateMemoStore,
+    deleteMemo as deleteMemoStore,
+  } from '$lib/stores/memos.svelte';
   import { t } from '$lib/i18n.svelte';
 
   interface Memo {
@@ -60,18 +67,14 @@
     if (!authState.userId) return;
     loading = true;
     loadError = null;
-    const { data, error } = await supabase
-      .from('records')
-      .select('*')
-      .is('deleted_at', null)
-      .in('type', ['aiquery', 'thought'])
-      .order('updated_at', { ascending: false });
-    loading = false;
-    if (error) {
-      loadError = error.message;
-      return;
+    try {
+      const data = await listMemos();
+      memos = data as unknown as Memo[];
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading = false;
     }
-    memos = (data ?? []) as Memo[];
   }
 
   async function createMemo() {
@@ -96,25 +99,16 @@
     // the Palm at next HotSync. Older records pushed up from sync-cli
     // as records.type='aiquery' still display in this list — they
     // came from the legacy Q&A flow and remain readable.
-    const isAgent = /^\s*\(ai\)/i.test(body);
-
-    const { error } = await supabase.from('records').insert({
-      id: newUlid(),
-      user_id: authState.userId,
-      type: 'thought',
-      posture: 'open',
-      body,
-      source: 'web',
-      ai_status: isAgent ? 'pending' : null,
-      metadata: {
-        palm_category_name: isAgent ? 'AI Agent' : 'Unfiled',
-      },
-    });
-    createBusy = false;
-    if (error) {
-      createError = error.message;
+    // The store detects the (AI) prefix and applies
+    // ai_status='pending' + palm_category_name='AI Agent' itself.
+    try {
+      await createMemoStore({ body, type: 'thought' });
+    } catch (e) {
+      createBusy = false;
+      createError = e instanceof Error ? e.message : String(e);
       return;
     }
+    createBusy = false;
     createBody = '';
     showCreate = false;
     await load();
@@ -134,34 +128,33 @@
     if (!editBody.trim()) return;
     editBusy = true;
     const isAgent = /^\s*\(ai\)/i.test(editBody);
-    const patch: Record<string, unknown> = {
-      body: editBody.trim(),
-      metadata: {
-        ...(m.metadata ?? {}),
-        palm_category_name: isAgent ? 'AI Agent' : 'Unfiled',
-      },
-    };
     // The agent webhook fires on INSERT only, so UPDATEs can't re-
     // trigger. Editing here just persists the body; to re-run the
     // agent the user has to delete and re-create.
-    const { error } = await supabase.from('records').update(patch).eq('id', m.id);
-    editBusy = false;
-    if (error) {
-      alert(error.message);
+    try {
+      await updateMemoStore(m.id, {
+        body: editBody.trim(),
+        metadata: {
+          ...(m.metadata ?? {}),
+          palm_category_name: isAgent ? 'AI Agent' : 'Unfiled',
+        },
+      });
+    } catch (e) {
+      editBusy = false;
+      alert(e instanceof Error ? e.message : String(e));
       return;
     }
+    editBusy = false;
     cancelEdit();
     await load();
   }
 
   async function deleteMemo(m: Memo) {
     if (!confirm('Delete this memo?')) return;
-    const { error } = await supabase
-      .from('records')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', m.id);
-    if (error) {
-      alert(error.message);
+    try {
+      await deleteMemoStore(m.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
       return;
     }
     if (editingId === m.id) cancelEdit();
@@ -227,14 +220,14 @@
     if (upErr) throw new Error(`upload: ${upErr.message}`);
 
     const placeholder = `${file.name}\n\nAI is reading the file. This memo will fill in within a few seconds.`;
-    const { error: insErr } = await supabase.from('records').insert({
+    const now = new Date().toISOString();
+    const row = {
       id: recordId,
       user_id: authState.userId,
       type: 'thought',
       posture: 'open',
       body: placeholder,
-      source: 'web',
-      ai_status: 'pending',
+      tags: [],
       metadata: {
         palm_category_name: 'Uploads',
         upload_path: path,
@@ -242,11 +235,29 @@
         upload_mimetype: file.type,
         upload_size: file.size,
       },
-    });
-    if (insErr) {
+      created_at: now,
+      updated_at: now,
+      deleted_at: null,
+      source: 'web',
+      device_id: null,
+      ai_status: 'pending',
+      ai_response: null,
+      ai_model: null,
+      ai_tokens_in: null,
+      ai_tokens_out: null,
+      ai_error: null,
+    };
+    try {
+      await sync.enqueue({
+        table: 'records',
+        op: 'insert',
+        record_id: recordId,
+        payload: row as unknown as Record<string, unknown>,
+      });
+    } catch (e) {
       // best-effort cleanup of storage object
       await supabase.storage.from('memo-uploads').remove([path]);
-      throw new Error(`record: ${insErr.message}`);
+      throw new Error(`record: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -296,23 +307,12 @@
     if (authState.phase === 'ready') void load();
   });
 
-  // Realtime — refresh on any memo-ish record change.
+  // Re-render whenever the sync engine finishes a pull from the
+  // server (which also fires on offline → online transitions). The
+  // local Dexie store is the source of truth.
   $effect(() => {
-    const channel = supabase
-      .channel('memo-all')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'records' },
-        async (payload) => {
-          const row = (payload.new ?? payload.old) as { type?: string };
-          if (row?.type !== 'aiquery' && row?.type !== 'thought') return;
-          await load();
-        },
-      )
-      .subscribe();
-    return () => {
-      channel.unsubscribe();
-    };
+    sync.last_pulled_at; // touched for reactivity
+    void load();
   });
 </script>
 

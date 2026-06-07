@@ -171,7 +171,8 @@ export class SyncEngine {
   async pull(): Promise<void> {
     if (!browser) return;
     if (!this.userId) return;
-    if (!this.online) return;
+    // Don't bail on this.online — that flag can lag behind reality on
+    // Capacitor at boot. Let the actual fetch fail if truly offline.
     if (this.pulling) return;
     this.pulling = true;
     this.last_error = null;

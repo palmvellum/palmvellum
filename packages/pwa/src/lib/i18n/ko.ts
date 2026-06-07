@@ -136,4 +136,9 @@ export default {
   'datebook.icalCopy': 'URL 복사',
   'datebook.icalCopied': '[ok] 복사됨',
   'datebook.icalRevoke': '폐기',
+  'drawer.online': '온라인',
+  'drawer.offline': '오프라인',
+  'drawer.pending': '동기화 대기',
+  'settings.signOutHeading': '로그아웃',
+  'settings.signOutHint': '이 기기에서 로그아웃합니다. 데이터는 PalmVellum과 다른 Palm에 유지됩니다.',
 };

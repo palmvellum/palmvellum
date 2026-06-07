@@ -147,4 +147,9 @@ export default {
   'datebook.icalCopy': 'copy URL',
   'datebook.icalCopied': '[ok] copied',
   'datebook.icalRevoke': 'revoke',
+  'drawer.online': 'online',
+  'drawer.offline': 'offline',
+  'drawer.pending': 'pending',
+  'settings.signOutHeading': 'Sign out',
+  'settings.signOutHint': 'Sign out of this account on this device. Your data stays in PalmVellum and your other Palms.',
 };

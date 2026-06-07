@@ -6,6 +6,7 @@
   import { authState } from '$lib/auth.svelte';
   import { initCapacitor } from '$lib/capacitor.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
+  import PalmDrawer from '$lib/components/palm/PalmDrawer.svelte';
   import {
     currentLang,
     setLang,
@@ -65,6 +66,7 @@
   {@render children()}
 
   <BottomNav />
+  <PalmDrawer />
 </div>
 
 <style>

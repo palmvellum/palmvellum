@@ -10,9 +10,14 @@
    * records.body holds the vendor as a display-anchor so list
    * sorts/searches don't have to crack metadata.
    */
-  import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
-  import { newUlid } from '$lib/ulid';
+  import { sync } from '$lib/sync.svelte';
+  import {
+    listExpenses,
+    createExpense as createExpenseStore,
+    updateExpense as updateExpenseStore,
+    deleteExpense as deleteExpenseStore,
+  } from '$lib/stores/expenses.svelte';
   import { t } from '$lib/i18n.svelte';
 
   // Palm Expense defaults
@@ -76,18 +81,14 @@
     if (!authState.userId) return;
     loading = true;
     loadError = null;
-    const { data, error } = await supabase
-      .from('records')
-      .select('*')
-      .eq('type', 'expense')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
-    loading = false;
-    if (error) {
-      loadError = error.message;
-      return;
+    try {
+      const data = await listExpenses();
+      expenses = data as unknown as Expense[];
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      loading = false;
     }
-    expenses = (data ?? []) as Expense[];
   }
 
   function resetForm() {
@@ -158,43 +159,33 @@
     const body = fVendor.trim() || `${fExpenseType} ${amt ?? ''}`.trim();
 
     if (editingId) {
-      const { error } = await supabase
-        .from('records')
-        .update({ body, metadata: meta })
-        .eq('id', editingId);
-      formBusy = false;
-      if (error) {
-        formError = error.message;
+      try {
+        await updateExpenseStore(editingId, { body, metadata: meta });
+      } catch (err) {
+        formBusy = false;
+        formError = err instanceof Error ? err.message : String(err);
         return;
       }
     } else {
-      const { error } = await supabase.from('records').insert({
-        id: newUlid(),
-        user_id: authState.userId,
-        type: 'expense',
-        posture: 'open',
-        body,
-        source: 'web',
-        metadata: meta,
-      });
-      formBusy = false;
-      if (error) {
-        formError = error.message;
+      try {
+        await createExpenseStore({ vendor: body, metadata: meta });
+      } catch (err) {
+        formBusy = false;
+        formError = err instanceof Error ? err.message : String(err);
         return;
       }
     }
+    formBusy = false;
     closeForm();
     await load();
   }
 
   async function deleteExpense(e: Expense) {
     if (!confirm(`Delete expense "${e.body}"?`)) return;
-    const { error } = await supabase
-      .from('records')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', e.id);
-    if (error) {
-      alert(error.message);
+    try {
+      await deleteExpenseStore(e.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
       return;
     }
     if (editingId === e.id) closeForm();
@@ -246,22 +237,12 @@
     if (authState.phase === 'ready') void load();
   });
 
+  // Re-render whenever the sync engine finishes a pull from the
+  // server (which also fires on offline → online transitions). The
+  // local Dexie store is the source of truth.
   $effect(() => {
-    const channel = supabase
-      .channel('expense-all')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'records' },
-        async (payload) => {
-          const row = (payload.new ?? payload.old) as { type?: string };
-          if (row?.type !== 'expense') return;
-          await load();
-        },
-      )
-      .subscribe();
-    return () => {
-      channel.unsubscribe();
-    };
+    sync.last_pulled_at; // touched for reactivity
+    void load();
   });
 </script>
 

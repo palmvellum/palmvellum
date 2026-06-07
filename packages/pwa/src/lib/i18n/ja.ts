@@ -136,4 +136,9 @@ export default {
   'datebook.icalCopy': 'URL をコピー',
   'datebook.icalCopied': '[ok] コピーしました',
   'datebook.icalRevoke': '無効化',
+  'drawer.online': 'オンライン',
+  'drawer.offline': 'オフライン',
+  'drawer.pending': '同期待ち',
+  'settings.signOutHeading': 'サインアウト',
+  'settings.signOutHint': 'この端末からサインアウトします。データは PalmVellum と他の Palm に残ります。',
 };

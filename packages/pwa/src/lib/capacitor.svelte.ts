@@ -35,11 +35,14 @@ export async function initCapacitor(): Promise<void> {
   document.documentElement.setAttribute('data-platform', platform);
   document.documentElement.classList.add(`is-${platform}`);
 
-  // 2. Status-bar colour follows the dark palette.
+  // 2. Status-bar colour matches the dark Palm title bar, and the
+  //    WebView is pushed BELOW the system status bar (no overlay) so
+  //    our app bar isn't hidden behind it.
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
+    await StatusBar.setOverlaysWebView({ overlay: false });
     await StatusBar.setStyle({ style: Style.Dark });
-    await StatusBar.setBackgroundColor({ color: '#1c1c1c' });
+    await StatusBar.setBackgroundColor({ color: '#4a4a48' });
   } catch {
     /* status-bar plugin unavailable on some surfaces; ignore */
   }

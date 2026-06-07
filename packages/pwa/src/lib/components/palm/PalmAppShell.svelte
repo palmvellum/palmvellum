@@ -1,23 +1,26 @@
 <script lang="ts">
   /**
-   * PalmAppShell — full-screen Android-only chrome for each
-   * organizer app. Renders nothing extra on web; on Android it
-   * paints a high-contrast Palm-inspired top bar (title + back
-   * arrow + optional category selector) and a fixed bottom action
-   * bar where a + new button or other tools live.
+   * PalmAppShell — Palm OS-style title bar + body container for each
+   * organizer screen. Title bar has a hamburger on the left (opens
+   * the global drawer), the app title in the centre, and an optional
+   * top-right snippet for per-app actions. Body content sits below.
    *
-   * Slot the app body via the `children` prop. Optional snippets:
-   *   - `topRight` for a small action in the header
-   *   - `toolbar`  for the bottom action row
+   * Web: pass-through (no Palm chrome).
+   * Android: full Palm OS 5 silver title bar.
    */
+  import { drawer } from '$lib/drawer.svelte';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
   import type { Snippet } from 'svelte';
 
   interface Props {
     title: string;
-    backHref?: string;
-    category?: { value: string; options: { value: string; label: string }[]; onchange: (v: string) => void } | null;
+    backHref?: string;        // when set, shows a back arrow instead of hamburger
+    category?: {
+      value: string;
+      options: { value: string; label: string }[];
+      onchange: (v: string) => void;
+    } | null;
     topRight?: Snippet;
     toolbar?: Snippet;
     children: Snippet;
@@ -25,27 +28,36 @@
 
   let {
     title,
-    backHref = '/palm',
+    backHref = '',
     category = null,
     topRight,
     toolbar,
     children,
   }: Props = $props();
 
+  function openDrawer() { drawer.show(); }
   function goBack() {
-    if (history.length > 1 && history.state) {
+    if (backHref) {
+      void goto(base + backHref, { replaceState: true });
+    } else if (history.length > 1) {
       history.back();
     } else {
-      void goto(base + backHref, { replaceState: true });
+      void goto(base + '/palm', { replaceState: true });
     }
   }
 </script>
 
 <section class="palm-app">
-  <header class="palm-app-bar">
-    <button type="button" class="back-btn" onclick={goBack} aria-label="Back">
-      <span aria-hidden="true">‹</span>
-    </button>
+  <header class="bar">
+    {#if backHref}
+      <button type="button" class="ham" onclick={goBack} aria-label="Back">
+        <span aria-hidden="true">◀</span>
+      </button>
+    {:else}
+      <button type="button" class="ham" onclick={openDrawer} aria-label="Menu">
+        <span aria-hidden="true">≡</span>
+      </button>
+    {/if}
     <h1 class="title">{title}</h1>
     {#if category}
       <select
@@ -60,7 +72,7 @@
       </select>
     {/if}
     {#if topRight}
-      <div class="top-right">{@render topRight()}</div>
+      <div class="tr">{@render topRight()}</div>
     {/if}
   </header>
 
@@ -80,106 +92,90 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    margin: -1.5rem -1.5rem -4rem;
     background: var(--bg);
   }
-  @media (max-width: 720px) {
-    .palm-app {
-      margin: -0.9rem -0.85rem -3rem;
-    }
-  }
-  @media (max-width: 480px) {
-    .palm-app {
-      margin: -0.75rem -0.7rem -3rem;
-    }
-  }
-  .palm-app-bar {
+  .bar {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    height: 44px;
-    padding: 0 0.5rem;
-    background: var(--surface-lo);
-    border-bottom: 2px solid var(--accent);
+    gap: 0.3rem;
+    /* extra top padding so the bar sits below the device status bar
+       (Capacitor WebView extends edge-to-edge by default) */
+    padding: max(env(safe-area-inset-top), 0px) 0.45rem 0;
+    height: calc(38px + max(env(safe-area-inset-top), 0px));
+    box-sizing: border-box;
+    background: var(--surface-dk);
+    color: #fff;
     position: sticky;
     top: 0;
     z-index: 5;
+    border-bottom: 1px solid #1a1a1a;
   }
-  .back-btn {
+  .ham {
     background: transparent;
     border: 0;
-    color: var(--accent);
-    font-size: 1.8rem;
+    color: #fff;
+    font-size: 1.4rem;
     line-height: 1;
-    padding: 0 0.5rem;
+    padding: 0 0.55rem;
     cursor: pointer;
-    height: 38px;
-    min-height: 38px;
+    min-height: 36px;
+    border-radius: 4px;
   }
-  .back-btn:hover {
-    color: var(--ink);
+  .ham:hover,
+  .ham:active {
+    background: rgba(255, 255, 255, 0.12);
   }
   .title {
     flex: 1;
     margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--ink);
-    text-transform: lowercase;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #fff;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .cat {
     background: var(--surface-hi);
-    border: 1px solid var(--line);
+    border: 1px solid #1a1a1a;
     color: var(--ink);
-    border-radius: 4px;
-    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    padding: 0.15rem 0.4rem;
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     max-width: 8rem;
   }
-  .top-right {
+  .tr {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+    color: #fff;
   }
   .body {
     flex: 1;
-    padding: 0.75rem 0.85rem calc(60px + env(safe-area-inset-bottom));
+    padding: 0.75rem 0.85rem calc(0.5rem + env(safe-area-inset-bottom));
     overflow-y: auto;
+    background: var(--bg);
   }
   .palm-toolbar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 60px;
+    position: sticky;
+    bottom: 0;
     background: var(--surface-lo);
     border-top: 1px solid var(--line);
-    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+    padding: 0.45rem 0.7rem calc(0.45rem + env(safe-area-inset-bottom));
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     z-index: 4;
   }
-  /* On Android, bottom-nav lives at the very bottom so push our toolbar above it */
-  :global(html[data-platform='android']) .palm-toolbar {
-    bottom: calc(60px + env(safe-area-inset-bottom));
-  }
-  /* Hide on web — the Palm chrome is Android-only */
+  /* Hide Palm chrome on web. */
   :global(html:not([data-platform='android'])) .palm-app {
     margin: 0;
     min-height: auto;
+    background: transparent;
   }
-  :global(html:not([data-platform='android'])) .palm-app-bar {
-    display: none;
-  }
-  :global(html:not([data-platform='android'])) .palm-toolbar {
-    display: none;
-  }
-  :global(html:not([data-platform='android'])) .body {
-    padding: 0;
-  }
+  :global(html:not([data-platform='android'])) .bar { display: none; }
+  :global(html:not([data-platform='android'])) .body { padding: 0; background: transparent; }
+  :global(html:not([data-platform='android'])) .palm-toolbar { display: none; }
 </style>

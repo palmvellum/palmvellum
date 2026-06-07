@@ -13,6 +13,7 @@
   import { base } from '$app/paths';
   import { t } from '$lib/i18n.svelte';
   import { sync } from '$lib/sync.svelte';
+  import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   const APPS = [
     { key: 'datebook', href: '/palm/datebook', i18n: 'tab.datebook', glyph: '◫', subtitle: 'calendar' },
@@ -28,26 +29,19 @@
 {#if authState.phase !== 'ready'}
   <p class="status">loading…</p>
 {:else}
-  <section class="launcher">
-    <header class="head">
-      <h1>{t('palm.heading')}</h1>
-      <p class="sub">{t('palm.sub')}</p>
-      <p class="sync-state" class:offline={!sync.online}>
-        {sync.online ? '● online' : '○ offline — changes will sync when network is back'}
-        {#if sync.pending_count > 0}<span class="pending">· {sync.pending_count} pending</span>{/if}
-      </p>
-    </header>
-
-    <div class="grid">
-      {#each APPS as app (app.key)}
-        <a class="tile" href={base + app.href}>
-          <span class="glyph" aria-hidden="true">{app.glyph}</span>
-          <span class="label">{t(app.i18n)}</span>
-          <span class="sublbl">{app.subtitle}</span>
-        </a>
-      {/each}
-    </div>
-  </section>
+  <PalmAppShell title="Applications">
+    <section class="launcher">
+      <div class="grid">
+        {#each APPS as app (app.key)}
+          <a class="tile" href={base + app.href}>
+            <span class="glyph" aria-hidden="true">{app.glyph}</span>
+            <span class="label">{t(app.i18n)}</span>
+            <span class="sublbl">{app.subtitle}</span>
+          </a>
+        {/each}
+      </div>
+    </section>
+  </PalmAppShell>
 {/if}
 
 <style>

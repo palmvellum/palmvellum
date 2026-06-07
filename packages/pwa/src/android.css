@@ -1,204 +1,194 @@
 /**
- * Android (Capacitor) overrides — Material 3 dark-theme styling.
+ * Android (Capacitor) overrides — authentic Palm OS-style silver UI.
  *
- * Only activates when <html data-platform="android"> is set by
- * lib/capacitor.svelte.ts. Plain web users see the original
- * charcoal/yellow palette untouched.
+ * Activates only when <html data-platform="android"> is set by
+ * lib/capacitor.svelte.ts. Plain web users keep the charcoal/yellow
+ * desktop palette.
  *
- * Strategy:
- *   1. Override CSS variables for Material 3 dark surface colours.
- *   2. Switch font stack to Roboto (Android system).
- *   3. Status-bar safe-area top padding.
- *   4. Hide the desktop-style top tabs, show bottom nav (component).
- *   5. Bigger hit targets and Material elevation shadows on cards.
+ * Reference points: Palm OS 5 Tungsten T applications, Palm OS classic
+ * Address Book. Light silver/grey background, black sans-serif text,
+ * dark grey title bars, hairline 1-px borders, square corners.
  */
 
 html[data-platform='android'] {
-  /* Material 3 dark surface tokens. Keep accent yellow for brand. */
-  --bg:         #121212;  /* M3 surface */
-  --surface-lo: #1c1c1c;  /* M3 surface container */
-  --surface-hi: #2c2c2c;  /* M3 surface container high */
-  --line:       #3a3a3a;
-  --line-soft:  #2a2a2a;
-  --ink:        #e8e8e8;
-  --ink-dim:    #c0c0c0;
-  --ink-mute:   #888;
-  --accent:     #ffd600;
-  --accent-dim: #d4b300;
-  --green:      #6fcf97;
+  /* Palm OS 5 silver palette */
+  --bg:         #cfd1cc;   /* main desk silver */
+  --surface-lo: #e6e6e1;   /* list / card surface (off-white) */
+  --surface-hi: #f4f4ee;   /* lighter surface — input fields, sheet bodies */
+  --surface-dk: #4a4a48;   /* title bars + selection */
+  --line:       #6b6c68;   /* hairline divider between cells */
+  --line-soft:  #b6b8b2;   /* softer divider */
+  --ink:        #000000;   /* primary text */
+  --ink-dim:    #1a1a1a;
+  --ink-mute:   #555;      /* secondary text */
+  --accent:     #2b2b2b;   /* primary action ink (NOT yellow) */
+  --accent-dim: #555;
+  --green:      #1e7a3a;
+  --shadow:     0 1px 0 rgba(0,0,0,0.18);
+
+  /* Category accent colours retain — they're badges, not chrome */
+  --cat-todo:   #c69400;
+  --cat-event:  #b35400;
 
   font-family:
+    'Helvetica Neue',
+    Helvetica,
+    Arial,
     'Roboto',
-    'Roboto Flex',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
     sans-serif !important;
   font-weight: 400;
   -webkit-tap-highlight-color: transparent;
 }
-
-/* The html/body global declaration is more specific in cascade order
-   (lots of cancel-anchor matchers), so re-assert against html, body
-   as well to be safe. */
+/* Re-assert against html, body in case the global rule wins cascade. */
 html[data-platform='android'],
 html[data-platform='android'] body {
   font-family:
+    'Helvetica Neue',
+    Helvetica,
+    Arial,
     'Roboto',
-    'Roboto Flex',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
     sans-serif !important;
+  background: var(--bg);
+  color: var(--ink);
 }
 
 html[data-platform='android'] body {
-  /* Status-bar safe area. The 24dp inset is approximate; we let the
-     viewport meta + Capacitor's web-view-resize keep it accurate. */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* ─── App bar (replaces the desktop top-nav row) ────────────────── */
+/* ─── Hide the desktop topnav entirely; drawer is the new nav. ──── */
 html[data-platform='android'] .topnav {
-  background: var(--surface-lo);
-  border-bottom: 1px solid var(--line-soft);
-  padding: 0.5rem 0.9rem;
-  height: 56px;
-  gap: 0.5rem;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-html[data-platform='android'] .topnav .brand {
-  font-size: 1rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-html[data-platform='android'] .topnav .brand .dot {
-  background: var(--accent);
-  width: 10px;
-  height: 10px;
-}
-html[data-platform='android'] .topnav .links {
-  /* On the app, the only desktop nav we still keep is the language
-     picker + sign-out. The "Organizers" / "Setting" links become
-     the bottom-nav tab strip. Hide everything else. */
-  gap: 0.5rem;
-}
-html[data-platform='android'] .topnav .links a[href*='/palm'],
-html[data-platform='android'] .topnav .links a[href*='/settings'] {
-  display: none;
-}
-html[data-platform='android'] .topnav .links a[href*='palmvellum/'] {
-  display: none; /* drop Manifesto link inside the app */
-}
-html[data-platform='android'] .topnav .links a[href*='github.com'] {
-  display: none; /* drop Github link inside the app */
-}
-html[data-platform='android'] .lang-select {
-  background: var(--surface-hi);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.3rem 0.55rem;
-  font-size: 0.85rem;
+  display: none !important;
 }
 
-/* ─── Bottom navigation bar (mobile Material pattern) ───────────── */
-html[data-platform='android'] .bottom-nav {
-  display: flex;
-}
-.bottom-nav {
-  display: none; /* hidden on web — only Capacitor shell shows it */
-}
-
-/* Reserve room above the bottom nav so content is not occluded. */
+/* ─── Shell takes the full viewport, no max-width centring. ──────── */
 html[data-platform='android'] .shell {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
 }
 
-/* ─── Cards: Material elevation 1 shadow + rounded corners ──────── */
+/* ─── Make every classic .card / surface light. ─────────────────── */
 html[data-platform='android'] .card,
-html[data-platform='android'] .ev,
-html[data-platform='android'] .row,
-html[data-platform='android'] .day-panel,
 html[data-platform='android'] .ai-card,
 html[data-platform='android'] .form-card,
+html[data-platform='android'] .day-panel,
+html[data-platform='android'] .row,
+html[data-platform='android'] .ev,
 html[data-platform='android'] .manual-trigger,
 html[data-platform='android'] .ical-panel {
-  border-radius: 12px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.30),
-    0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  background: var(--surface-lo);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: var(--shadow);
+  color: var(--ink);
 }
 
-/* ─── Bigger hit targets ────────────────────────────────────────── */
+/* Hit targets and typography */
 html[data-platform='android'] button,
-html[data-platform='android'] .btn,
-html[data-platform='android'] .manual-trigger {
-  min-height: 48px;
-  border-radius: 8px;
-  letter-spacing: 0.02em;
-  font-weight: 500;
-}
-html[data-platform='android'] .ai-card button[type='submit'],
-html[data-platform='android'] .form-card button[type='submit'] {
-  border-radius: 24px; /* M3 pill button */
+html[data-platform='android'] .btn {
+  min-height: 36px;
+  border-radius: 4px;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+  font-family: inherit;
 }
 
-/* ─── Inputs: filled-style ───────────────────────────────────── */
+/* Primary buttons: dark title-bar grey background, white text */
+html[data-platform='android'] button.primary,
+html[data-platform='android'] button[type='submit'] {
+  background: var(--surface-dk);
+  color: #fff;
+  border: 1px solid #1a1a1a;
+}
+html[data-platform='android'] button.primary:hover:not(:disabled),
+html[data-platform='android'] button[type='submit']:hover:not(:disabled) {
+  background: #2c2c2a;
+}
+
+/* Inputs: white background, thin border */
 html[data-platform='android'] input[type='text'],
 html[data-platform='android'] input[type='email'],
 html[data-platform='android'] input[type='datetime-local'],
 html[data-platform='android'] input[type='date'],
 html[data-platform='android'] input[type='time'],
 html[data-platform='android'] input[type='password'],
+html[data-platform='android'] input[type='number'],
 html[data-platform='android'] textarea,
 html[data-platform='android'] select {
   background: var(--surface-hi);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.7rem 0.85rem;
-  font-size: 1rem;
+  border-radius: 3px;
+  padding: 0.5rem 0.55rem;
+  font-size: 0.95rem;
   color: var(--ink);
+  font-family: inherit;
 }
 html[data-platform='android'] input:focus,
 html[data-platform='android'] textarea:focus,
 html[data-platform='android'] select:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--surface-dk);
   outline-offset: -2px;
 }
 
-/* ─── Headings: tighter Material typography ──────────────────── */
+/* Headings — bold black */
 html[data-platform='android'] h1 {
-  font-weight: 500;
-  font-size: 1.5rem;
+  font-weight: 700;
+  font-size: 1.3rem;
   letter-spacing: -0.01em;
+  color: var(--ink);
 }
 html[data-platform='android'] h2 {
-  font-weight: 500;
+  font-weight: 700;
   text-transform: none;
+  color: var(--ink);
+}
+html[data-platform='android'] h3 {
+  font-weight: 700;
+  color: var(--ink);
 }
 
-/* ─── Tab bar at the top of /palm: hide on Android (covered by
-       bottom nav) ─────────────────────────────────────────── */
+/* Links */
+html[data-platform='android'] a {
+  color: #00467a;     /* classic Mac/Palm hyperlink blue */
+  text-decoration: underline;
+  border-bottom: 0;
+}
+html[data-platform='android'] a:hover {
+  color: #002a4d;
+  background: transparent;
+}
+
+/* Top tablist (used by category strips, etc) */
 html[data-platform='android'] [role='tablist'] {
-  background: var(--surface-lo);
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
-  padding: 0.4rem 0.6rem 0;
+  padding: 0.3rem 0.5rem 0;
   gap: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 html[data-platform='android'] [role='tab'] {
-  padding: 0.65rem 1rem;
-  font-size: 0.9rem;
-  border-radius: 8px 8px 0 0;
-  border-bottom: 3px solid transparent;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: var(--ink-mute);
 }
 html[data-platform='android'] [role='tab'][aria-selected='true'] {
-  border-bottom-color: var(--accent);
-  color: var(--accent);
-  font-weight: 500;
+  background: var(--surface-lo);
+  border-color: var(--line);
+  color: var(--ink);
+  font-weight: 700;
 }
+
+/* ─── Hide the BottomNav on Android — we use the left drawer ──── */
+html[data-platform='android'] .bottom-nav {
+  display: none !important;
+}
+
+/* Drawer + drawer-open hamburger button live in their own components. */

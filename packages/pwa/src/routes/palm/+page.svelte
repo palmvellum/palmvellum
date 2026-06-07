@@ -1,75 +1,52 @@
 <script lang="ts">
   /**
-   * /palm — single-user dashboard, replaces the per-device
-   * /devices/[id] page. Every user has ONE shared dataset; if
-   * they own multiple Palms, those Palms all sync to/from this
-   * same set of records / events.
+   * /palm — Palm OS-style app launcher.
    *
-   * Five tabs are functional today: Date Book / Memo Pad /
-   * To Do List / Address / Expense. Note Pad and Mail still
-   * carry phase notes because they need new infrastructure
-   * (bitmap rendering + Storage; scheduled fetcher + summarizer).
+   * Replaces the previous tabbed dashboard. On Android, this is the
+   * "home screen" of the wrapper: 7 large rectangular tiles, each
+   * leading to a dedicated app route (/palm/datebook, /palm/todo, ...).
+   *
+   * On web, falls back to a simple list — the tab-based experience
+   * remains the web's domain.
    */
   import { authState } from '$lib/auth.svelte';
-  import DateBook from '$lib/components/DateBook.svelte';
-  import MemoPad from '$lib/components/MemoPad.svelte';
-  import TodoList from '$lib/components/TodoList.svelte';
-  import AddressBook from '$lib/components/AddressBook.svelte';
-  import ExpenseLog from '$lib/components/ExpenseLog.svelte';
-  import NotePad from '$lib/components/NotePad.svelte';
-  import Mail from '$lib/components/Mail.svelte';
+  import { base } from '$app/paths';
   import { t } from '$lib/i18n.svelte';
+  import { sync } from '$lib/sync.svelte';
 
-  const TABS = [
-    { key: 'datebook', i18n: 'tab.datebook' },
-    { key: 'todo', i18n: 'tab.todo' },
-    { key: 'address', i18n: 'tab.address' },
-    { key: 'memo', i18n: 'tab.memo' },
-    { key: 'notepad', i18n: 'tab.notepad' },
-    { key: 'mail', i18n: 'tab.mail' },
-    { key: 'expense', i18n: 'tab.expense' },
+  const APPS = [
+    { key: 'datebook', href: '/palm/datebook', i18n: 'tab.datebook', glyph: '◫', subtitle: 'calendar' },
+    { key: 'todo',     href: '/palm/todo',     i18n: 'tab.todo',     glyph: '☑', subtitle: 'tasks + due dates' },
+    { key: 'address',  href: '/palm/address',  i18n: 'tab.address',  glyph: '✦', subtitle: 'contacts' },
+    { key: 'memo',     href: '/palm/memo',     i18n: 'tab.memo',     glyph: '▤', subtitle: 'notes' },
+    { key: 'notepad',  href: '/palm/notepad',  i18n: 'tab.notepad',  glyph: '✎', subtitle: 'sketches' },
+    { key: 'mail',     href: '/palm/mail',     i18n: 'tab.mail',     glyph: '✉', subtitle: 'AI digests' },
+    { key: 'expense',  href: '/palm/expense',  i18n: 'tab.expense',  glyph: '¤', subtitle: 'log' },
   ];
-
-  let activeTab = $state<string>('datebook');
 </script>
 
 {#if authState.phase !== 'ready'}
   <p class="status">loading…</p>
 {:else}
-  <section class="palm">
+  <section class="launcher">
     <header class="head">
       <h1>{t('palm.heading')}</h1>
       <p class="sub">{t('palm.sub')}</p>
+      <p class="sync-state" class:offline={!sync.online}>
+        {sync.online ? '● online' : '○ offline — changes will sync when network is back'}
+        {#if sync.pending_count > 0}<span class="pending">· {sync.pending_count} pending</span>{/if}
+      </p>
     </header>
 
-    <div class="tabs" role="tablist" aria-label="palm apps">
-      {#each TABS as tab (tab.key)}
-        <button
-          role="tab"
-          aria-selected={activeTab === tab.key}
-          class:active={activeTab === tab.key}
-          onclick={() => (activeTab = tab.key)}
-        >
-          {t(tab.i18n)}
-        </button>
+    <div class="grid">
+      {#each APPS as app (app.key)}
+        <a class="tile" href={base + app.href}>
+          <span class="glyph" aria-hidden="true">{app.glyph}</span>
+          <span class="label">{t(app.i18n)}</span>
+          <span class="sublbl">{app.subtitle}</span>
+        </a>
       {/each}
     </div>
-
-    {#if activeTab === 'datebook'}
-      <div class="host" role="tabpanel"><DateBook /></div>
-    {:else if activeTab === 'memo'}
-      <div class="host" role="tabpanel"><MemoPad /></div>
-    {:else if activeTab === 'todo'}
-      <div class="host" role="tabpanel"><TodoList /></div>
-    {:else if activeTab === 'address'}
-      <div class="host" role="tabpanel"><AddressBook /></div>
-    {:else if activeTab === 'expense'}
-      <div class="host" role="tabpanel"><ExpenseLog /></div>
-    {:else if activeTab === 'notepad'}
-      <div class="host" role="tabpanel"><NotePad /></div>
-    {:else if activeTab === 'mail'}
-      <div class="host" role="tabpanel"><Mail /></div>
-    {/if}
   </section>
 {/if}
 
@@ -79,113 +56,98 @@
     color: var(--ink-mute);
     padding: 2rem 0;
   }
-  .palm {
-    max-width: 1000px;
+  .launcher {
+    max-width: 720px;
     margin: 0 auto;
   }
   .head {
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.5rem;
   }
   h1 {
-    margin: 0 0 0.3rem;
-    font-size: 1.4rem;
+    font-size: 1.5rem;
+    margin: 0 0 0.25rem;
     color: var(--accent);
-    text-transform: lowercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
   }
   .sub {
-    margin: 0;
-    color: var(--ink-mute);
+    color: var(--ink-dim);
     font-size: 0.85rem;
+    margin: 0 0 0.5rem;
   }
-
-  .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 1rem;
-  }
-  .tabs button {
-    flex: 1 1 auto;
-    background: transparent;
-    color: var(--ink-mute);
-    border: none;
-    border-right: 1px solid var(--line);
-    border-radius: 0;
-    padding: 0.65rem 0.6rem;
-    font: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    text-transform: lowercase;
-    letter-spacing: 0.04em;
-    min-width: 90px;
-  }
-  /* On narrow viewports, swap to a single horizontal scroller so all
-     seven tabs stay accessible without stacking into 2-3 rows. */
-  @media (max-width: 720px) {
-    .tabs {
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-    }
-    .tabs button {
-      flex: 0 0 auto;
-      min-width: auto;
-      padding: 0.55rem 0.7rem;
-      font-size: 0.78rem;
-      white-space: nowrap;
-    }
-  }
-  @media (max-width: 480px) {
-    h1 {
-      font-size: 1.15rem;
-    }
-    .sub {
-      font-size: 0.8rem;
-    }
-  }
-  .tabs button:last-child {
-    border-right: none;
-  }
-  .tabs button:hover {
-    color: var(--ink);
-    background: var(--surface);
-  }
-  .tabs button.active {
-    color: var(--accent);
-    background: var(--bg);
-    box-shadow: inset 0 -2px 0 var(--accent);
-  }
-
-  .host {
-    /* Component owns its own internal layout. */
+  .sync-state {
+    font-size: 0.7rem;
+    color: var(--green);
     margin: 0;
-  }
-  .panel {
-    background: var(--surface-lo);
-    border: 1px solid var(--line);
-    padding: 1.2rem 1.4rem;
-    border-radius: 2px;
-  }
-  .panel h2 {
-    margin: 0 0 0.7rem;
-    font-size: 1.1rem;
-    color: var(--accent);
-    text-transform: lowercase;
     letter-spacing: 0.05em;
   }
-  .panel p {
-    margin: 0 0 0.7rem;
-    color: var(--ink-dim);
-    line-height: 1.55;
-    font-size: 0.92rem;
+  .sync-state.offline {
+    color: var(--ink-mute);
   }
-  .phase-note {
-    color: var(--ink-mute) !important;
-    font-size: 0.8rem !important;
-    font-style: italic;
-    margin-top: 1rem !important;
+  .sync-state .pending {
+    color: var(--accent);
+  }
+
+  /* On Android, render as a Palm-style 2-col grid of square tiles */
+  :global(html[data-platform='android']) .launcher {
+    padding-top: 0.5rem;
+  }
+  :global(html[data-platform='android']) h1 {
+    font-size: 1.25rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.7rem;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    background: var(--surface-lo);
+    border: 1px solid var(--accent);
+    color: var(--ink);
+    text-decoration: none;
+    padding: 0.9rem 0.4rem;
+    gap: 0.35rem;
+    text-align: center;
+    transition: background 0.12s ease;
+  }
+  .tile:hover, .tile:active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .tile:hover .glyph,
+  .tile:active .glyph,
+  .tile:hover .sublbl,
+  .tile:active .sublbl {
+    color: var(--bg);
+  }
+  .glyph {
+    font-size: 2.4rem;
+    line-height: 1;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', system-ui, monospace;
+  }
+  .label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .sublbl {
+    font-size: 0.7rem;
+    color: var(--ink-mute);
+    line-height: 1.2;
+  }
+  @media (max-width: 480px) {
+    .grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+    }
+    .tile { padding: 0.75rem 0.3rem; gap: 0.25rem; }
+    .glyph { font-size: 2rem; }
+    .label { font-size: 0.85rem; }
+    .sublbl { font-size: 0.65rem; }
   }
 </style>

@@ -8,6 +8,7 @@
  */
 
 import { supabase } from './supabase';
+import { sync } from './sync.svelte';
 import { browser } from '$app/environment';
 import { base } from '$app/paths';
 
@@ -90,6 +91,11 @@ class AuthState {
       this.email = data.session.user.email ?? null;
       this.userId = data.session.user.id;
       await this.refreshSettings();
+      // Boot the offline-first sync engine — it wires the Capacitor
+      // Network plugin + window online/offline events, kicks off an
+      // initial pull, and starts pushing any queued outbox items.
+      // Safe to call repeatedly: re-init re-binds the listeners.
+      await sync.init(this.userId!);
     } else {
       this.phase = 'unauthenticated';
     }
@@ -99,11 +105,15 @@ class AuthState {
         this.email = session.user.email ?? null;
         this.userId = session.user.id;
         await this.refreshSettings();
+        await sync.init(this.userId!);
       } else {
         this.email = null;
         this.userId = null;
         this.settings = null;
         this.phase = 'unauthenticated';
+        // Tear down the network listeners; the next sign-in will
+        // re-init with the new user id.
+        sync.destroy();
       }
     });
   }

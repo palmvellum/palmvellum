@@ -52,7 +52,7 @@ export async function initCapacitor(): Promise<void> {
   //    parse the hash, set the session, then route to /palm.
   App.addListener('appUrlOpen', async ({ url }) => {
     try {
-      console.log('[Capacitor] appUrlOpen');
+      console.log('[Capacitor] appUrlOpen url=' + url);
       // Two flows to handle:
       //   PKCE (default):    palmvellum://auth?code=<auth_code>
       //                        -> supabase.auth.exchangeCodeForSession(code)

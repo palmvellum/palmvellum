@@ -135,7 +135,10 @@ export function magicLinkRedirect(): string {
   // browser bundle on the plain-PWA build.
   const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
   if (cap?.isNativePlatform?.()) {
-    return 'https://tatliving.dev/palmvellum/app/';
+    // Custom scheme so Chrome cannot internally absorb the 302 — it
+    // must fire an external Intent which our AndroidManifest catches
+    // and routes back into the app via App.appUrlOpen.
+    return 'palmvellum://auth';
   }
   return window.location.origin + base + '/';
 }

@@ -26,8 +26,7 @@
             <!-- Verified App Link for the Supabase magic-link callback.
                  Backed by /.well-known/assetlinks.json on tatliving.dev,
                  which lists this app's package + signing-cert SHA-256
-                 fingerprint. With autoVerify=true the OS resolves the
-                 URL directly to MainActivity without showing a chooser. -->
+                 fingerprint. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -36,6 +35,22 @@
                     android:scheme="https"
                     android:host="tatliving.dev"
                     android:pathPrefix="/palmvellum/app/" />
+            </intent-filter>
+
+            <!-- Custom-scheme intent-filter for the OAuth / magic-link
+                 callback. Chrome cannot internally follow palmvellum://
+                 URLs — when Supabase's verify endpoint 302-redirects to
+                 `palmvellum://auth#access_token=...`, Chrome must fire
+                 an external Intent.  Android resolves it here and
+                 reopens the app with the URL delivered via
+                 App.appUrlOpen. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="palmvellum"
+                    android:host="auth" />
             </intent-filter>
 
         </activity>

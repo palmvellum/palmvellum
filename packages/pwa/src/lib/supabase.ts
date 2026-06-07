@@ -24,6 +24,13 @@ export const supabase: SupabaseClient = createClient(url, publishableKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // PKCE flow puts the auth code in the URL query string (?code=...)
+    // instead of the fragment (#access_token=...). The fragment-based
+    // ('implicit') flow does not work for Android Capacitor deep
+    // links because Chrome strips the URL fragment when it fires an
+    // Intent for a non-https scheme (palmvellum://). PKCE is also the
+    // more secure flow — Supabase recommends it for mobile apps.
+    flowType: 'pkce',
   },
   realtime: {
     params: {

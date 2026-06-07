@@ -53,49 +53,65 @@ export async function initCapacitor(): Promise<void> {
   App.addListener('appUrlOpen', async ({ url }) => {
     try {
       console.log('[Capacitor] appUrlOpen');
-      // The Supabase magic-link callback URL has the form
-      //   https://tatliving.dev/palmvellum/app/#access_token=...&refresh_token=...
-      // The token is delivered in the URL FRAGMENT, but Supabase Auth
-      // also supports query-string callbacks (?code=...) on newer
-      // flow. Handle both. Manual split because URLSearchParams chokes
-      // on some payloads (empty value pairs like sb=) on older
-      // Chromium WebViews.
-      const hashIndex = url.indexOf('#');
+      // Two flows to handle:
+      //   PKCE (default):    palmvellum://auth?code=<auth_code>
+      //                        -> supabase.auth.exchangeCodeForSession(code)
+      //   Implicit (legacy): palmvellum://auth#access_token=...&refresh_token=...
+      //                        -> supabase.auth.setSession({access_token, refresh_token})
+      //
+      // PKCE is what we use now — Chrome strips the URL fragment when
+      // it dispatches an Intent for a non-https scheme, but query
+      // parameters survive. The implicit branch is kept as a fallback
+      // in case the legacy flow surfaces somewhere.
       const queryIndex = url.indexOf('?');
-      const blob = hashIndex >= 0 ? url.slice(hashIndex + 1)
-                  : queryIndex >= 0 ? url.slice(queryIndex + 1)
-                  : '';
-      if (!blob) {
-        console.warn('[Capacitor] appUrlOpen: no fragment/query');
+      const hashIndex = url.indexOf('#');
+      const query = queryIndex >= 0
+        ? url.slice(queryIndex + 1, hashIndex >= 0 ? hashIndex : undefined)
+        : '';
+      const fragment = hashIndex >= 0 ? url.slice(hashIndex + 1) : '';
+
+      const parse = (s: string): Record<string, string> => {
+        const out: Record<string, string> = {};
+        for (const part of s.split('&')) {
+          const eq = part.indexOf('=');
+          if (eq < 0) continue;
+          out[decodeURIComponent(part.slice(0, eq))] = decodeURIComponent(part.slice(eq + 1));
+        }
+        return out;
+      };
+      const q = parse(query);
+      const f = parse(fragment);
+
+      // PKCE — auth code in query string
+      const code = q['code'];
+      if (code) {
+        console.log('[Capacitor] appUrlOpen: PKCE code received');
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error('[Capacitor] exchangeCodeForSession failed', error.message);
+          return;
+        }
+        window.location.replace('/palm');
         return;
       }
-      const kv: Record<string, string> = {};
-      for (const part of blob.split('&')) {
-        const eq = part.indexOf('=');
-        if (eq < 0) continue;
-        const k = decodeURIComponent(part.slice(0, eq));
-        const v = decodeURIComponent(part.slice(eq + 1));
-        kv[k] = v;
-      }
-      const access = kv['access_token'] ?? '';
-      const refresh = kv['refresh_token'] ?? '';
-      if (!access || !refresh) {
-        console.warn('[Capacitor] appUrlOpen: missing tokens, access_len='
-                     + access.length + ' refresh_len=' + refresh.length);
+
+      // Implicit — tokens in fragment
+      const access = f['access_token'] ?? '';
+      const refresh = f['refresh_token'] ?? '';
+      if (access && refresh) {
+        const { error } = await supabase.auth.setSession({
+          access_token: access,
+          refresh_token: refresh,
+        });
+        if (error) {
+          console.error('[Capacitor] setSession failed', error.message);
+          return;
+        }
+        window.location.replace('/palm');
         return;
       }
-      const { error } = await supabase.auth.setSession({
-        access_token: access,
-        refresh_token: refresh,
-      });
-      if (error) {
-        console.error('[Capacitor] setSession failed', error.message);
-        return;
-      }
-      // Once the session lands, route to the dashboard. Use a hard
-      // location change because SvelteKit's `goto` requires a base path
-      // and the magic-link flow may interrupt mid-routing.
-      window.location.replace('/palm');
+
+      console.warn('[Capacitor] appUrlOpen: no code or tokens in URL');
     } catch (e) {
       console.error('[Capacitor] appUrlOpen handler threw', e instanceof Error ? e.message : String(e));
     }

@@ -24,12 +24,15 @@ export const supabase: SupabaseClient = createClient(url, publishableKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // PKCE flow puts the auth code in the URL query string (?code=...)
-    // instead of the fragment (#access_token=...). The fragment-based
-    // ('implicit') flow does not work for Android Capacitor deep
-    // links because Chrome strips the URL fragment when it fires an
-    // Intent for a non-https scheme (palmvellum://). PKCE is also the
-    // more secure flow — Supabase recommends it for mobile apps.
+    // We use the 6-digit OTP code flow as the primary sign-in path on
+    // Android. The code is typed inside the app — no deep link, no
+    // browser, no Chrome scheme dispatch. This is the most reliable
+    // sign-in flow on phones. The magic-link variant is kept as a
+    // desktop fallback in the email template.
+    //
+    // PKCE is retained as the OAuth flow type for any deep-link flows
+    // that still surface (the verify URL still works for desktop users
+    // who click the email link).
     flowType: 'pkce',
   },
   realtime: {

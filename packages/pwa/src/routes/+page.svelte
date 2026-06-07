@@ -1,36 +1,67 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
-  import { authState, magicLinkRedirect } from '$lib/auth.svelte';
+  import { authState } from '$lib/auth.svelte';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n.svelte';
 
-  // Sign-in (magic link) state
+  // Two-step OTP flow:
+  //   step 1: type email + send code   -> Supabase emails a 6-digit code
+  //   step 2: type code in app + verify -> session granted, no deep link
+  // The same email also includes the legacy magic-link as a fallback
+  // for desktop users, but the OTP code path is what we actively
+  // surface — it works on every Android device regardless of how the
+  // mail / browser app handles deep links.
   let signinEmail = $state('');
-  let signinSubmitting = $state(false);
-  let signinSent = $state(false);
+  let otpCode = $state('');
+  let submitting = $state(false);
+  let codeSent = $state(false);
+  let verifying = $state(false);
   let signinError = $state<string | null>(null);
 
-  async function submitSignin(e: Event) {
+  async function sendCode(e: Event) {
     e.preventDefault();
     signinError = null;
-    signinSubmitting = true;
+    submitting = true;
     const { error } = await supabase.auth.signInWithOtp({
       email: signinEmail.trim().toLowerCase(),
-      options: { emailRedirectTo: magicLinkRedirect() },
+      options: {
+        shouldCreateUser: false,
+      },
     });
-    signinSubmitting = false;
+    submitting = false;
     if (error) {
       signinError = error.message;
       return;
     }
-    signinSent = true;
+    codeSent = true;
   }
 
-  // Whenever auth becomes 'ready' (signed-in + invited), forward to
-  // /palm — this page no longer hosts a capture form, it's just the
-  // auth gate.
+  async function verifyCode(e: Event) {
+    e.preventDefault();
+    signinError = null;
+    verifying = true;
+    const { error } = await supabase.auth.verifyOtp({
+      email: signinEmail.trim().toLowerCase(),
+      token: otpCode.trim(),
+      type: 'email',
+    });
+    verifying = false;
+    if (error) {
+      signinError = error.message;
+      return;
+    }
+    // verifyOtp installs the session via the auth store; the $effect
+    // below will catch authState.phase === 'ready' and route to /palm.
+  }
+
+  function resetSignin() {
+    codeSent = false;
+    otpCode = '';
+    signinError = null;
+  }
+
   $effect(() => {
     if (authState.phase === 'ready') {
       void goto(base + '/palm', { replaceState: true });
@@ -38,8 +69,6 @@
   });
 
   onMount(() => {
-    // If user lands here already signed in, fire the same redirect on
-    // the very first tick.
     if (authState.phase === 'ready') {
       void goto(base + '/palm', { replaceState: true });
     }
@@ -59,27 +88,58 @@
     <p class="lede">
       {t('palm.sub')}
     </p>
-    {#if signinSent}
-      <p class="ok">[ok] Magic link sent to <strong>{signinEmail}</strong>. Check your inbox.</p>
-    {:else}
-      <form onsubmit={submitSignin}>
+
+    {#if !codeSent}
+      <!-- Step 1: type email + send code -->
+      <form onsubmit={sendCode}>
         <label>
           email
           <input
             type="email"
             bind:value={signinEmail}
             required
+            autocomplete="email"
             placeholder="you@example.com"
           />
         </label>
         {#if signinError}
           <p class="error">{signinError}</p>
         {/if}
-        <button type="submit" disabled={signinSubmitting}>
-          {signinSubmitting ? 'sending…' : 'send magic link'}
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'sending…' : 'send code'}
+        </button>
+      </form>
+    {:else}
+      <!-- Step 2: enter code from email -->
+      <p class="ok">
+        [ok] code sent to <strong>{signinEmail}</strong>. enter the 6-digit code below.
+      </p>
+      <form onsubmit={verifyCode}>
+        <label>
+          code
+          <input
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            bind:value={otpCode}
+            required
+            maxlength="6"
+            placeholder="123456"
+            class="otp-input"
+          />
+        </label>
+        {#if signinError}
+          <p class="error">{signinError}</p>
+        {/if}
+        <button type="submit" disabled={verifying || otpCode.length !== 6}>
+          {verifying ? 'verifying…' : 'sign in'}
+        </button>
+        <button type="button" class="link" onclick={resetSignin}>
+          back / re-send code
         </button>
       </form>
     {/if}
+
     <p class="muted">
       <a href="https://tatliving.dev/palmvellum/">about the project ↗</a>
     </p>
@@ -155,6 +215,13 @@
     font-family: inherit;
     font-size: 0.95rem;
   }
+  input.otp-input {
+    font-size: 1.6rem;
+    letter-spacing: 0.4em;
+    text-align: center;
+    font-weight: 600;
+    color: var(--accent);
+  }
   button {
     background: var(--accent);
     color: var(--bg);
@@ -172,6 +239,20 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+  button.link {
+    background: transparent;
+    color: var(--ink-mute);
+    border: none;
+    padding: 0.2rem;
+    text-decoration: underline;
+    font-size: 0.85rem;
+    font-weight: normal;
+    margin-top: 0.4rem;
+  }
+  button.link:hover {
+    color: var(--accent);
+    background: transparent;
+  }
   .muted {
     color: var(--ink-mute);
     font-size: 0.85rem;
@@ -188,6 +269,7 @@
   .ok {
     color: var(--green);
     margin: 0.6rem 0;
+    font-size: 0.9rem;
   }
   .error {
     color: #ff6b6b;

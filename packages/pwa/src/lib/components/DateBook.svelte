@@ -155,7 +155,11 @@
         const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
         const ms = dt.getTime();
         if (ms < fromMs || ms >= toMs) return null;
-        const completed = md.palm_completed === true;
+        // BUG FIX (2026-06-07): completed to-dos were still rendering on the
+        // calendar because we only set the todo_completed flag instead of
+        // dropping the row. Drop them outright — they appear in the To Do
+        // List 'done' tab, that is enough.
+        if (md.palm_completed === true) return null;
         const ce: CalendarEvent = {
           id: `todo-${r.id}`,
           user_id: r.user_id,
@@ -171,7 +175,7 @@
           deleted_at: null,
           updated_at: r.updated_at,
           kind: 'todo',
-          todo_completed: completed,
+          todo_completed: false,
         };
         return ce;
       })

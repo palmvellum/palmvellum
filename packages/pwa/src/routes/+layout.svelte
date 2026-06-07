@@ -1,8 +1,11 @@
 <script lang="ts">
   import '../app.css';
+  import '../android.css';
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { authState } from '$lib/auth.svelte';
+  import { initCapacitor } from '$lib/capacitor.svelte';
+  import BottomNav from '$lib/components/BottomNav.svelte';
   import {
     currentLang,
     setLang,
@@ -15,6 +18,7 @@
 
   onMount(() => {
     void authState.init();
+    void initCapacitor();
     // Reflect persisted lang on <html lang="..."> for SEO + a11y.
     if (typeof document !== 'undefined') {
       document.documentElement.lang = currentLang.value;
@@ -59,6 +63,8 @@
   </header>
 
   {@render children()}
+
+  <BottomNav />
 </div>
 
 <style>

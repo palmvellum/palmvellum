@@ -23,13 +23,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link: catch magic-link callbacks from Supabase Auth
-                 so the email link reopens the app instead of the browser.
-                 autoVerify=false: without assetlinks.json on tatliving.dev,
-                 first-time taps show Android's chooser dialog. Good enough
-                 for a debug build; switch to true once assetlinks.json is
-                 deployed. -->
-            <intent-filter android:autoVerify="false">
+            <!-- Verified App Link for the Supabase magic-link callback.
+                 Backed by /.well-known/assetlinks.json on tatliving.dev,
+                 which lists this app's package + signing-cert SHA-256
+                 fingerprint. With autoVerify=true the OS resolves the
+                 URL directly to MainActivity without showing a chooser. -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

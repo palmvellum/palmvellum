@@ -6,13 +6,17 @@
   "scripts": {
     "sync": "cap sync android",
     "open": "cap open android",
-    "build:web": "pnpm --filter @palmvellum/pwa build && cap sync android"
+    "build:web": "PUBLIC_BASE_PATH='' PUBLIC_RUNTIME=capacitor pnpm --filter @palmvellum/pwa build && cap sync android"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
-    "@capacitor/core": "^7.0.0"
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/network": "^7.0.4",
+    "@capacitor/preferences": "^7.0.4",
+    "@capacitor/status-bar": "^7.0.6"
   }
 }

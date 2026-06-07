@@ -115,8 +115,27 @@ class AuthState {
 
 export const authState = new AuthState();
 
-/** Build the full callback URL for magic-link email links. */
+/** Build the full callback URL for magic-link email links.
+ *
+ *  - Web: uses the current origin + SvelteKit base, so the link lands
+ *    in the same deployment the user signed in from (Vercel preview,
+ *    localhost, production).
+ *  - Capacitor (Android): always uses the production web URL
+ *    (https://tatliving.dev/palmvellum/app/). The AndroidManifest
+ *    intent-filter on that path opens the app; the appUrlOpen
+ *    listener in lib/capacitor.svelte.ts grabs the URL fragment and
+ *    calls supabase.auth.setSession. Without this branch, the link
+ *    would point at the WebView's local origin (app.palmvellum.local),
+ *    which is invisible to Android's URL-matching layer and the
+ *    email client refuses to follow it.
+ */
 export function magicLinkRedirect(): string {
   if (!browser) return '';
+  // Detect Capacitor inline to avoid pulling the runtime into every
+  // browser bundle on the plain-PWA build.
+  const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  if (cap?.isNativePlatform?.()) {
+    return 'https://tatliving.dev/palmvellum/app/';
+  }
   return window.location.origin + base + '/';
 }

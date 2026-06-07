@@ -13,6 +13,9 @@
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --no-tsconfig"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.6",
+    "@capacitor/status-bar": "^7.0.6",
     "@palmvellum/shared-schema": "workspace:*",
     "@supabase/supabase-js": "^2.46.0",
     "dexie": "^4.0.0"

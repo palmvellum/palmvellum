@@ -3,20 +3,29 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'dev.tatliving.palmvellum.organizers',
   appName: 'Palm Organizers',
-  // The web app produced by `pnpm --filter @palmvellum/pwa build`.
-  // Capacitor packages that directory into the Android assets.
+  // The web app produced by:
+  //   PUBLIC_BASE_PATH='' PUBLIC_RUNTIME=capacitor pnpm --filter @palmvellum/pwa build
+  // The empty base path is critical — the bundled assets must reference
+  // /_app/... (absolute) so the WebView serves them off the bundled
+  // file:// → https://app.palmvellum.local mount point Capacitor sets up.
   webDir: '../pwa/build',
-  // Treat the app as standalone: no in-WebView address bar / pull-to-refresh.
+
   android: {
     allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: true,
   },
-  // Use the production deploy URL so deep links + magic-link emails
-  // resolve from anywhere. The bundled webDir is the offline fallback.
+
+  // No `server.url` — bundled assets are the source of truth. The
+  // app launches without internet; Supabase requests fail gracefully
+  // and the Dexie offline mirror handles reads.
   server: {
-    url: 'https://tatliving.dev/palmvellum/app/',
+    // Capacitor's WebView serves bundled assets at the (https) scheme
+    // + hostname below, so the WebView origin is stable and HTTPS-only.
+    // Supabase / fetch / Service Workers all treat this as a normal
+    // secure origin.
     androidScheme: 'https',
+    hostname: 'app.palmvellum.local',
     cleartext: false,
   },
 };

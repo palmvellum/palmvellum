@@ -46,7 +46,7 @@
   }
   .strip button.active {
     background: var(--accent);
-    color: var(--bg);
+    color: #fff;
     border-color: var(--accent);
     font-weight: 600;
   }

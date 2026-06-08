@@ -25,6 +25,7 @@ export default {
   'palm.sub.notepad': 'スケッチ',
   'palm.sub.mail': 'AI ダイジェスト',
   'palm.sub.expense': '記録',
+  'palm.sub.settings': '個人設定',
 
   'common.loading': '読み込み中…',
   'common.cancel': 'キャンセル',

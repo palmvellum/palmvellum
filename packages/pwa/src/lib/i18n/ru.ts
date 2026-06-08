@@ -25,6 +25,7 @@ export default {
   'palm.sub.notepad': 'скетчи',
   'palm.sub.mail': 'дайджесты ИИ',
   'palm.sub.expense': 'журнал',
+  'palm.sub.settings': 'настройки',
 
   'common.loading': 'загрузка…',
   'common.cancel': 'отмена',

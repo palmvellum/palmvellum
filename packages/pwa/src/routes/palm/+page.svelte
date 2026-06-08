@@ -23,6 +23,7 @@
     { key: 'notepad',  href: '/palm/notepad',  i18n: 'tab.notepad',  glyph: '✎', subI18n: 'palm.sub.notepad' },
     { key: 'mail',     href: '/palm/mail',     i18n: 'tab.mail',     glyph: '✉', subI18n: 'palm.sub.mail' },
     { key: 'expense',  href: '/palm/expense',  i18n: 'tab.expense',  glyph: '¤', subI18n: 'palm.sub.expense' },
+    { key: 'settings', href: '/settings',      i18n: 'nav.setting',  glyph: '⚙', subI18n: 'palm.sub.settings' },
   ];
 </script>
 
@@ -110,13 +111,13 @@
   }
   .tile:hover, .tile:active {
     background: var(--accent);
-    color: var(--bg);
+    color: #fff;
   }
   .tile:hover .glyph,
   .tile:active .glyph,
   .tile:hover .sublbl,
   .tile:active .sublbl {
-    color: var(--bg);
+    color: #fff;
   }
   .glyph {
     font-size: 2.4rem;

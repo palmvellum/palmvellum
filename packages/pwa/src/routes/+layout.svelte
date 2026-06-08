@@ -8,6 +8,7 @@
   import { browser } from '$app/environment';
   import { authState } from '$lib/auth.svelte';
   import { initCapacitor, isCapacitor } from '$lib/capacitor.svelte';
+  import { drawer } from '$lib/drawer.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
   import PalmDrawer from '$lib/components/palm/PalmDrawer.svelte';
   import {
@@ -37,6 +38,13 @@
     document.documentElement.classList.toggle('palm-route', palmRoute);
   });
 
+  // Reflect docked-drawer state on <html> so the Palm shell can leave
+  // room for the side rail on wide viewports.
+  $effect(() => {
+    if (!browser) return;
+    document.documentElement.classList.toggle('drawer-docked', palmRoute && drawer.docked);
+  });
+
   // Bounce unauthenticated visits to /palm/* or /settings back to the
   // landing page. Without this guard those pages render only the
   // "loading…" placeholder forever — which is exactly the "blank
@@ -50,6 +58,7 @@
   onMount(() => {
     void authState.init();
     void initCapacitor();
+    drawer.initViewport();
     // Reflect persisted lang on <html lang="..."> for SEO + a11y.
     if (typeof document !== 'undefined') {
       document.documentElement.lang = currentLang.value;

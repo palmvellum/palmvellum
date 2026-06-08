@@ -29,7 +29,7 @@
 <style>
   .palm-btn {
     background: var(--accent);
-    color: var(--bg);
+    color: #fff;
     border: 1px solid var(--accent);
     padding: 0.45rem 0.85rem;
     font: inherit;
@@ -63,6 +63,6 @@
   }
   .palm-btn.outline:hover:not(:disabled) {
     background: var(--accent);
-    color: var(--bg);
+    color: #fff;
   }
 </style>

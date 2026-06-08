@@ -404,7 +404,7 @@
   }
   button {
     background: var(--accent);
-    color: var(--bg);
+    color: #fff;
     border: 1px solid var(--accent);
     padding: 0.5rem 0.9rem;
     font-family: inherit;
@@ -447,7 +447,7 @@
   }
   .ical-actions .btn-link {
     background: var(--accent);
-    color: var(--bg);
+    color: #fff;
     border: 1px solid var(--accent);
     padding: 0.45rem 0.85rem;
     font-family: inherit;

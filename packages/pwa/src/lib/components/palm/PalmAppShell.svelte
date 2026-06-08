@@ -35,7 +35,7 @@
     children,
   }: Props = $props();
 
-  function openDrawer() { drawer.show(); }
+  function openDrawer() { drawer.toggle(); }
   function goBack() {
     if (backHref) {
       void goto(base + backHref, { replaceState: true });
@@ -177,6 +177,19 @@
       min-height: calc(100vh - 80px);
       border: 1px solid var(--line);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  /* When the side drawer is docked open, leave a 260px gutter on the
+     left so the shell content + sticky title bar align with the
+     visible area (the rail itself is position:fixed and overlays the
+     gutter). */
+  :global(html.drawer-docked) .palm-app {
+    padding-left: 260px;
+  }
+  @media (min-width: 720px) {
+    :global(html.drawer-docked:not([data-platform='android'])) .palm-app {
+      max-width: 980px;
     }
   }
 </style>

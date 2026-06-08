@@ -1,10 +1,13 @@
 <script lang="ts">
   /**
-   * PalmDrawer — left-side slide-in navigation overlay.
+   * PalmDrawer — left-side navigation.
    *
-   * Top section lists every organizer app (Date Book → Expense) so
-   * the user can jump to any of them without going back to the
-   * launcher. Bottom section: Settings + sign-out + sync status.
+   * Two rendering modes driven by drawer.docked:
+   * - overlay (narrow viewports): slides in over content with a dim
+   *   backdrop. Tap backdrop or × to dismiss; persisted state none.
+   * - docked  (>=700px viewports, opt-in via drawer.collapsed=false):
+   *   inline side rail, no backdrop, content shifts via global CSS.
+   *   × records the collapsed pref to localStorage.
    */
   import { drawer } from '$lib/drawer.svelte';
   import { base } from '$app/paths';
@@ -13,7 +16,8 @@
   import { t } from '$lib/i18n.svelte';
   import { sync } from '$lib/sync.svelte';
 
-  let visible = $derived(drawer.open);
+  let visible = $derived(drawer.visible);
+  let docked = $derived(drawer.docked);
 
   const APPS = [
     { href: '/palm',           i18n: 'palm.heading', glyph: '⌂', alwaysExact: true },
@@ -27,6 +31,7 @@
   ];
 
   function close() { drawer.close(); }
+  function onNavClick() { if (!docked) drawer.close(); }
 
   function isActive(href: string, exact = false): boolean {
     const path = page.url.pathname.replace(base, '') || '/';
@@ -36,8 +41,10 @@
 </script>
 
 {#if visible}
-  <div class="bk" onclick={close} role="presentation"></div>
-  <aside class="drw" role="dialog" aria-label="navigation">
+  {#if !docked}
+    <div class="bk" onclick={close} role="presentation"></div>
+  {/if}
+  <aside class="drw" class:docked role={docked ? undefined : 'dialog'} aria-label="navigation">
     <header class="hd">
       <h2>PalmVellum</h2>
       <button type="button" class="close" onclick={close} aria-label="close">×</button>
@@ -52,7 +59,7 @@
             class="row"
             class:active={isActive(item.href, item.alwaysExact)}
             href={base + item.href}
-            onclick={close}
+            onclick={onNavClick}
           >
             <span class="ic">{item.glyph}</span>
             <span class="lbl">{t(item.i18n)}</span>
@@ -63,7 +70,7 @@
       <div class="sep"></div>
 
       <nav class="lst settings">
-        <a class="row" href={base + '/settings'} onclick={close}>
+        <a class="row" href={base + '/settings'} onclick={onNavClick}>
           <span class="ic">⚙</span>
           <span class="lbl">{t('nav.setting')}</span>
         </a>
@@ -102,6 +109,13 @@
     padding-top: env(safe-area-inset-top);
     box-shadow: 4px 0 12px rgba(0, 0, 0, 0.25);
     animation: slideIn 0.18s ease-out;
+  }
+  /* Docked side rail: fixed-width, no animation, no shadow, no backdrop. */
+  .drw.docked {
+    width: 260px;
+    max-width: 260px;
+    box-shadow: none;
+    animation: none;
   }
   @keyframes slideIn {
     from { transform: translateX(-100%); }

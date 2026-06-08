@@ -25,6 +25,7 @@ export default {
   'palm.sub.notepad': '手稿',
   'palm.sub.mail': 'AI 摘要',
   'palm.sub.expense': '账目',
+  'palm.sub.settings': '个人设置',
 
   'common.loading': '加载中…',
   'common.cancel': '取消',

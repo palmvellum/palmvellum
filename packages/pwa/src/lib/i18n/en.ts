@@ -28,6 +28,7 @@ export default {
   'palm.sub.notepad': 'sketches',
   'palm.sub.mail': 'AI digests',
   'palm.sub.expense': 'log',
+  'palm.sub.settings': 'preferences',
 
   // ── Common ──────────────────────────────────────────────
   'common.loading': 'loading...',

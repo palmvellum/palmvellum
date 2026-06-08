@@ -386,6 +386,10 @@
         type="button" class="pill" class:on={mode === 'month'}
         onclick={() => setMode('month')}>{t('datebook.mode.month')}</button>
     </span>
+    <button
+      type="button" class="pill pill-add"
+      onclick={() => openCreate(mode === 'month' ? selectedDay : undefined)}
+    >{t('datebook.addNew')}</button>
   </div>
 
   {#if loadErr}<p class="err">{loadErr}</p>{/if}
@@ -509,11 +513,11 @@
           onclick={() => onMonthCellClick(d)}
         >
           <span class="n">{d.getDate()}</span>
-          {#if evs.length > 0 || todoCount > 0}
-            <span class="counts">
-              {#if evs.length > 0}<span class="count ev-count">{evs.length}</span>{/if}
-              {#if todoCount > 0}<span class="count td-count">+{todoCount}</span>{/if}
-            </span>
+          {#if evs.length > 0}
+            <span class="ev-num">{evs.length}</span>
+          {/if}
+          {#if todoCount > 0}
+            <span class="td-num">+{todoCount}</span>
           {/if}
         </button>
       {/each}
@@ -543,12 +547,6 @@
     {/if}
   {/if}
 
-  <!-- + new event button -->
-  <div class="add-row">
-    <PalmButton onclick={() => openCreate(mode === 'month' ? selectedDay : undefined)}>
-      {t('datebook.addNew')}
-    </PalmButton>
-  </div>
 </div>
 
 {#if sheetOpen}
@@ -616,6 +614,8 @@
     gap: 0.4rem;
     padding: 0 0.25rem;
     justify-content: flex-end;
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
   }
   .modes .pills {
     display: inline-flex;
@@ -644,6 +644,16 @@
   .modes .pill.on {
     background: var(--surface-dk);
     color: #fff;
+  }
+  /* "+ new event" — primary action sitting to the right of the mode pills. */
+  .modes .pill-add {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .modes .pill-add:hover:not(:disabled) {
+    background: var(--accent-dim);
   }
   .err { color: #c00; font-size: 0.8rem; padding: 0 0.25rem; }
   /* Used inside an Agenda group when the (today) bucket has no events. */
@@ -675,6 +685,7 @@
     margin-bottom: 0.5rem;
   }
   .cell {
+    position: relative;
     background: var(--surface-lo);
     border: 0;
     color: var(--ink);
@@ -682,11 +693,6 @@
     padding: 0.25rem 0.1rem 0.2rem;
     aspect-ratio: 1 / 1;
     cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 2px;
   }
   .cell.out { color: var(--ink-mute); background: var(--surface-hi); }
   /* Weekend column tint — Sunday a touch pink, Saturday a touch grey. */
@@ -698,22 +704,37 @@
   /* Today wins over weekend column tints. */
   .cell.today { background: #fff8d0; }
   .cell.sel { outline: 2px solid var(--ink); outline-offset: -2px; z-index: 1; }
-  .cell .n { font-size: 0.85rem; line-height: 1; font-weight: 600; }
-  /* Event count badges — replace the old dots. */
-  .cell .counts {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 2px;
-    font-weight: 700;
+  .cell .n {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 0.85rem;
     line-height: 1;
+    font-weight: 600;
   }
-  .cell .count.ev-count {
-    color: var(--ink);
-    font-size: 0.75rem;
+  /* Event count — centred in the cell, bold italic, dark red. */
+  .cell .ev-num {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #8b1a1a;
+    font-style: italic;
+    font-weight: 800;
+    font-size: 1.45rem;
+    line-height: 1;
+    pointer-events: none;
   }
-  .cell .count.td-count {
+  /* Todo count — small badge at the bottom-right corner. */
+  .cell .td-num {
+    position: absolute;
+    bottom: 3px;
+    right: 5px;
     color: var(--cat-todo, #c69400);
-    font-size: 0.65rem;
+    font-weight: 700;
+    font-size: 0.62rem;
+    line-height: 1;
+    pointer-events: none;
   }
 
   /* WEEK grid */
@@ -827,12 +848,6 @@
   }
   .ai-go { background: var(--surface-dk); color: #fff; border-color: #1a1a1a; }
   .ai-go:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .add-row {
-    display: flex;
-    justify-content: center;
-    margin: 0.6rem 0 0;
-  }
 
   /* Bottom sheet */
   .sheet-backdrop {

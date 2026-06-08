@@ -439,9 +439,8 @@
               <button
                 type="button"
                 class="del-btn"
-                aria-label="delete"
                 onclick={() => deleteMemo(m)}
-              >×</button>
+              >{t('common.delete')}</button>
             </header>
             <pre class="body">{m.body}</pre>
             {#if m.ai_response}
@@ -735,24 +734,27 @@
     font-family: inherit;
     cursor: pointer;
   }
-  /* Touch-friendly delete button, also used in TodoList. */
+  /* Unified Delete style — text "delete" in red outline → red fill on
+     press. Same shape across every organizer. */
   .del-btn {
     margin-left: auto;
-    background: #c62828;
-    color: #fff;
-    border: 1px solid #8b1a1a;
+    background: transparent;
+    color: #c62828;
+    border: 1px solid #c62828;
     border-radius: 4px;
     font: inherit;
-    font-size: 1.15rem;
-    font-weight: 800;
+    font-size: 0.88rem;
+    font-weight: 700;
     line-height: 1;
-    min-width: 40px;
     min-height: 40px;
-    padding: 0 0.55rem;
+    padding: 0 0.95rem;
     cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
   .del-btn:hover:not(:disabled),
   .del-btn:active {
-    background: #8b1a1a;
+    background: #c62828;
+    color: #fff;
   }
 </style>

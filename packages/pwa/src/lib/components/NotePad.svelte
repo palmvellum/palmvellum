@@ -273,7 +273,7 @@
 
           <footer class="modal-foot">
             <div class="when">created {fmtTime(activeSketch.created_at)}</div>
-            <button class="del" onclick={() => deleteSketch(activeSketch!)}>delete</button>
+            <button class="del" onclick={() => deleteSketch(activeSketch!)}>{t('common.delete')}</button>
           </footer>
         </div>
       </article>
@@ -539,17 +539,22 @@
     padding-top: 0.5rem;
     border-top: 1px solid var(--line);
   }
+  /* Unified Delete style — text "delete" in red outline → red fill on
+     press. Matches every organizer. */
   .del {
     background: transparent;
     border: 1px solid #c62828;
     color: #c62828;
-    padding: 0.45rem 1.1rem;
+    padding: 0 0.95rem;
     font: inherit;
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
     min-height: 40px;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
   .del:hover,
   .del:active {

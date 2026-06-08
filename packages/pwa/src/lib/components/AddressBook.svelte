@@ -340,7 +340,7 @@
               <span class="phone">{primaryPhone(c)}</span>
             {/if}
           </button>
-          <button class="link danger del" onclick={() => deleteContact(c)} aria-label="delete">×</button>
+          <button class="del" onclick={() => deleteContact(c)}>{t('common.delete')}</button>
         </li>
       {/each}
     </ul>
@@ -534,19 +534,22 @@
     font-size: 0.8rem;
     color: var(--ink-mute);
   }
+  /* Unified Delete style — text "delete" in red outline → red fill on
+     press. Matches TodoList/MemoPad/NotePad/Mail. */
   .del {
     background: transparent;
     border: 1px solid #c62828;
     color: #c62828;
     font: inherit;
-    font-size: 1.05rem;
-    font-weight: 800;
+    font-size: 0.88rem;
+    font-weight: 700;
     line-height: 1;
-    min-width: 40px;
     min-height: 40px;
-    padding: 0 0.6rem;
-    border-radius: 3px;
+    padding: 0 0.95rem;
+    border-radius: 4px;
     cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
   .del:hover,
   .del:active {

@@ -381,9 +381,8 @@
                 <button
                   type="button"
                   class="del-btn"
-                  aria-label="delete"
                   onclick={() => deleteTodo(t)}
-                >×</button>
+                >{t('common.delete')}</button>
               </div>
             </div>
           {/if}
@@ -674,22 +673,27 @@
     gap: 0.4rem;
     flex-shrink: 0;
   }
+  /* Unified Delete: text "delete" in red outline → red fill on press.
+     Used across every organizer (TodoList, MemoPad, AddressBook,
+     NotePad, Mail). */
   .del-btn {
-    background: #c62828;
-    color: #fff;
-    border: 1px solid #8b1a1a;
+    background: transparent;
+    color: #c62828;
+    border: 1px solid #c62828;
     border-radius: 4px;
     font: inherit;
-    font-size: 1.2rem;
-    font-weight: 800;
+    font-size: 0.88rem;
+    font-weight: 700;
     line-height: 1;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0 0.65rem;
+    min-height: 40px;
+    padding: 0 0.95rem;
     cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
   .del-btn:hover:not(:disabled),
   .del-btn:active {
-    background: #8b1a1a;
+    background: #c62828;
+    color: #fff;
   }
 </style>

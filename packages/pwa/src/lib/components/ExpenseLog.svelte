@@ -339,7 +339,7 @@
             </span>
             {#if e.metadata?.palm_attendees}<span class="notes">w/ {e.metadata.palm_attendees}</span>{/if}
           </button>
-          <button class="del" onclick={() => deleteExpense(e)} aria-label="delete">×</button>
+          <button class="del" onclick={() => deleteExpense(e)}>{t('common.delete')}</button>
         </li>
       {/each}
     </ul>
@@ -551,16 +551,27 @@
     color: var(--line);
     margin: 0 0.3rem;
   }
+  /* Unified Delete style — text "delete" in red outline → red fill on
+     press. Matches every organizer. */
   .del {
     background: transparent;
-    border: 1px solid var(--line);
-    color: var(--ink-mute);
-    padding: 0 0.6rem;
+    border: 1px solid #c62828;
+    color: #c62828;
+    padding: 0 0.95rem;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
+    min-height: 40px;
+    border-radius: 4px;
     cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
-  .del:hover {
-    border-color: #ff6b6b;
-    color: #ff6b6b;
+  .del:hover,
+  .del:active {
+    background: #c62828;
+    color: #fff;
   }
   .link {
     background: none;

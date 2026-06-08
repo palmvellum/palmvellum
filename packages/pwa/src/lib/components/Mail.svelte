@@ -540,7 +540,7 @@
                       {s.enabled ? 'pause' : 'resume'}
                     </button>
                     <button class="act act-secondary" onclick={() => startEdit(s)}>edit</button>
-                    <button class="act act-danger" onclick={() => deleteSource(s)}>delete</button>
+                    <button class="act act-danger" onclick={() => deleteSource(s)}>{t('common.delete')}</button>
                   </div>
                 </div>
               {/if}
@@ -619,7 +619,7 @@
           </section>
         {/if}
         <footer class="m-foot">
-          <button class="del" onclick={() => deleteMail(activeMail!)}>delete</button>
+          <button class="del" onclick={() => deleteMail(activeMail!)}>{t('common.delete')}</button>
         </footer>
       </article>
     </div>
@@ -700,9 +700,10 @@
   .link {
     background: none;
     border: none;
-    color: #fff;
+    color: var(--ink);
     font: inherit;
     font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
     padding: 0;
   }
@@ -710,7 +711,7 @@
     color: var(--accent);
   }
   .link.danger:hover {
-    color: #ff6b6b;
+    color: #c62828;
   }
 
   .src-form {
@@ -994,10 +995,15 @@
   .src-actions .act-secondary:hover:not(:disabled) {
     border-color: var(--accent);
   }
+  /* Delete on a source row uses the same unified shape as every other
+     organizer's Delete — text in red outline → red fill on press. */
   .src-actions .act-danger {
     background: transparent;
     color: #c62828;
     border-color: #c62828;
+    font-weight: 700;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
   .src-actions .act-danger:hover:not(:disabled),
   .src-actions .act-danger:active {
@@ -1120,17 +1126,22 @@
     display: flex;
     justify-content: flex-end;
   }
+  /* Unified Delete style — text "delete" in red outline → red fill on
+     press. Matches every organizer. */
   .del {
     background: transparent;
     border: 1px solid #c62828;
     color: #c62828;
-    padding: 0.45rem 1.1rem;
+    padding: 0 0.95rem;
     font: inherit;
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1;
     min-height: 40px;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
   }
   .del:hover,
   .del:active {

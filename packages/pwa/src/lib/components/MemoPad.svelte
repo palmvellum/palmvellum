@@ -151,7 +151,7 @@
   }
 
   async function deleteMemo(m: Memo) {
-    if (!(await palmConfirm('Delete this memo?'))) return;
+    if (!(await palmConfirm('Delete this memo?', { danger: true }))) return;
     try {
       await deleteMemoStore(m.id);
     } catch (e) {
@@ -738,21 +738,21 @@
   /* Touch-friendly delete button, also used in TodoList. */
   .del-btn {
     margin-left: auto;
-    background: #8b1a1a;
+    background: #c62828;
     color: #fff;
-    border: 1px solid #6d2020;
+    border: 1px solid #8b1a1a;
     border-radius: 4px;
     font: inherit;
-    font-size: 1.05rem;
+    font-size: 1.15rem;
     font-weight: 800;
     line-height: 1;
-    min-width: 36px;
-    min-height: 36px;
-    padding: 0 0.5rem;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 0.55rem;
     cursor: pointer;
   }
   .del-btn:hover:not(:disabled),
   .del-btn:active {
-    background: #6d2020;
+    background: #8b1a1a;
   }
 </style>

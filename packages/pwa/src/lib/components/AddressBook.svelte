@@ -209,7 +209,7 @@
   }
 
   async function deleteContact(c: Contact) {
-    if (!(await palmConfirm(`Delete contact "${c.body}"?`))) return;
+    if (!(await palmConfirm(`Delete contact "${c.body}"?`, { danger: true }))) return;
     try {
       await deleteContactStore(c.id);
     } catch (e) {
@@ -536,14 +536,22 @@
   }
   .del {
     background: transparent;
-    border: 1px solid var(--line);
-    color: var(--ink-mute);
+    border: 1px solid #c62828;
+    color: #c62828;
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 40px;
+    min-height: 40px;
     padding: 0 0.6rem;
+    border-radius: 3px;
     cursor: pointer;
   }
-  .del:hover {
-    border-color: #ff6b6b;
-    color: #ff6b6b;
+  .del:hover,
+  .del:active {
+    background: #c62828;
+    color: #fff;
   }
   .link {
     background: none;

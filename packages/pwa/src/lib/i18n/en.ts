@@ -69,6 +69,7 @@ export default {
   'datebook.aiSending': 'sending…',
   'datebook.aiAnalyzing': 'AI is parsing your sentence…',
   'datebook.aiAdded': 'Added {count} event(s) from AI.',
+  'datebook.aiAddedOne': 'Added "{title}" on {date}.',
   'datebook.aiNoEvents': 'AI didn\'t find any events in that.',
   'datebook.addNew': '＋ new event',
   'datebook.sheetNewEvent': 'new event',

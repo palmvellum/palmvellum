@@ -182,7 +182,7 @@
   }
 
   async function deleteExpense(e: Expense) {
-    if (!(await palmConfirm(`Delete expense "${e.body}"?`))) return;
+    if (!(await palmConfirm(`Delete expense "${e.body}"?`, { danger: true }))) return;
     try {
       await deleteExpenseStore(e.id);
     } catch (err) {

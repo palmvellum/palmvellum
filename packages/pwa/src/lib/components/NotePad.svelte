@@ -77,7 +77,7 @@
   // in via vellum-sync notepad push.
 
   async function deleteSketch(s: Sketch) {
-    if (!(await palmConfirm(`Delete sketch "${s.metadata?.palm_title ?? '(untitled)'}"?`))) return;
+    if (!(await palmConfirm(`Delete sketch "${s.metadata?.palm_title ?? '(untitled)'}"?`, { danger: true }))) return;
     const path = s.metadata?.image_path;
     if (path) {
       // Best-effort — record soft-delete is the source of truth
@@ -540,17 +540,21 @@
     border-top: 1px solid var(--line);
   }
   .del {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--ink-mute);
-    padding: 0.35rem 0.8rem;
+    background: transparent;
+    border: 1px solid #c62828;
+    color: #c62828;
+    padding: 0.45rem 1.1rem;
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: 40px;
+    border-radius: 3px;
     cursor: pointer;
   }
-  .del:hover {
-    border-color: #ff6b6b;
-    color: #ff6b6b;
+  .del:hover,
+  .del:active {
+    background: #c62828;
+    color: #fff;
   }
   .link {
     background: none;

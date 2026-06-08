@@ -189,7 +189,7 @@
   }
 
   async function deleteTodo(t: Todo) {
-    if (!(await palmConfirm(`Delete "${t.body.slice(0, 40)}"?`))) return;
+    if (!(await palmConfirm(`Delete "${t.body.slice(0, 40)}"?`, { danger: true }))) return;
     try {
       await deleteTodoStore(t.id);
     } catch (e) {
@@ -675,21 +675,21 @@
     flex-shrink: 0;
   }
   .del-btn {
-    background: #8b1a1a;
+    background: #c62828;
     color: #fff;
-    border: 1px solid #6d2020;
+    border: 1px solid #8b1a1a;
     border-radius: 4px;
     font: inherit;
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     font-weight: 800;
     line-height: 1;
-    min-width: 40px;
-    min-height: 40px;
-    padding: 0 0.55rem;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 0.65rem;
     cursor: pointer;
   }
   .del-btn:hover:not(:disabled),
   .del-btn:active {
-    background: #6d2020;
+    background: #8b1a1a;
   }
 </style>

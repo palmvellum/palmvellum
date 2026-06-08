@@ -63,6 +63,7 @@ export default {
   'datebook.aiSending': 'отправка…',
   'datebook.aiAnalyzing': 'ИИ разбирает вашу фразу…',
   'datebook.aiAdded': 'ИИ добавил событий: {count}.',
+  'datebook.aiAddedOne': 'Добавлено: «{title}» — {date}.',
   'datebook.aiNoEvents': 'ИИ не нашёл в этом тексте никаких событий.',
   'datebook.addNew': '＋ новое событие',
   'datebook.sheetNewEvent': 'новое событие',

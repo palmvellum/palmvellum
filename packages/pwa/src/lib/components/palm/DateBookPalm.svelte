@@ -430,10 +430,26 @@
       })
       .eq('id', draft.id);
     aiPendingDraftId = null;
-    aiStatus = t('datebook.aiAdded', { count: String(rows.length) });
-    setTimeout(() => {
-      if (aiStatus === t('datebook.aiAdded', { count: String(rows.length) })) aiStatus = null;
-    }, 4000);
+    // Jump the agenda to the first parsed event so the user can see it
+    // landed somewhere. Without this they only see the success toast
+    // disappear and assume nothing happened (the event is on a future
+    // date scrolled off-screen).
+    const first = list[0];
+    const firstDate = first ? new Date(first.start_at) : null;
+    if (firstDate && !isNaN(firstDate.getTime())) {
+      mode = 'agenda';
+      anchor = atMidnight(firstDate);
+      selectedDay = atMidnight(firstDate);
+    }
+    const dateLabel = firstDate && !isNaN(firstDate.getTime())
+      ? firstDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+      : '';
+    const msg =
+      rows.length === 1 && first
+        ? t('datebook.aiAddedOne', { title: first.title, date: dateLabel })
+        : t('datebook.aiAdded', { count: String(rows.length) });
+    aiStatus = msg;
+    setTimeout(() => { if (aiStatus === msg) aiStatus = null; }, 8000);
     await load();
   }
 
@@ -495,7 +511,7 @@
     }
   }
   async function removeEvent(e: CalendarEvent) {
-    if (!(await palmConfirm(t('datebook.confirmDelete', { title: e.title })))) return;
+    if (!(await palmConfirm(t('datebook.confirmDelete', { title: e.title }), { danger: true }))) return;
     await deleteEvent(e.id);
     await load();
   }

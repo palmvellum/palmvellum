@@ -2,22 +2,30 @@
   /**
    * PalmConfirm — global modal dialog backing palmConfirm(). Mounted
    * once at the root layout. Reads confirmState and renders nothing
-   * unless a confirm is pending.
+   * unless a confirm is pending. Capacitor's WebView blocks native
+   * confirm(), so every "are you sure?" in the app routes through here.
    */
   import { confirmState } from '$lib/confirm.svelte';
-  import { t } from '$lib/i18n.svelte';
 </script>
 
 {#if confirmState.open}
   <div class="bk" onclick={() => confirmState.answer(false)} role="presentation"></div>
   <div class="dlg" role="dialog" aria-modal="true">
     <p class="msg">{confirmState.message}</p>
+    {#if confirmState.detail}
+      <p class="detail">{confirmState.detail}</p>
+    {/if}
     <div class="row">
       <button type="button" class="btn cancel" onclick={() => confirmState.answer(false)}>
-        {t('common.cancel')}
+        {confirmState.cancelLabel}
       </button>
-      <button type="button" class="btn ok" onclick={() => confirmState.answer(true)}>
-        {t('common.delete')}
+      <button
+        type="button"
+        class="btn ok"
+        class:danger={confirmState.danger}
+        onclick={() => confirmState.answer(true)}
+      >
+        {confirmState.confirmLabel}
       </button>
     </div>
   </div>
@@ -44,16 +52,23 @@
     border-radius: 4px;
   }
   .msg {
-    margin: 0 0 0.9rem;
+    margin: 0 0 0.4rem;
     color: var(--ink, #000);
     font-size: 0.95rem;
     line-height: 1.35;
     white-space: pre-line;
   }
+  .detail {
+    margin: 0 0 0.9rem;
+    color: var(--ink-mute, #555);
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
   .row {
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
+    margin-top: 0.6rem;
   }
   .btn {
     min-height: 40px;
@@ -70,9 +85,14 @@
     color: var(--ink, #000);
   }
   .btn.ok {
-    background: #8b1a1a;
+    background: var(--surface-dk, #4a4a48);
     color: #fff;
-    border-color: #6d2020;
+    border-color: #1a1a1a;
   }
-  .btn.ok:hover { background: #6d2020; }
+  .btn.ok:hover { background: #2c2c2a; }
+  .btn.ok.danger {
+    background: #c62828;
+    border-color: #8b1a1a;
+  }
+  .btn.ok.danger:hover { background: #8b1a1a; }
 </style>

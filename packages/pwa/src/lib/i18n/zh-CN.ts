@@ -63,6 +63,7 @@ export default {
   'datebook.aiSending': '发送中…',
   'datebook.aiAnalyzing': 'AI 正在解析你输入的句子⋯',
   'datebook.aiAdded': 'AI 已添加 {count} 项日程。',
+  'datebook.aiAddedOne': '已添加「{title}」 · {date}',
   'datebook.aiNoEvents': 'AI 在这段文字中没找到任何日程。',
   'datebook.addNew': '＋ 新事件',
   'datebook.sheetNewEvent': '新事件',

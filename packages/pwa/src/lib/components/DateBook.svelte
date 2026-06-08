@@ -367,7 +367,7 @@
   }
 
   async function deleteEvent(e: CalendarEvent) {
-    if (!(await palmConfirm(`Delete "${e.title}"?`))) return;
+    if (!(await palmConfirm(`Delete "${e.title}"?`, { danger: true }))) return;
     const { error } = await supabase
       .from('events')
       .update({ deleted_at: new Date().toISOString() })

@@ -63,6 +63,7 @@ export default {
   'datebook.aiSending': '送信中…',
   'datebook.aiAnalyzing': 'AI が文章を解析中…',
   'datebook.aiAdded': 'AI が {count} 件の予定を追加しました。',
+  'datebook.aiAddedOne': '「{title}」を {date} に追加しました。',
   'datebook.aiNoEvents': 'AI はその文章から予定を見つけられませんでした。',
   'datebook.addNew': '＋ 新規イベント',
   'datebook.sheetNewEvent': '新規イベント',

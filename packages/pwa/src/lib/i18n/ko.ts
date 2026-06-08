@@ -63,6 +63,7 @@ export default {
   'datebook.aiSending': '전송 중…',
   'datebook.aiAnalyzing': 'AI가 문장을 분석 중⋯',
   'datebook.aiAdded': 'AI가 일정 {count}개를 추가했어요.',
+  'datebook.aiAddedOne': '「{title}」을 {date}에 추가했습니다.',
   'datebook.aiNoEvents': 'AI가 그 문장에서 일정을 찾지 못했어요.',
   'datebook.addNew': '＋ 새 일정',
   'datebook.sheetNewEvent': '새 일정',

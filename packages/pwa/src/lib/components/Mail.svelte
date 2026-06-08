@@ -253,7 +253,7 @@
   }
 
   async function deleteSource(s: MailSource) {
-    if (!(await palmConfirm(`Stop following "${s.name}"? Existing digests stay in your inbox.`)))
+    if (!(await palmConfirm(`Stop following "${s.name}"? Existing digests stay in your inbox.`, { danger: true })))
       return;
     const { error } = await supabase.from('mail_sources').delete().eq('id', s.id);
     if (error) {
@@ -281,7 +281,7 @@
   }
 
   async function deleteMail(m: MailRecord) {
-    if (!(await palmConfirm('Delete this mail?'))) return;
+    if (!(await palmConfirm('Delete this mail?', { danger: true }))) return;
     const { error } = await supabase
       .from('records')
       .update({ deleted_at: new Date().toISOString() })
@@ -533,14 +533,14 @@
                     {/if}
                   </div>
                   <div class="src-actions">
-                    <button class="ghost" onclick={() => fetchNow(s)} disabled={fetchingIds.has(s.id)}>
+                    <button class="act act-primary" onclick={() => fetchNow(s)} disabled={fetchingIds.has(s.id)}>
                       {fetchingIds.has(s.id) ? 'fetching…' : 'fetch now'}
                     </button>
-                    <button class="ghost" onclick={() => toggleEnabled(s)}>
+                    <button class="act act-secondary" onclick={() => toggleEnabled(s)}>
                       {s.enabled ? 'pause' : 'resume'}
                     </button>
-                    <button class="link" onclick={() => startEdit(s)}>edit</button>
-                    <button class="link danger" onclick={() => deleteSource(s)}>delete</button>
+                    <button class="act act-secondary" onclick={() => startEdit(s)}>edit</button>
+                    <button class="act act-danger" onclick={() => deleteSource(s)}>delete</button>
                   </div>
                 </div>
               {/if}
@@ -958,6 +958,52 @@
     flex-wrap: wrap;
     align-items: center;
   }
+  /* Row action buttons — colour-only hierarchy.
+       primary    = dark filled (fetch now)
+       secondary  = outline on bg (pause / resume / edit)
+       danger     = red outline → red fill on hover (delete) */
+  .src-actions .act {
+    min-height: 36px;
+    padding: 0.4rem 0.85rem;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .src-actions .act:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .src-actions .act-primary {
+    background: var(--surface-dk);
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+  .src-actions .act-primary:hover:not(:disabled) {
+    background: #2c2c2a;
+  }
+  .src-actions .act-secondary {
+    background: var(--bg);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+  .src-actions .act-secondary:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+  .src-actions .act-danger {
+    background: transparent;
+    color: #c62828;
+    border-color: #c62828;
+  }
+  .src-actions .act-danger:hover:not(:disabled),
+  .src-actions .act-danger:active {
+    background: #c62828;
+    color: #fff;
+  }
 
   .mail-list {
     list-style: none;
@@ -1075,16 +1121,20 @@
     justify-content: flex-end;
   }
   .del {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--ink-mute);
-    padding: 0.35rem 0.8rem;
+    background: transparent;
+    border: 1px solid #c62828;
+    color: #c62828;
+    padding: 0.45rem 1.1rem;
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: 40px;
+    border-radius: 3px;
     cursor: pointer;
   }
-  .del:hover {
-    border-color: #ff6b6b;
-    color: #ff6b6b;
+  .del:hover,
+  .del:active {
+    background: #c62828;
+    color: #fff;
   }
 </style>

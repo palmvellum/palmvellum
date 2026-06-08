@@ -1049,6 +1049,15 @@
     overflow-y: auto;
     box-shadow: 0 -10px 30px rgba(0,0,0,0.4);
   }
+  /* When the side drawer is docked open it renders at a higher z-index
+     than the sheet and overlaps its left edge — exactly where every
+     field label, the sheet title and the left-aligned input values sit,
+     hiding them behind the rail. Shift the sheet + backdrop clear of the
+     260px rail so the whole form stays visible. */
+  :global(html.drawer-docked) .sheet-backdrop,
+  :global(html.drawer-docked) .sheet {
+    left: 260px;
+  }
   .sheet-head {
     display: flex; align-items: center; justify-content: space-between;
     border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; margin-bottom: 0.65rem;

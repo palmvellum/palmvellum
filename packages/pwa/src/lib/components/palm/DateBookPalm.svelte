@@ -722,7 +722,7 @@
     </div>
     <form onsubmit={saveSheet}>
       <label>{t('datebook.fldTitle')}<input type="text" bind:value={fTitle} required maxlength={256} /></label>
-      <label class="row inline"><input type="checkbox" bind:checked={fAllDay} />{t('datebook.allDay')}</label>
+      <label class="inline"><input type="checkbox" bind:checked={fAllDay} />{t('datebook.allDay')}</label>
       <label>{t('datebook.fldStart')}<input type="datetime-local" bind:value={fStart} required /></label>
       <label>{t('datebook.fldEnd')}<input type="datetime-local" bind:value={fEnd} /></label>
       <label>{t('datebook.fldLocation')}<input type="text" bind:value={fLocation} maxlength={120} /></label>

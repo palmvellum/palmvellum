@@ -226,6 +226,11 @@
   @media (min-width: 720px) {
     :global(html.drawer-docked:not([data-platform='android'])) .palm-app {
       max-width: 980px;
+      /* Left-align so the 260px padding gutter sits flush against the
+         fixed rail. Without this the `margin: 0 auto` inherited from the
+         wide-viewport rule above centres the shell, opening an empty band
+         between the docked drawer and the content. */
+      margin: 0;
     }
   }
 </style>

@@ -735,9 +735,10 @@
     cursor: pointer;
   }
   /* Unified Delete style — text "delete" in red outline → red fill on
-     press. Same shape across every organizer. */
+     press. Same shape across every organizer. Sits flush against Edit
+     at the right end of the row (Edit owns the margin-left: auto). */
   .del-btn {
-    margin-left: auto;
+    margin-left: 0;
     background: transparent;
     color: #c62828;
     border: 1px solid #c62828;

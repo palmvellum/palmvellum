@@ -9,6 +9,7 @@ export default {
 
   // ── /palm dashboard ─────────────────────────────────────
   'palm.heading': 'Organizers',
+  'palm.launcher': 'Applications',
   'palm.sub': 'one shared dataset for every Palm you own — Date Book / To Do List / Address / Memo Pad / Note Pad / Mail / Expense.',
 
   'tab.datebook': 'Date Book',
@@ -18,6 +19,15 @@ export default {
   'tab.notepad': 'Note Pad',
   'tab.mail': 'Mail',
   'tab.expense': 'Expense',
+
+  // Sub-labels under each launcher tile
+  'palm.sub.datebook': 'calendar',
+  'palm.sub.todo': 'tasks + due dates',
+  'palm.sub.address': 'contacts',
+  'palm.sub.memo': 'notes',
+  'palm.sub.notepad': 'sketches',
+  'palm.sub.mail': 'AI digests',
+  'palm.sub.expense': 'log',
 
   // ── Common ──────────────────────────────────────────────
   'common.loading': 'loading...',
@@ -38,6 +48,37 @@ export default {
   'datebook.addManually': '+ add event manually',
   'datebook.newEvent': 'new event',
   'datebook.editEvent': 'edit event',
+
+  // ── DateBook — Palm UI ──────────────────────────────────
+  'datebook.mode.agenda': 'Agenda',
+  'datebook.mode.week': 'Week',
+  'datebook.mode.month': 'Month',
+  'datebook.todayLabel': 'TODAY',
+  'datebook.todayNoEvents': 'No events today.',
+  'datebook.noEventsInRange': 'No events in the next 60 days.',
+  'datebook.tapNewHint': 'Tap + new event below to schedule one.',
+  'datebook.tapNewDayHint': 'Tap + new event below to add one.',
+  'datebook.allDay': 'all-day',
+  'datebook.atLocation': 'at {location}',
+  'datebook.aiOpen': '✦ plan with AI',
+  'datebook.aiHint': 'Type a sentence — "Coffee with May Friday 3pm at Tsim Sha Tsui". AI parses it into an event.',
+  'datebook.aiPlaceholder': 'e.g. "Dentist appt next Thursday morning, 30 min reminder"',
+  'datebook.aiCancel': 'cancel',
+  'datebook.aiAnalyse': 'analyse',
+  'datebook.aiSending': 'sending…',
+  'datebook.addNew': '＋ new event',
+  'datebook.sheetNewEvent': 'new event',
+  'datebook.sheetEditEvent': 'edit event',
+  'datebook.fldTitle': 'title',
+  'datebook.fldStart': 'start',
+  'datebook.fldEnd': 'end',
+  'datebook.fldLocation': 'location',
+  'datebook.fldNotes': 'notes',
+  'datebook.delete': 'delete',
+  'datebook.cancel': 'cancel',
+  'datebook.save': 'save',
+  'datebook.saving': 'saving…',
+  'datebook.confirmDelete': 'Delete event "{title}"?',
 
   // ── MemoPad ─────────────────────────────────────────────
   'memo.heading': 'memo pad',
@@ -152,4 +193,9 @@ export default {
   'drawer.pending': 'pending',
   'settings.signOutHeading': 'Sign out',
   'settings.signOutHint': 'Sign out of this account on this device. Your data stays in PalmVellum and your other Palms.',
+  // ── weekStart pref ───────────────
+  'settings.weekStart': 'Start of week',
+  'settings.weekStartHint': 'First day of the week — affects the Date Book Week and Month grids.',
+  'settings.weekStart.mon': 'Monday',
+  'settings.weekStart.sun': 'Sunday',
 };

@@ -11,6 +11,34 @@ import { supabase } from './supabase';
 import { sync } from './sync.svelte';
 import { browser } from '$app/environment';
 import { base } from '$app/paths';
+import { db } from './db';
+
+const SETTINGS_CACHE_KEY = 'palmvellum.settings_cache.v1';
+
+function readCachedSettings(): UserSettings | null {
+  if (!browser) return null;
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as UserSettings) : null;
+  } catch { return null; }
+}
+function writeCachedSettings(s: UserSettings | null): void {
+  if (!browser) return;
+  try {
+    if (s) localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(s));
+    else   localStorage.removeItem(SETTINGS_CACHE_KEY);
+  } catch { /* ignore */ }
+}
+
+/** Race a promise against a timeout. Resolves to a sentinel on timeout. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | { __timedOut: true }> {
+  return Promise.race([
+    p,
+    new Promise<{ __timedOut: true }>((resolve) =>
+      setTimeout(() => resolve({ __timedOut: true }), ms),
+    ),
+  ]);
+}
 
 export type AuthPhase =
   | 'loading'
@@ -48,38 +76,69 @@ class AuthState {
   /** Re-fetch user_settings from Supabase and recompute phase.
    *  Crucially: every exit path must leave `phase` in a terminal state
    *  (`ready` / `uninvited` / `unauthenticated`) so the UI never gets
-   *  stuck rendering the loading skeleton. */
+   *  stuck rendering the loading skeleton.
+   *
+   *  Offline policy: if we have a cached settings blob from a previous
+   *  successful sign-in AND we're offline (or the fetch times out), we
+   *  trust the cache and mark phase='ready' immediately. This is what
+   *  makes the app usable in airplane mode without re-login.
+   */
   async refreshSettings(): Promise<void> {
     if (!this.userId) {
       this.settings = null;
       this.phase = 'unauthenticated';
       return;
     }
-    try {
-      const { data, error } = await supabase
+
+    // Fast path: pre-fill from cache so the UI can paint before the
+    // network round-trip completes (or fails).
+    const cached = readCachedSettings();
+    if (cached) {
+      this.settings = cached;
+      this.phase = cached.invited ? 'ready' : 'uninvited';
+    }
+
+    // Race the network fetch against a 4-second timeout. On flaky
+    // mobile networks we'd rather show the cached state than spin.
+    // We wrap the PostgREST builder in Promise.resolve so the type is
+    // a real Promise (the builder is only thenable).
+    const fetchPromise = Promise.resolve(
+      supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', this.userId)
-        .maybeSingle();
-      if (error) {
-        // Real error from PostgREST (RLS denial, network blip, etc).
-        // Treat as uninvited so the user sees the holding screen
-        // rather than an indefinite spinner.
-        console.error('[PalmVellum] user_settings fetch failed:', error);
+        .maybeSingle(),
+    );
+    const result = await withTimeout(fetchPromise, 4000);
+
+    if ('__timedOut' in result) {
+      // Offline / slow network. Stick with whatever the cache gave us;
+      // if there was no cache, we're still in 'loading' from the
+      // constructor — flip to 'uninvited' so the UI shows the holding
+      // page rather than spinning forever.
+      if (!cached) {
         this.settings = null;
         this.phase = 'uninvited';
-        return;
       }
-      this.settings = (data as UserSettings | null) ?? null;
-      if (!this.settings || !this.settings.invited) {
+      return;
+    }
+
+    const { data, error } = result;
+    if (error) {
+      console.warn('[PalmVellum] user_settings fetch failed:', error.message);
+      if (!cached) {
+        this.settings = null;
         this.phase = 'uninvited';
-      } else {
-        this.phase = 'ready';
       }
-    } catch (e) {
-      console.error('[PalmVellum] user_settings fetch threw:', e);
-      this.settings = null;
+      return;
+    }
+
+    this.settings = (data as UserSettings | null) ?? null;
+    writeCachedSettings(this.settings);
+    if (!this.settings || !this.settings.invited) {
       this.phase = 'uninvited';
+    } else {
+      this.phase = 'ready';
     }
   }
 
@@ -95,7 +154,9 @@ class AuthState {
       // Network plugin + window online/offline events, kicks off an
       // initial pull, and starts pushing any queued outbox items.
       // Safe to call repeatedly: re-init re-binds the listeners.
-      await sync.init(this.userId!);
+      // Fire-and-forget — sync.init does its own network detection and
+      // pull. Awaiting could block the UI when offline.
+      void sync.init(this.userId!);
     } else {
       this.phase = 'unauthenticated';
     }
@@ -105,7 +166,9 @@ class AuthState {
         this.email = session.user.email ?? null;
         this.userId = session.user.id;
         await this.refreshSettings();
-        await sync.init(this.userId!);
+        // Fire-and-forget — sync.init does its own network detection and
+      // pull. Awaiting could block the UI when offline.
+      void sync.init(this.userId!);
       } else {
         this.email = null;
         this.userId = null;
@@ -119,6 +182,8 @@ class AuthState {
   }
 
   async signOut(): Promise<void> {
+    writeCachedSettings(null);
+    try { await db.delete(); } catch { /* ignore */ }
     await supabase.auth.signOut();
   }
 }

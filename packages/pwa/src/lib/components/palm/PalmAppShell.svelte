@@ -5,8 +5,8 @@
    * the global drawer), the app title in the centre, and an optional
    * top-right snippet for per-app actions. Body content sits below.
    *
-   * Web: pass-through (no Palm chrome).
-   * Android: full Palm OS 5 silver title bar.
+   * Applies the same chrome on every platform (web + Android) so the
+   * organizer surface looks identical across surfaces.
    */
   import { drawer } from '$lib/drawer.svelte';
   import { base } from '$app/paths';
@@ -169,13 +169,14 @@
     gap: 0.4rem;
     z-index: 4;
   }
-  /* Hide Palm chrome on web. */
-  :global(html:not([data-platform='android'])) .palm-app {
-    margin: 0;
-    min-height: auto;
-    background: transparent;
+  /* On wide web viewports, cap the Palm surface so it doesn't sprawl. */
+  @media (min-width: 720px) {
+    :global(html:not([data-platform='android'])) .palm-app {
+      max-width: 720px;
+      margin: 0 auto;
+      min-height: calc(100vh - 80px);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
   }
-  :global(html:not([data-platform='android'])) .bar { display: none; }
-  :global(html:not([data-platform='android'])) .body { padding: 0; background: transparent; }
-  :global(html:not([data-platform='android'])) .palm-toolbar { display: none; }
 </style>

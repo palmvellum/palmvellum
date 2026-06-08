@@ -2,28 +2,37 @@
   /**
    * PalmDrawer — left-side slide-in navigation overlay.
    *
-   * Hosts the global navigation that used to live in the desktop top
-   * nav and the (now-hidden) bottom nav: home/launcher link, settings,
-   * language picker, sign out. State is driven by `drawerOpen` from
-   * `lib/drawer.svelte.ts` so any header in the app can flip the
-   * hamburger.
+   * Top section lists every organizer app (Date Book → Expense) so
+   * the user can jump to any of them without going back to the
+   * launcher. Bottom section: Settings + sign-out + sync status.
    */
   import { drawer } from '$lib/drawer.svelte';
   import { base } from '$app/paths';
+  import { page } from '$app/state';
   import { authState } from '$lib/auth.svelte';
-  import {
-    SUPPORTED_LANGUAGES,
-    currentLang,
-    setLang,
-    t,
-    type Lang,
-  } from '$lib/i18n.svelte';
+  import { t } from '$lib/i18n.svelte';
   import { sync } from '$lib/sync.svelte';
 
   let visible = $derived(drawer.open);
 
+  const APPS = [
+    { href: '/palm',           i18n: 'palm.heading', glyph: '⌂', alwaysExact: true },
+    { href: '/palm/datebook',  i18n: 'tab.datebook', glyph: '◫' },
+    { href: '/palm/todo',      i18n: 'tab.todo',     glyph: '☑' },
+    { href: '/palm/address',   i18n: 'tab.address',  glyph: '✦' },
+    { href: '/palm/memo',      i18n: 'tab.memo',     glyph: '▤' },
+    { href: '/palm/notepad',   i18n: 'tab.notepad',  glyph: '✎' },
+    { href: '/palm/mail',      i18n: 'tab.mail',     glyph: '✉' },
+    { href: '/palm/expense',   i18n: 'tab.expense',  glyph: '¤' },
+  ];
+
   function close() { drawer.close(); }
-  function go(href: string) { close(); /* SvelteKit follows anchor */ void href; }
+
+  function isActive(href: string, exact = false): boolean {
+    const path = page.url.pathname.replace(base, '') || '/';
+    if (exact) return path === href;
+    return path === href;
+  }
 </script>
 
 {#if visible}
@@ -38,17 +47,27 @@
       <p class="email">{authState.email}</p>
 
       <nav class="lst">
-        <a class="row" href="{base}/palm" onclick={() => go('/palm')}>
-          <span class="ic">⌂</span>
-          <span class="lbl">{t('nav.organizers')}</span>
-        </a>
-        <a class="row" href="{base}/settings" onclick={() => go('/settings')}>
+        {#each APPS as item (item.href)}
+          <a
+            class="row"
+            class:active={isActive(item.href, item.alwaysExact)}
+            href={base + item.href}
+            onclick={close}
+          >
+            <span class="ic">{item.glyph}</span>
+            <span class="lbl">{t(item.i18n)}</span>
+          </a>
+        {/each}
+      </nav>
+
+      <div class="sep"></div>
+
+      <nav class="lst settings">
+        <a class="row" href={base + '/settings'} onclick={close}>
           <span class="ic">⚙</span>
           <span class="lbl">{t('nav.setting')}</span>
         </a>
       </nav>
-
-      <div class="sep"></div>
 
       <div class="meta">
         <span class="dot" class:on={sync.online}></span>
@@ -74,7 +93,7 @@
     bottom: 0;
     left: 0;
     width: 78vw;
-    max-width: 320px;
+    max-width: 300px;
     background: var(--surface-lo);
     border-right: 1px solid var(--line);
     z-index: 101;
@@ -116,7 +135,7 @@
   }
   .email {
     padding: 0.5rem 0.9rem;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     color: var(--ink-mute);
     margin: 0;
     border-bottom: 1px solid var(--line-soft);
@@ -125,57 +144,62 @@
   .lst {
     display: flex;
     flex-direction: column;
-    padding: 0.4rem 0;
+    padding: 0.25rem 0;
   }
+  .lst.settings { padding: 0.1rem 0 0.3rem; }
   .row {
     display: flex;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.7rem 0.9rem;
+    padding: 0.55rem 0.9rem;
     color: var(--ink);
     text-decoration: none;
     border: 0;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-family: inherit;
     background: transparent;
     cursor: pointer;
   }
-  .row:hover,
-  .row:active {
+  .row:hover, .row:active {
     background: var(--bg);
   }
+  .row.active {
+    background: var(--bg);
+    border-left: 3px solid var(--ink);
+    padding-left: calc(0.9rem - 3px);
+    font-weight: 700;
+  }
   .row .ic {
-    width: 24px;
+    width: 22px;
     text-align: center;
     color: var(--ink-mute);
-    font-size: 1.05rem;
+    font-size: 1rem;
   }
+  .row.active .ic { color: var(--ink); }
   .sep {
-    flex: 1;
     border-top: 1px solid var(--line-soft);
-    margin: 0.4rem 0.9rem 0;
+    margin: 0.3rem 0.9rem;
   }
   .meta {
-    padding: 0.7rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
-    font-size: 0.78rem;
+    margin-top: auto;
+    padding: 0.55rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
+    font-size: 0.74rem;
     color: var(--ink-mute);
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    border-top: 1px solid var(--line-soft);
+    background: var(--surface-hi);
   }
   .meta .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    width: 8px; height: 8px; border-radius: 50%;
     background: var(--ink-mute);
     display: inline-block;
   }
-  .meta .dot.on {
-    background: var(--green);
-  }
+  .meta .dot.on { background: var(--green); }
   .meta .pending {
     margin-left: auto;
-    color: var(--accent);
+    color: var(--ink);
     font-weight: 600;
   }
 </style>

@@ -14,7 +14,7 @@
     <ExpenseLog />
   </PalmAppShell>
 {:else}
-  <p class="loading">loading…</p>
+  <p class="loading">{t('common.loading')}</p>
 {/if}
 
 <style>

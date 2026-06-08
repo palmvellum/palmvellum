@@ -4,6 +4,7 @@
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
   import { t, currentLang, setLang, SUPPORTED_LANGUAGES, type Lang } from '$lib/i18n.svelte';
+  import { prefs } from '$lib/prefs.svelte';
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   type Provider = 'openai' | 'anthropic' | 'gemini';
@@ -128,6 +129,30 @@
         <option value={lng.code}>{lng.label}</option>
       {/each}
     </select>
+  </section>
+
+  <!-- First day of week (used by Date Book month + week grids) -->
+  <section class="card">
+    <h2>{t('settings.weekStart')}</h2>
+    <p class="sub">{t('settings.weekStartHint')}</p>
+    <div class="radio-row">
+      <label>
+        <input
+          type="radio" name="weekStart" value="1"
+          checked={prefs.weekStart === 1}
+          onchange={() => prefs.setWeekStart(1)}
+        />
+        {t('settings.weekStart.mon')}
+      </label>
+      <label>
+        <input
+          type="radio" name="weekStart" value="0"
+          checked={prefs.weekStart === 0}
+          onchange={() => prefs.setWeekStart(0)}
+        />
+        {t('settings.weekStart.sun')}
+      </label>
+    </div>
   </section>
 
   <!-- BYOK section -->
@@ -314,6 +339,18 @@
     color: var(--ink-dim);
     margin: 0 0 0.8rem;
     font-size: 0.9rem;
+  }
+  .radio-row {
+    display: flex;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+  }
+  .radio-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.95rem;
+    cursor: pointer;
   }
   .status {
     display: grid;

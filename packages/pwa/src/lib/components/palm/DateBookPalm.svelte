@@ -1,23 +1,25 @@
 <script lang="ts">
   /**
-   * DateBookPalm — Palm OS-style date book for the Android wrapper.
+   * DateBookPalm — Palm OS-style date book with three view modes.
    *
-   * Design notes:
-   *   - Mobile-first layout. NEVER tries to render side-by-side
-   *     panels; everything stacks vertically.
-   *   - Narrow-screen friendly: month grid uses CSS Grid `1fr` units
-   *     so the 7 columns always exactly fill the viewport width.
-   *     Each cell shows: the day number + 1 dot (yellow for event,
-   *     dim yellow for open to-do). No event titles in cells.
-   *   - Selected day's events render in a PalmList below the grid;
-   *     tap a row to open the edit sheet.
-   *   - New event is a bottom-sheet modal, NOT an inline form.
-   *   - Reads + writes go through the offline store (`$lib/stores/events`)
-   *     so the screen works offline.
+   *   AGENDA (default) — list of upcoming events grouped by day. The
+   *     screen opens on "today" and the user scrolls forward.
+   *   WEEK — current 7-day grid (Mon..Sun) starting at the week
+   *     containing the selected day.
+   *   MONTH — month grid; tap a day to see its events under the grid.
+   *
+   * A bottom tab strip switches between the modes. Above the strip:
+   *   - The "+ new event" button (always visible)
+   *   - A "plan with AI" input (collapsed by default, expands on tap)
+   *     that pipes natural-language text to the event_drafts table;
+   *     the Edge Function parses it into structured events. Hidden
+   *     when offline.
    */
   import { onMount } from 'svelte';
   import { authState } from '$lib/auth.svelte';
-  
+  import { newUlid } from '$lib/ulid';
+  import { supabase } from '$lib/supabase';
+  import { t } from '$lib/i18n.svelte';
   import {
     type CalendarEvent,
     startOfMonth,
@@ -31,6 +33,7 @@
     bucketByDay,
     localInputToISO,
     isoToLocalInput,
+    shortDayLabel,
   } from '$lib/calendar';
   import PalmList from './PalmList.svelte';
   import PalmCell from './PalmCell.svelte';
@@ -39,18 +42,31 @@
   import { listEvents, createEvent, updateEvent, deleteEvent } from '$lib/stores/events.svelte';
   import { listTodos } from '$lib/stores/todos.svelte';
   import { sync } from '$lib/sync.svelte';
+  import { prefs } from '$lib/prefs.svelte';
+
+  type Mode = 'agenda' | 'week' | 'month';
 
   const now = new Date();
 
-  // ── view state ────────────────────────────────────────────
-  let viewMonth = $state(startOfMonth(now));
+  let mode = $state<Mode>('agenda');
+
+  // Anchor date — Agenda uses it as the start of the list; Week uses it
+  // as the week containing it; Month uses it as the month to render.
+  let anchor = $state(atMidnight(now));
   let selectedDay = $state(atMidnight(now));
+
   let events = $state<CalendarEvent[]>([]);
   let todoDots = $state<Map<string, number>>(new Map());
   let loading = $state(true);
   let loadErr = $state<string | null>(null);
 
-  // ── edit sheet ────────────────────────────────────────────
+  // ── AI input ───────────────────────────────────────────────
+  let aiOpen = $state(false);
+  let aiInput = $state('');
+  let aiSubmitting = $state(false);
+  let aiError = $state<string | null>(null);
+
+  // ── edit sheet ─────────────────────────────────────────────
   let sheetOpen = $state(false);
   let editing = $state<CalendarEvent | null>(null);
   let fTitle = $state('');
@@ -61,43 +77,121 @@
   let fNotes = $state('');
   let saving = $state(false);
 
-  const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
+  // Canonical Sunday-anchored arrays — we rotate them at render time
+  // to respect the user's `prefs.weekStart` choice (0 = Sun, 1 = Mon).
+  const DOW_LONG_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+  const DOW_SHORT_SUN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+  const dowLong = $derived(
+    prefs.weekStart === 0
+      ? DOW_LONG_SUN
+      : ([...DOW_LONG_SUN.slice(1), DOW_LONG_SUN[0]] as readonly string[]),
+  );
+  const dowShort = $derived(
+    prefs.weekStart === 0
+      ? DOW_SHORT_SUN
+      : ([...DOW_SHORT_SUN.slice(1), DOW_SHORT_SUN[0]] as readonly string[]),
+  );
 
-  const grid = $derived(monthGridDays(viewMonth));
+  // Visible window depends on mode
+  function visibleWindow(): { from: Date; to: Date } {
+    if (mode === 'month') {
+      const from = startOfMonth(anchor);
+      const to = startOfNextMonth(anchor);
+      from.setDate(from.getDate() - 7);
+      to.setDate(to.getDate() + 7);
+      return { from, to };
+    }
+    if (mode === 'week') {
+      const dow = (anchor.getDay() - prefs.weekStart + 7) % 7;
+      const from = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - dow);
+      const to = new Date(from);
+      to.setDate(to.getDate() + 7);
+      return { from, to };
+    }
+    // agenda: from today, look 60 days forward
+    const from = atMidnight(anchor);
+    const to = new Date(from);
+    to.setDate(to.getDate() + 60);
+    return { from, to };
+  }
+
+  const grid = $derived(monthGridDays(anchor, prefs.weekStart));
   const byDay = $derived(bucketByDay(events));
   const selectedKey = $derived(ymd(selectedDay));
   const selectedEvents = $derived(byDay.get(selectedKey) ?? []);
+
+  // Agenda groups — one entry per day with events, plus an explicit
+  // entry for "today" when today has none (so the user always sees a
+  // clear "no events today" line at the top instead of an empty list).
+  const agendaGroups = $derived.by(() => {
+    const win = visibleWindow();
+    const fromMs = win.from.getTime();
+    const toMs = win.to.getTime();
+    const groups: { key: string; date: Date; events: CalendarEvent[]; isToday: boolean }[] = [];
+    const seen = new Map<string, { key: string; date: Date; events: CalendarEvent[]; isToday: boolean }>();
+    for (const e of events) {
+      const ts = new Date(e.start_at).getTime();
+      if (ts < fromMs || ts >= toMs) continue;
+      const d = atMidnight(new Date(e.start_at));
+      const k = ymd(d);
+      let g = seen.get(k);
+      if (!g) {
+        g = { key: k, date: d, events: [], isToday: sameDay(d, now) };
+        seen.set(k, g);
+        groups.push(g);
+      }
+      g.events.push(e);
+    }
+    // Ensure today is always represented as the first group (placeholder
+    // with no events if there isn't a real group for it).
+    const today = atMidnight(now);
+    if (today.getTime() >= fromMs && today.getTime() < toMs) {
+      const k = ymd(today);
+      if (!seen.has(k)) {
+        groups.push({ key: k, date: today, events: [], isToday: true });
+      }
+    }
+    groups.sort((a, b) => a.date.getTime() - b.date.getTime());
+    for (const g of groups) g.events.sort((a, b) => a.start_at.localeCompare(b.start_at));
+    return groups;
+  });
+
+  // Week days array — starts on the user-preferred first day.
+  const weekDays = $derived.by(() => {
+    const dow = (anchor.getDay() - prefs.weekStart + 7) % 7;
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - dow);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  });
 
   async function load() {
     if (!authState.userId) return;
     loading = true;
     loadErr = null;
     try {
-      // Kick a sync pull so Dexie has the freshest server rows BEFORE
-      // we read. await so events show up on first open from a cold install.
-      // If offline the pull will reject quickly and we render whatever
-      // Dexie has from the last session.
-      try { await sync.pull(); } catch (_) { /* offline ok */ }
-      const from = startOfMonth(viewMonth);
-      const to = startOfNextMonth(viewMonth);
-      from.setDate(from.getDate() - 7);
-      to.setDate(to.getDate() + 7);
+      try { await sync.pull(); } catch (_) { /* offline OK */ }
+      const win = visibleWindow();
       const [evs, todos] = await Promise.all([
-        listEvents({ from, to }),
+        listEvents({ from: win.from, to: win.to }),
         listTodos(),
       ]);
       events = evs;
-      // Filter open to-dos with a due date in the visible window and
-      // bucket them by date for dot rendering.
-      const fromMs = from.getTime();
-      const toMs = to.getTime();
+
+      const fromMs = win.from.getTime();
+      const toMs = win.to.getTime();
       const m = new Map<string, number>();
       for (const r of todos) {
         const md = r.metadata as { palm_due_date?: string; palm_completed?: boolean };
         const due = (md.palm_due_date ?? '').trim();
         if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) continue;
         if (md.palm_completed === true) continue;
-        const [y, mo, d] = due.split('-').map(Number);
+        const parts = due.split('-').map(Number);
+        const y = parts[0] ?? 0;
+        const mo = parts[1] ?? 1;
+        const d = parts[2] ?? 1;
         const dt = new Date(y, mo - 1, d, 0, 0, 0, 0).getTime();
         if (dt < fromMs || dt >= toMs) continue;
         m.set(due, (m.get(due) ?? 0) + 1);
@@ -113,39 +207,108 @@
   $effect(() => {
     if (authState.phase === 'ready') void load();
   });
-
-  // Re-render after every sync pull so the calendar picks up server
-  // rows once they land in Dexie (initial install + offline -> online).
   $effect(() => {
-    // touch reactive trigger so this effect re-runs on pulls
     void sync.last_pulled_at;
+    if (authState.phase === 'ready') void load();
+  });
+  $effect(() => {
+    // Re-load when mode / anchor changes
+    void mode;
+    void anchor;
     if (authState.phase === 'ready') void load();
   });
 
   onMount(() => { void load(); });
 
-  function prevMonth() {
-    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
-    void load();
+  function setMode(m: Mode) { mode = m; }
+
+  /** Month-grid tap handler — clicking a populated day jumps to
+   *  Agenda mode anchored on that day so the user immediately sees
+   *  the events. Empty days stay in Month and just highlight. */
+  function onMonthCellClick(d: Date): void {
+    const evs = byDay.get(ymd(d)) ?? [];
+    const todoCount = todoDots.get(ymd(d)) ?? 0;
+    if (evs.length === 0 && todoCount === 0) {
+      selectDay(d);
+      return;
+    }
+    selectedDay = atMidnight(d);
+    anchor = atMidnight(d);
+    mode = 'agenda';
   }
-  function nextMonth() {
-    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
-    void load();
+
+  function prevPeriod() {
+    if (mode === 'month') {
+      anchor = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1);
+    } else if (mode === 'week') {
+      anchor = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - 7);
+    } else {
+      anchor = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - 14);
+    }
+  }
+  function nextPeriod() {
+    if (mode === 'month') {
+      anchor = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
+    } else if (mode === 'week') {
+      anchor = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + 7);
+    } else {
+      anchor = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + 14);
+    }
   }
   function gotoToday() {
-    viewMonth = startOfMonth(now);
+    anchor = atMidnight(now);
     selectedDay = atMidnight(now);
-    void load();
   }
   function selectDay(d: Date) {
     selectedDay = atMidnight(d);
+    if (mode === 'month') return;
+    if (mode === 'week') return;
   }
 
-  function openCreate() {
+  function periodLabel(): string {
+    if (mode === 'month') return monthLabel(anchor);
+    if (mode === 'week') {
+      const start = weekDays[0]!;
+      const end = weekDays[6]!;
+      return start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+        + ' – ' +
+        end.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    }
+    return anchor.toLocaleDateString(undefined, { month: 'long', day: 'numeric', weekday: 'short' });
+  }
+
+  // ── AI plan ───────────────────────────────────────────────
+  async function submitAI(ev: Event) {
+    ev.preventDefault();
+    if (!authState.userId || !aiInput.trim()) return;
+    aiError = null;
+    aiSubmitting = true;
+    try {
+      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const { error } = await supabase.from('event_drafts').insert({
+        id: newUlid(),
+        user_id: authState.userId,
+        raw_input: aiInput.trim(),
+        user_tz: userTz,
+        status: 'pending',
+      });
+      if (error) { aiError = error.message; return; }
+      aiInput = '';
+      aiOpen = false;
+    } catch (e) {
+      aiError = e instanceof Error ? e.message : String(e);
+    } finally {
+      aiSubmitting = false;
+    }
+  }
+
+  // ── edit sheet ───────────────────────────────────────────
+  function openCreate(forDay?: Date) {
     editing = null;
     fTitle = '';
-    const local = isoToLocalInput(new Date().toISOString());
-    fStart = local;
+    const base = forDay ? new Date(forDay) : new Date();
+    if (forDay) { base.setHours(9, 0, 0, 0); }
+    fStart = isoToLocalInput(base.toISOString());
     fEnd = '';
     fAllDay = false;
     fLocation = '';
@@ -162,10 +325,7 @@
     fNotes = e.notes ?? '';
     sheetOpen = true;
   }
-  function closeSheet() {
-    sheetOpen = false;
-    editing = null;
-  }
+  function closeSheet() { sheetOpen = false; editing = null; }
   async function saveSheet(ev: Event) {
     ev.preventDefault();
     if (!authState.userId || !fTitle.trim() || !fStart) return;
@@ -200,81 +360,194 @@
     }
   }
   async function removeEvent(e: CalendarEvent) {
-    if (!confirm('Delete event "' + e.title + '"?')) return;
+    if (!confirm(t('datebook.confirmDelete', { title: e.title }))) return;
     await deleteEvent(e.id);
     await load();
   }
 </script>
 
 <div class="db">
+  <!-- Header rows: navigation, then today + mode toggle group -->
   <header class="ctrl">
-    <button type="button" class="nav" onclick={prevMonth} aria-label="previous month">‹</button>
-    <div class="title">{monthLabel(viewMonth)}</div>
-    <button type="button" class="nav" onclick={nextMonth} aria-label="next month">›</button>
-    <button type="button" class="today" onclick={gotoToday}>today</button>
+    <button type="button" class="nav" onclick={prevPeriod} aria-label="‹">‹</button>
+    <div class="title">{periodLabel()}</div>
+    <button type="button" class="nav" onclick={nextPeriod} aria-label="›">›</button>
   </header>
-
-  <div class="dow">
-    {#each DOW as d, i (i)}<span>{d}</span>{/each}
-  </div>
-
-  <div class="grid">
-    {#each grid as d (d.toISOString())}
-      {@const isCur = d.getMonth() === viewMonth.getMonth()}
-      {@const isToday = sameDay(d, now)}
-      {@const isSel = sameDay(d, selectedDay)}
-      {@const evs = byDay.get(ymd(d)) ?? []}
-      {@const todoCount = todoDots.get(ymd(d)) ?? 0}
+  <div class="modes">
+    <button type="button" class="pill" onclick={gotoToday}>{t('common.today')}</button>
+    <span class="pills">
       <button
-        type="button"
-        class="cell"
-        class:out={!isCur}
-        class:today={isToday}
-        class:sel={isSel}
-        onclick={() => selectDay(d)}
-        aria-label={ymd(d)}
-      >
-        <span class="n">{d.getDate()}</span>
-        {#if evs.length > 0 || todoCount > 0}
-          <span class="dots">
-            {#if evs.length > 0}<span class="dot ev"></span>{/if}
-            {#if todoCount > 0}<span class="dot td"></span>{/if}
-            {#if (evs.length + todoCount) > 2}<span class="more">·</span>{/if}
-          </span>
-        {/if}
-      </button>
-    {/each}
+        type="button" class="pill" class:on={mode === 'agenda'}
+        onclick={() => setMode('agenda')}>{t('datebook.mode.agenda')}</button>
+      <button
+        type="button" class="pill" class:on={mode === 'week'}
+        onclick={() => setMode('week')}>{t('datebook.mode.week')}</button>
+      <button
+        type="button" class="pill" class:on={mode === 'month'}
+        onclick={() => setMode('month')}>{t('datebook.mode.month')}</button>
+    </span>
   </div>
 
   {#if loadErr}<p class="err">{loadErr}</p>{/if}
 
-  <div class="day-head">
-    <span class="dh-label">{selectedDay.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
-    {#if sameDay(selectedDay, now)}<span class="dh-today">· today</span>{/if}
-  </div>
-
-  {#if loading && selectedEvents.length === 0}
-    <PalmEmpty title="loading…" />
-  {:else if selectedEvents.length === 0}
-    <PalmEmpty title="Nothing scheduled." hint="Tap + to add an event." />
-  {:else}
-    <PalmList>
-      {#each selectedEvents as e (e.id)}
-        <PalmCell
-          leading={e.all_day ? '●' : '·'}
-          title={e.title}
-          meta={e.all_day ? 'all-day' : hhmm(e.start_at)}
-          onclick={() => openEdit(e)}
-        >
-          {#if e.location}at {e.location}{/if}
-          {#if e.notes && !e.location}{e.notes}{/if}
-        </PalmCell>
-      {/each}
-    </PalmList>
+  <!-- AI input — collapsed by default, hidden when offline -->
+  {#if sync.online}
+    <section class="ai-card">
+      {#if !aiOpen}
+        <button type="button" class="ai-open" onclick={() => (aiOpen = true)}>
+          {t('datebook.aiOpen')}
+        </button>
+      {:else}
+        <form onsubmit={submitAI}>
+          <p class="ai-hint">{t('datebook.aiHint')}</p>
+          <textarea
+            bind:value={aiInput}
+            rows="3"
+            placeholder={t('datebook.aiPlaceholder')}
+            required
+          ></textarea>
+          {#if aiError}<p class="err">{aiError}</p>{/if}
+          <div class="ai-actions">
+            <button type="button" class="ai-cancel" onclick={() => { aiOpen = false; aiInput = ''; }}>{t('datebook.aiCancel')}</button>
+            <button type="submit" disabled={aiSubmitting || !aiInput.trim()} class="ai-go">
+              {aiSubmitting ? t('datebook.aiSending') : t('datebook.aiAnalyse')}
+            </button>
+          </div>
+        </form>
+      {/if}
+    </section>
   {/if}
 
-  <div class="actions">
-    <PalmButton onclick={openCreate}>＋ new event</PalmButton>
+  <!-- AGENDA view -->
+  {#if mode === 'agenda'}
+    {#if loading && agendaGroups.length === 0}
+      <PalmEmpty title={t('common.loading')} />
+    {:else if agendaGroups.length === 0}
+      <PalmEmpty title={t('datebook.noEventsInRange')} hint={t('datebook.tapNewHint')} />
+    {:else}
+      {#each agendaGroups as g (g.key)}
+        {@const labelDate = g.date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })}
+        <PalmList label={g.isToday ? t('datebook.todayLabel') + ' · ' + labelDate : labelDate}>
+          {#if g.events.length === 0}
+            <div class="empty-row">{t('datebook.todayNoEvents')}</div>
+          {:else}
+            {#each g.events as e (e.id)}
+              <PalmCell
+                leading={e.all_day ? '●' : '·'}
+                title={e.title}
+                meta={e.all_day ? t('datebook.allDay') : hhmm(e.start_at)}
+                metaAccent
+                onclick={() => openEdit(e)}
+              >
+                {#if e.location}{t('datebook.atLocation', { location: e.location })}{/if}
+                {#if e.notes && !e.location}{e.notes}{/if}
+              </PalmCell>
+            {/each}
+          {/if}
+        </PalmList>
+      {/each}
+    {/if}
+  {/if}
+
+  <!-- WEEK view — weekday name centred + enlarged on its own line,
+       short date slid below it on the left in a smaller weight. -->
+  {#if mode === 'week'}
+    <div class="week-grid">
+      {#each weekDays as d (d.toISOString())}
+        {@const evs = byDay.get(ymd(d)) ?? []}
+        {@const isToday = sameDay(d, now)}
+        {@const dayIdx = d.getDay()}
+        <div
+          class="wday"
+          class:today={isToday}
+          class:sun={dayIdx === 0}
+          class:sat={dayIdx === 6}
+        >
+          <div class="wday-h">
+            <div class="wday-name">{dowLong[(dayIdx - prefs.weekStart + 7) % 7]}</div>
+            <div class="wday-date">
+              {d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+            </div>
+          </div>
+          {#if evs.length === 0}
+            <p class="muted">—</p>
+          {:else}
+            <ul class="wev">
+              {#each evs as e (e.id)}
+                <li>
+                  <button type="button" class="wev-row" onclick={() => openEdit(e)}>
+                    <span class="t">{e.all_day ? t('datebook.allDay') : hhmm(e.start_at)}</span>
+                    <span class="ti">{e.title}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
+  <!-- MONTH view — column tint reflects the actual calendar day, so
+       Sun stays pink and Sat stays grey regardless of weekStart. -->
+  {#if mode === 'month'}
+    <div class="dow">
+      {#each dowShort as d, i (i)}<span>{d}</span>{/each}
+    </div>
+    <div class="grid">
+      {#each grid as d (d.toISOString())}
+        {@const isCur = d.getMonth() === anchor.getMonth()}
+        {@const isToday = sameDay(d, now)}
+        {@const isSel = sameDay(d, selectedDay)}
+        {@const evs = byDay.get(ymd(d)) ?? []}
+        {@const todoCount = todoDots.get(ymd(d)) ?? 0}
+        {@const dayIdx = d.getDay()}
+        <button
+          type="button" class="cell"
+          class:out={!isCur} class:today={isToday} class:sel={isSel}
+          class:sun={dayIdx === 0} class:sat={dayIdx === 6}
+          onclick={() => onMonthCellClick(d)}
+        >
+          <span class="n">{d.getDate()}</span>
+          {#if evs.length > 0 || todoCount > 0}
+            <span class="counts">
+              {#if evs.length > 0}<span class="count ev-count">{evs.length}</span>{/if}
+              {#if todoCount > 0}<span class="count td-count">+{todoCount}</span>{/if}
+            </span>
+          {/if}
+        </button>
+      {/each}
+    </div>
+
+    <div class="day-head">
+      <span class="dh-label">{shortDayLabel(selectedDay)}</span>
+      {#if sameDay(selectedDay, now)}<span class="dh-today">· {t('common.today')}</span>{/if}
+    </div>
+    {#if selectedEvents.length === 0}
+      <PalmEmpty title={t('datebook.nothingScheduled')} hint={t('datebook.tapNewDayHint')} />
+    {:else}
+      <PalmList>
+        {#each selectedEvents as e (e.id)}
+          <PalmCell
+            leading={e.all_day ? '●' : '·'}
+            title={e.title}
+            meta={e.all_day ? t('datebook.allDay') : hhmm(e.start_at)}
+            metaAccent
+            onclick={() => openEdit(e)}
+          >
+            {#if e.location}{t('datebook.atLocation', { location: e.location })}{/if}
+            {#if e.notes && !e.location}{e.notes}{/if}
+          </PalmCell>
+        {/each}
+      </PalmList>
+    {/if}
+  {/if}
+
+  <!-- + new event button -->
+  <div class="add-row">
+    <PalmButton onclick={() => openCreate(mode === 'month' ? selectedDay : undefined)}>
+      {t('datebook.addNew')}
+    </PalmButton>
   </div>
 </div>
 
@@ -282,42 +555,24 @@
   <div class="sheet-backdrop" onclick={closeSheet} role="presentation"></div>
   <div class="sheet" role="dialog" aria-modal="true">
     <div class="sheet-head">
-      <h3>{editing ? 'edit event' : 'new event'}</h3>
-      <button type="button" class="sheet-close" onclick={closeSheet} aria-label="close">×</button>
+      <h3>{editing ? t('datebook.sheetEditEvent') : t('datebook.sheetNewEvent')}</h3>
+      <button type="button" class="sheet-close" onclick={closeSheet} aria-label="×">×</button>
     </div>
     <form onsubmit={saveSheet}>
-      <label>
-        title
-        <input type="text" bind:value={fTitle} required maxlength={256} />
-      </label>
-      <label class="row inline">
-        <input type="checkbox" bind:checked={fAllDay} />
-        all-day
-      </label>
-      <label>
-        start
-        <input type="datetime-local" bind:value={fStart} required />
-      </label>
-      <label>
-        end
-        <input type="datetime-local" bind:value={fEnd} />
-      </label>
-      <label>
-        location
-        <input type="text" bind:value={fLocation} maxlength={120} />
-      </label>
-      <label>
-        notes
-        <textarea bind:value={fNotes} rows="3"></textarea>
-      </label>
+      <label>{t('datebook.fldTitle')}<input type="text" bind:value={fTitle} required maxlength={256} /></label>
+      <label class="row inline"><input type="checkbox" bind:checked={fAllDay} />{t('datebook.allDay')}</label>
+      <label>{t('datebook.fldStart')}<input type="datetime-local" bind:value={fStart} required /></label>
+      <label>{t('datebook.fldEnd')}<input type="datetime-local" bind:value={fEnd} /></label>
+      <label>{t('datebook.fldLocation')}<input type="text" bind:value={fLocation} maxlength={120} /></label>
+      <label>{t('datebook.fldNotes')}<textarea bind:value={fNotes} rows="3"></textarea></label>
       <div class="sheet-actions">
         {#if editing}
-          <PalmButton variant="ghost" onclick={() => editing && removeEvent(editing)}>delete</PalmButton>
+          <PalmButton variant="ghost" onclick={() => editing && removeEvent(editing)}>{t('datebook.delete')}</PalmButton>
         {/if}
         <span class="grow"></span>
-        <PalmButton variant="ghost" onclick={closeSheet}>cancel</PalmButton>
+        <PalmButton variant="ghost" onclick={closeSheet}>{t('datebook.cancel')}</PalmButton>
         <PalmButton type="submit" disabled={saving || !fTitle.trim()}>
-          {saving ? 'saving…' : 'save'}
+          {saving ? t('datebook.saving') : t('datebook.save')}
         </PalmButton>
       </div>
     </form>
@@ -335,38 +590,71 @@
     align-items: center;
     gap: 0.4rem;
     padding: 0 0.25rem;
-    margin-bottom: 0.3rem;
   }
   .ctrl .title {
     flex: 1;
     text-align: center;
-    font-weight: 600;
-    font-size: 1.05rem;
+    font-weight: 700;
+    font-size: 0.95rem;
     color: var(--ink);
   }
   .ctrl .nav {
     background: var(--surface-hi);
     border: 1px solid var(--line);
-    color: var(--accent);
-    font-size: 1.4rem;
+    color: var(--ink);
+    font-size: 1.2rem;
     line-height: 1;
-    padding: 0.2rem 0.6rem;
+    padding: 0.2rem 0.55rem;
     cursor: pointer;
-    min-height: 36px;
+    min-height: 34px;
+    border-radius: 3px;
   }
-  .ctrl .today {
-    background: var(--accent);
-    color: var(--bg);
-    border: 1px solid var(--accent);
-    padding: 0.3rem 0.7rem;
+  /* Today + agenda/week/month row — small pill buttons aligned right. */
+  .modes {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.25rem;
+    justify-content: flex-end;
+  }
+  .modes .pills {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .modes .pill {
+    background: var(--surface-hi);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.22rem 0.65rem;
+    font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
-    font-size: 0.78rem;
-    text-transform: lowercase;
-    min-height: 36px;
+    border-radius: 3px;
+    min-height: 30px;
+    line-height: 1.1;
+  }
+  .modes .pills .pill {
+    border: 0;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+  }
+  .modes .pills .pill:last-child { border-right: 0; }
+  .modes .pill.on {
+    background: var(--surface-dk);
+    color: #fff;
+  }
+  .err { color: #c00; font-size: 0.8rem; padding: 0 0.25rem; }
+  /* Used inside an Agenda group when the (today) bucket has no events. */
+  .empty-row {
+    padding: 0.6rem 0.65rem;
+    font-size: 0.85rem;
+    color: var(--ink-mute);
+    font-style: italic;
   }
 
-  /* Day-of-week labels — single-letter on narrow screens */
+  /* MONTH grid */
   .dow {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -378,8 +666,6 @@
     padding: 0 1px;
     margin-bottom: 2px;
   }
-
-  /* Calendar grid — never overflows, fills viewport */
   .grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -401,70 +687,165 @@
     align-items: center;
     justify-content: flex-start;
     gap: 2px;
-    position: relative;
-    min-height: 0;
   }
-  .cell.out { color: var(--ink-mute); background: var(--bg); }
-  .cell.today { background: var(--surface-hi); }
-  .cell.today .n { color: var(--accent); font-weight: 700; }
-  .cell.sel { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
-  .cell .n {
-    font-size: 0.85rem;
+  .cell.out { color: var(--ink-mute); background: var(--surface-hi); }
+  /* Weekend column tint — Sunday a touch pink, Saturday a touch grey. */
+  .cell.sun { background: #fbe6e6; }
+  .cell.sat { background: #ececec; }
+  /* Out-of-month weekend cells stay dim but keep the column hue. */
+  .cell.out.sun { background: #f5dada; }
+  .cell.out.sat { background: #dddddd; }
+  /* Today wins over weekend column tints. */
+  .cell.today { background: #fff8d0; }
+  .cell.sel { outline: 2px solid var(--ink); outline-offset: -2px; z-index: 1; }
+  .cell .n { font-size: 0.85rem; line-height: 1; font-weight: 600; }
+  /* Event count badges — replace the old dots. */
+  .cell .counts {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    font-weight: 700;
     line-height: 1;
   }
-  .cell .dots {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
+  .cell .count.ev-count {
+    color: var(--ink);
+    font-size: 0.75rem;
   }
-  .cell .dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-  .cell .dot.td {
-    background: var(--cat-todo, #f4d35e);
-    width: 4px;
-    height: 4px;
-    border: 1px solid var(--ink-mute);
-  }
-  .cell .more {
-    font-size: 0.7rem;
-    color: var(--accent);
-    line-height: 0.5;
+  .cell .count.td-count {
+    color: var(--cat-todo, #c69400);
+    font-size: 0.65rem;
   }
 
-  .day-head {
-    margin-top: 0.5rem;
-    margin-bottom: 0.4rem;
-    padding: 0 0.25rem;
-    font-size: 0.85rem;
-    color: var(--ink);
+  /* WEEK grid */
+  .week-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
-  .dh-label { color: var(--accent); font-weight: 600; }
+  .wday {
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    padding: 0.4rem 0.55rem;
+  }
+  .wday.sun { background: #fbe6e6; }
+  .wday.sat { background: #ececec; }
+  .wday.today {
+    border-color: var(--ink);
+    background: #fff8d0;
+  }
+  /* Two-line header: weekday name centred + enlarged, then short date
+     on the next line, left-aligned and smaller. */
+  .wday-h {
+    border-bottom: 1px solid var(--line-soft);
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.3rem;
+  }
+  .wday-h .wday-name {
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .wday-h .wday-date {
+    text-align: left;
+    font-size: 0.7rem;
+    color: var(--ink-mute);
+    margin-top: 1px;
+    line-height: 1.1;
+  }
+  .wday .muted { font-size: 0.8rem; color: var(--ink-mute); margin: 0; padding: 0.2rem 0; }
+  .wev { list-style: none; padding: 0; margin: 0; }
+  .wev-row {
+    display: flex;
+    gap: 0.6rem;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    text-align: left;
+    padding: 0.3rem 0;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .wev-row:last-child { border-bottom: 0; }
+  .wev-row .t {
+    width: 3.2rem;
+    font-size: 0.78rem;
+    color: #8b1a1a;       /* dark red clock time, matches PalmCell meta */
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .wev-row .ti { flex: 1; font-size: 0.9rem; }
+
+  .day-head { margin: 0.5rem 0 0.3rem; padding: 0 0.25rem; font-size: 0.85rem; color: var(--ink); }
+  .dh-label { color: var(--ink); font-weight: 700; }
   .dh-today { color: var(--ink-mute); font-size: 0.75rem; }
-  .err { color: #ff6b6b; font-size: 0.8rem; padding: 0 0.25rem; }
-  .actions {
-    margin-top: 0.5rem;
+
+  /* AI card */
+  .ai-card {
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    padding: 0.4rem 0.55rem;
+    /* Sits at the very top of the date book body, right under the
+       prev / period / next header — let the surrounding gap come from
+       the parent .db `gap`. */
+    margin: 0;
+  }
+  .ai-open {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    color: var(--ink);
+    text-align: left;
+    padding: 0.45rem 0.3rem;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .ai-open:hover { background: var(--surface-hi); }
+  .ai-card form { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.4rem 0; }
+  .ai-hint { font-size: 0.75rem; color: var(--ink-mute); margin: 0; }
+  .ai-card textarea {
+    background: var(--surface-hi);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.45rem 0.55rem;
+    font: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    border-radius: 3px;
+  }
+  .ai-actions { display: flex; justify-content: flex-end; gap: 0.4rem; }
+  .ai-cancel, .ai-go {
+    background: var(--surface-hi); color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 0.35rem 0.7rem; font: inherit; font-weight: 700;
+    cursor: pointer; border-radius: 3px;
+  }
+  .ai-go { background: var(--surface-dk); color: #fff; border-color: #1a1a1a; }
+  .ai-go:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .add-row {
     display: flex;
     justify-content: center;
+    margin: 0.6rem 0 0;
   }
 
-  /* Bottom sheet for new / edit event */
+  /* Bottom sheet */
   .sheet-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.65);
-    z-index: 50;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50;
   }
   .sheet {
     position: fixed;
     left: 0; right: 0; bottom: 0;
     background: var(--surface-lo);
-    border-top: 2px solid var(--accent);
+    border-top: 1px solid var(--line);
     z-index: 51;
     padding: 0.75rem 0.9rem calc(1rem + env(safe-area-inset-bottom));
-    max-height: 90vh;
+    max-height: 92vh;
     overflow-y: auto;
     box-shadow: 0 -10px 30px rgba(0,0,0,0.4);
   }
@@ -472,35 +853,13 @@
     display: flex; align-items: center; justify-content: space-between;
     border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; margin-bottom: 0.65rem;
   }
-  .sheet-head h3 { margin: 0; font-size: 1rem; color: var(--accent); }
-  .sheet-close {
-    background: transparent; border: 0; color: var(--ink-mute);
-    font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 0 0.4rem;
-  }
-  .sheet form {
-    display: flex; flex-direction: column; gap: 0.65rem;
-  }
-  .sheet label {
-    display: flex; flex-direction: column; gap: 0.2rem;
-    color: var(--ink-mute); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;
-  }
-  .sheet label.inline {
-    flex-direction: row; align-items: center; gap: 0.5rem;
-    color: var(--ink); text-transform: none; letter-spacing: 0;
-    font-size: 0.9rem;
-  }
-  .sheet input, .sheet textarea {
-    background: var(--bg);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    padding: 0.5rem 0.6rem;
-    font: inherit;
-    font-size: 0.95rem;
-    border-radius: 0;
-  }
+  .sheet-head h3 { margin: 0; font-size: 1rem; color: var(--ink); font-weight: 700; }
+  .sheet-close { background: transparent; border: 0; color: var(--ink-mute); font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 0 0.4rem; }
+  .sheet form { display: flex; flex-direction: column; gap: 0.6rem; }
+  .sheet label { display: flex; flex-direction: column; gap: 0.2rem; color: var(--ink-mute); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .sheet label.inline { flex-direction: row; align-items: center; gap: 0.5rem; color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 0.9rem; }
+  .sheet input, .sheet textarea { background: var(--surface-hi); border: 1px solid var(--line); color: var(--ink); padding: 0.45rem 0.55rem; font: inherit; font-size: 0.9rem; border-radius: 3px; }
   .sheet textarea { resize: vertical; }
-  .sheet-actions {
-    display: flex; gap: 0.4rem; align-items: center; margin-top: 0.4rem;
-  }
+  .sheet-actions { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.4rem; }
   .sheet-actions .grow { flex: 1; }
 </style>

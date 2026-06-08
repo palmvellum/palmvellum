@@ -10,6 +10,7 @@
     leading?: string;          // single-char bullet (e.g. '·', '✓', '□')
     title: string;
     meta?: string;             // small grey text on the right
+    metaAccent?: boolean;      // render meta in dark red (e.g. clock times)
     onclick?: () => void;
     href?: string;
     accent?: boolean;          // highlight in accent yellow
@@ -17,7 +18,7 @@
     children?: Snippet;        // optional body (notes / preview)
   }
 
-  let { leading, title, meta, onclick, href, accent = false, dim = false, children }: Props = $props();
+  let { leading, title, meta, metaAccent = false, onclick, href, accent = false, dim = false, children }: Props = $props();
 </script>
 
 {#if href}
@@ -27,7 +28,7 @@
       <span class="title">{title}</span>
       {#if children}<span class="sub">{@render children()}</span>{/if}
     </span>
-    {#if meta}<span class="meta">{meta}</span>{/if}
+    {#if meta}<span class="meta" class:meta-accent={metaAccent}>{meta}</span>{/if}
   </a>
 {:else}
   <button type="button" class="cell" class:accent class:dim onclick={onclick}>
@@ -36,7 +37,7 @@
       <span class="title">{title}</span>
       {#if children}<span class="sub">{@render children()}</span>{/if}
     </span>
-    {#if meta}<span class="meta">{meta}</span>{/if}
+    {#if meta}<span class="meta" class:meta-accent={metaAccent}>{meta}</span>{/if}
   </button>
 {/if}
 
@@ -108,5 +109,11 @@
     margin-left: 0.4rem;
     align-self: flex-start;
     padding-top: 2px;
+  }
+  /* Dark red highlight for clock times so the schedule reads at a glance. */
+  .meta.meta-accent {
+    color: #8b1a1a;
+    font-weight: 700;
+    font-size: 0.78rem;
   }
 </style>

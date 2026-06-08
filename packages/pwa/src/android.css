@@ -10,7 +10,7 @@
  * dark grey title bars, hairline 1-px borders, square corners.
  */
 
-html[data-platform='android'] {
+:is(html.palm-route, html[data-platform='android']) {
   /* Palm OS 5 silver palette */
   --bg:         #cfd1cc;   /* main desk silver */
   --surface-lo: #e6e6e1;   /* list / card surface (off-white) */
@@ -39,9 +39,9 @@ html[data-platform='android'] {
   font-weight: 400;
   -webkit-tap-highlight-color: transparent;
 }
-/* Re-assert against html, body in case the global rule wins cascade. */
-html[data-platform='android'],
-html[data-platform='android'] body {
+/* Re-assert against :root, body in case the global rule wins cascade. */
+:is(html.palm-route, html[data-platform='android']),
+:is(html.palm-route, html[data-platform='android']) body {
   font-family:
     'Helvetica Neue',
     Helvetica,
@@ -52,18 +52,18 @@ html[data-platform='android'] body {
   color: var(--ink);
 }
 
-html[data-platform='android'] body {
+:is(html.palm-route, html[data-platform='android']) body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ─── Hide the desktop topnav entirely; drawer is the new nav. ──── */
-html[data-platform='android'] .topnav {
+:is(html.palm-route, html[data-platform='android']) .topnav {
   display: none !important;
 }
 
 /* ─── Shell takes the full viewport, no max-width centring. ──────── */
-html[data-platform='android'] .shell {
+:is(html.palm-route, html[data-platform='android']) .shell {
   max-width: none;
   margin: 0;
   padding: 0;
@@ -71,14 +71,14 @@ html[data-platform='android'] .shell {
 }
 
 /* ─── Make every classic .card / surface light. ─────────────────── */
-html[data-platform='android'] .card,
-html[data-platform='android'] .ai-card,
-html[data-platform='android'] .form-card,
-html[data-platform='android'] .day-panel,
-html[data-platform='android'] .row,
-html[data-platform='android'] .ev,
-html[data-platform='android'] .manual-trigger,
-html[data-platform='android'] .ical-panel {
+:is(html.palm-route, html[data-platform='android']) .card,
+:is(html.palm-route, html[data-platform='android']) .ai-card,
+:is(html.palm-route, html[data-platform='android']) .form-card,
+:is(html.palm-route, html[data-platform='android']) .day-panel,
+:is(html.palm-route, html[data-platform='android']) .row,
+:is(html.palm-route, html[data-platform='android']) .ev,
+:is(html.palm-route, html[data-platform='android']) .manual-trigger,
+:is(html.palm-route, html[data-platform='android']) .ical-panel {
   background: var(--surface-lo);
   border: 1px solid var(--line);
   border-radius: 0;
@@ -87,8 +87,8 @@ html[data-platform='android'] .ical-panel {
 }
 
 /* Hit targets and typography */
-html[data-platform='android'] button,
-html[data-platform='android'] .btn {
+:is(html.palm-route, html[data-platform='android']) button,
+:is(html.palm-route, html[data-platform='android']) .btn {
   min-height: 36px;
   border-radius: 4px;
   letter-spacing: 0.01em;
@@ -97,27 +97,27 @@ html[data-platform='android'] .btn {
 }
 
 /* Primary buttons: dark title-bar grey background, white text */
-html[data-platform='android'] button.primary,
-html[data-platform='android'] button[type='submit'] {
+:is(html.palm-route, html[data-platform='android']) button.primary,
+:is(html.palm-route, html[data-platform='android']) button[type='submit'] {
   background: var(--surface-dk);
   color: #fff;
   border: 1px solid #1a1a1a;
 }
-html[data-platform='android'] button.primary:hover:not(:disabled),
-html[data-platform='android'] button[type='submit']:hover:not(:disabled) {
+:is(html.palm-route, html[data-platform='android']) button.primary:hover:not(:disabled),
+:is(html.palm-route, html[data-platform='android']) button[type='submit']:hover:not(:disabled) {
   background: #2c2c2a;
 }
 
 /* Inputs: white background, thin border */
-html[data-platform='android'] input[type='text'],
-html[data-platform='android'] input[type='email'],
-html[data-platform='android'] input[type='datetime-local'],
-html[data-platform='android'] input[type='date'],
-html[data-platform='android'] input[type='time'],
-html[data-platform='android'] input[type='password'],
-html[data-platform='android'] input[type='number'],
-html[data-platform='android'] textarea,
-html[data-platform='android'] select {
+:is(html.palm-route, html[data-platform='android']) input[type='text'],
+:is(html.palm-route, html[data-platform='android']) input[type='email'],
+:is(html.palm-route, html[data-platform='android']) input[type='datetime-local'],
+:is(html.palm-route, html[data-platform='android']) input[type='date'],
+:is(html.palm-route, html[data-platform='android']) input[type='time'],
+:is(html.palm-route, html[data-platform='android']) input[type='password'],
+:is(html.palm-route, html[data-platform='android']) input[type='number'],
+:is(html.palm-route, html[data-platform='android']) textarea,
+:is(html.palm-route, html[data-platform='android']) select {
   background: var(--surface-hi);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -126,43 +126,43 @@ html[data-platform='android'] select {
   color: var(--ink);
   font-family: inherit;
 }
-html[data-platform='android'] input:focus,
-html[data-platform='android'] textarea:focus,
-html[data-platform='android'] select:focus {
+:is(html.palm-route, html[data-platform='android']) input:focus,
+:is(html.palm-route, html[data-platform='android']) textarea:focus,
+:is(html.palm-route, html[data-platform='android']) select:focus {
   outline: 2px solid var(--surface-dk);
   outline-offset: -2px;
 }
 
 /* Headings — bold black */
-html[data-platform='android'] h1 {
+:is(html.palm-route, html[data-platform='android']) h1 {
   font-weight: 700;
   font-size: 1.3rem;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-html[data-platform='android'] h2 {
+:is(html.palm-route, html[data-platform='android']) h2 {
   font-weight: 700;
   text-transform: none;
   color: var(--ink);
 }
-html[data-platform='android'] h3 {
+:is(html.palm-route, html[data-platform='android']) h3 {
   font-weight: 700;
   color: var(--ink);
 }
 
 /* Links */
-html[data-platform='android'] a {
+:is(html.palm-route, html[data-platform='android']) a {
   color: #00467a;     /* classic Mac/Palm hyperlink blue */
   text-decoration: underline;
   border-bottom: 0;
 }
-html[data-platform='android'] a:hover {
+:is(html.palm-route, html[data-platform='android']) a:hover {
   color: #002a4d;
   background: transparent;
 }
 
 /* Top tablist (used by category strips, etc) */
-html[data-platform='android'] [role='tablist'] {
+:is(html.palm-route, html[data-platform='android']) [role='tablist'] {
   background: var(--bg);
   border-bottom: 1px solid var(--line);
   padding: 0.3rem 0.5rem 0;
@@ -170,7 +170,7 @@ html[data-platform='android'] [role='tablist'] {
   overflow-x: auto;
   scrollbar-width: none;
 }
-html[data-platform='android'] [role='tab'] {
+:is(html.palm-route, html[data-platform='android']) [role='tab'] {
   padding: 0.5rem 0.85rem;
   font-size: 0.85rem;
   border: 1px solid transparent;
@@ -179,7 +179,7 @@ html[data-platform='android'] [role='tab'] {
   background: transparent;
   color: var(--ink-mute);
 }
-html[data-platform='android'] [role='tab'][aria-selected='true'] {
+:is(html.palm-route, html[data-platform='android']) [role='tab'][aria-selected='true'] {
   background: var(--surface-lo);
   border-color: var(--line);
   color: var(--ink);
@@ -187,7 +187,7 @@ html[data-platform='android'] [role='tab'][aria-selected='true'] {
 }
 
 /* ─── Hide the BottomNav on Android — we use the left drawer ──── */
-html[data-platform='android'] .bottom-nav {
+:is(html.palm-route, html[data-platform='android']) .bottom-nav {
   display: none !important;
 }
 

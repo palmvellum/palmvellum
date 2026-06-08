@@ -16,27 +16,27 @@
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   const APPS = [
-    { key: 'datebook', href: '/palm/datebook', i18n: 'tab.datebook', glyph: '◫', subtitle: 'calendar' },
-    { key: 'todo',     href: '/palm/todo',     i18n: 'tab.todo',     glyph: '☑', subtitle: 'tasks + due dates' },
-    { key: 'address',  href: '/palm/address',  i18n: 'tab.address',  glyph: '✦', subtitle: 'contacts' },
-    { key: 'memo',     href: '/palm/memo',     i18n: 'tab.memo',     glyph: '▤', subtitle: 'notes' },
-    { key: 'notepad',  href: '/palm/notepad',  i18n: 'tab.notepad',  glyph: '✎', subtitle: 'sketches' },
-    { key: 'mail',     href: '/palm/mail',     i18n: 'tab.mail',     glyph: '✉', subtitle: 'AI digests' },
-    { key: 'expense',  href: '/palm/expense',  i18n: 'tab.expense',  glyph: '¤', subtitle: 'log' },
+    { key: 'datebook', href: '/palm/datebook', i18n: 'tab.datebook', glyph: '◫', subI18n: 'palm.sub.datebook' },
+    { key: 'todo',     href: '/palm/todo',     i18n: 'tab.todo',     glyph: '☑', subI18n: 'palm.sub.todo' },
+    { key: 'address',  href: '/palm/address',  i18n: 'tab.address',  glyph: '✦', subI18n: 'palm.sub.address' },
+    { key: 'memo',     href: '/palm/memo',     i18n: 'tab.memo',     glyph: '▤', subI18n: 'palm.sub.memo' },
+    { key: 'notepad',  href: '/palm/notepad',  i18n: 'tab.notepad',  glyph: '✎', subI18n: 'palm.sub.notepad' },
+    { key: 'mail',     href: '/palm/mail',     i18n: 'tab.mail',     glyph: '✉', subI18n: 'palm.sub.mail' },
+    { key: 'expense',  href: '/palm/expense',  i18n: 'tab.expense',  glyph: '¤', subI18n: 'palm.sub.expense' },
   ];
 </script>
 
 {#if authState.phase !== 'ready'}
-  <p class="status">loading…</p>
+  <p class="status">{t('common.loading')}</p>
 {:else}
-  <PalmAppShell title="Applications">
+  <PalmAppShell title={t('palm.launcher')}>
     <section class="launcher">
       <div class="grid">
         {#each APPS as app (app.key)}
           <a class="tile" href={base + app.href}>
             <span class="glyph" aria-hidden="true">{app.glyph}</span>
             <span class="label">{t(app.i18n)}</span>
-            <span class="sublbl">{app.subtitle}</span>
+            <span class="sublbl">{t(app.subI18n)}</span>
           </a>
         {/each}
       </div>

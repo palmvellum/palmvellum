@@ -3,8 +3,11 @@
   import '../android.css';
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
+  import { page } from '$app/state';
+  import { goto } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { authState } from '$lib/auth.svelte';
-  import { initCapacitor } from '$lib/capacitor.svelte';
+  import { initCapacitor, isCapacitor } from '$lib/capacitor.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
   import PalmDrawer from '$lib/components/palm/PalmDrawer.svelte';
   import {
@@ -17,6 +20,33 @@
 
   let { children } = $props();
 
+  // The Palm chrome owns the organizer + settings surfaces — they
+  // render their own title bar / drawer trigger, so the global topnav
+  // is redundant there. Hide it on those routes (and always on
+  // Capacitor, where the whole app is Palm-themed).
+  const palmRoute = $derived.by(() => {
+    const path = page.url.pathname.replace(base, '') || '/';
+    return path.startsWith('/palm') || path.startsWith('/settings');
+  });
+  const showTopnav = $derived(!isCapacitor && !palmRoute);
+
+  // Reflect palm-route on <html> so global CSS can override only the
+  // organizer surface — the marketing landing keeps its own palette.
+  $effect(() => {
+    if (!browser) return;
+    document.documentElement.classList.toggle('palm-route', palmRoute);
+  });
+
+  // Bounce unauthenticated visits to /palm/* or /settings back to the
+  // landing page. Without this guard those pages render only the
+  // "loading…" placeholder forever — which is exactly the "blank
+  // page" complaint we just fixed.
+  $effect(() => {
+    if (!palmRoute) return;
+    if (authState.phase !== 'unauthenticated') return;
+    void goto(base + '/', { replaceState: true });
+  });
+
   onMount(() => {
     void authState.init();
     void initCapacitor();
@@ -27,7 +57,8 @@
   });
 </script>
 
-<div class="shell">
+<div class="shell" class:palm-route={palmRoute}>
+  {#if showTopnav}
   <header class="topnav">
     <a class="brand" href="{base}/">
       <span class="dot"></span>
@@ -62,14 +93,21 @@
       {/if}
     </nav>
   </header>
+  {/if}
 
   {@render children()}
 
-  <BottomNav />
+  {#if !palmRoute}
+    <BottomNav />
+  {/if}
   <PalmDrawer />
 </div>
 
 <style>
+  /* On palm routes (/palm/*, /settings) the Palm chrome is the only
+     chrome — let the shell take the full viewport so the title bar
+     can hug the top of the screen. */
+  :global(html) .shell.palm-route { padding: 0; max-width: none; }
   .topnav {
     display: flex;
     align-items: center;

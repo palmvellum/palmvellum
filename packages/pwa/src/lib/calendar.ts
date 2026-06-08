@@ -41,21 +41,23 @@ export function atMidnight(d: Date): Date {
 }
 
 /**
- * Day-of-week index where Monday=0, Sunday=6 (HK / ISO convention).
+ * Day-of-week index where the start-of-week=0..6.
+ * `weekStart`: 0 = Sunday (US), 1 = Monday (HK/ISO, default).
  */
-export function isoDow(d: Date): number {
-  // JS Date.getDay() is Sun=0..Sat=6; remap so Mon=0..Sun=6.
-  return (d.getDay() + 6) % 7;
+export function isoDow(d: Date, weekStart: 0 | 1 = 1): number {
+  // JS Date.getDay() is Sun=0..Sat=6. Shift so the chosen start day → 0.
+  return (d.getDay() - weekStart + 7) % 7;
 }
 
 /**
- * 6×7 grid (42 days) starting from the Monday on or before the
- * first day of `month`. Includes leading days from the prior month
- * and trailing days from the next month so every visual row is full.
+ * 6×7 grid (42 days) starting from the first day of the user's chosen
+ * week (`weekStart`) on or before the first day of `month`. Includes
+ * leading days from the prior month and trailing days from the next
+ * month so every visual row is full.
  */
-export function monthGridDays(month: Date): Date[] {
+export function monthGridDays(month: Date, weekStart: 0 | 1 = 1): Date[] {
   const first = startOfMonth(month);
-  const lead = isoDow(first); // 0..6
+  const lead = isoDow(first, weekStart); // 0..6
   const out: Date[] = [];
   for (let i = 0; i < 42; i++) {
     const d = new Date(first);

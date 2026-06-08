@@ -15,7 +15,7 @@
     {#if confirmState.detail}
       <p class="detail">{confirmState.detail}</p>
     {/if}
-    <div class="row">
+    <div class="actions-row">
       <button type="button" class="btn cancel" onclick={() => confirmState.answer(false)}>
         {confirmState.cancelLabel}
       </button>
@@ -64,11 +64,16 @@
     font-size: 0.82rem;
     line-height: 1.35;
   }
-  .row {
+  /* `.actions-row` (not `.row`) to dodge the global android.css
+     selector that turns `.row` into a bordered card. */
+  .actions-row {
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
     margin-top: 0.6rem;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
   }
   .btn {
     min-height: 40px;

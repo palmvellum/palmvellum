@@ -26,6 +26,7 @@
     deleteTodo as deleteTodoStore,
   } from '$lib/stores/todos.svelte';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
 
   interface Todo {
     id: string;
@@ -188,7 +189,7 @@
   }
 
   async function deleteTodo(t: Todo) {
-    if (!confirm(`Delete "${t.body.slice(0, 40)}"?`)) return;
+    if (!(await palmConfirm(`Delete "${t.body.slice(0, 40)}"?`))) return;
     try {
       await deleteTodoStore(t.id);
     } catch (e) {
@@ -372,11 +373,18 @@
                   <div class="agent-status err">[err] {t.ai_error ?? 'agent failed'}</div>
                 {/if}
               </div>
-              {#if due}
-                <span class="due {dueClass(due)}">{fmtDue(due)}</span>
-              {/if}
-              <button class="link" onclick={() => startEdit(t)}>edit</button>
-              <button class="link danger" onclick={() => deleteTodo(t)}>×</button>
+              <div class="actions">
+                {#if due}
+                  <span class="due {dueClass(due)}">{fmtDue(due)}</span>
+                {/if}
+                <button class="link" onclick={() => startEdit(t)}>edit</button>
+                <button
+                  type="button"
+                  class="del-btn"
+                  aria-label="delete"
+                  onclick={() => deleteTodo(t)}
+                >×</button>
+              </div>
             </div>
           {/if}
         </li>
@@ -403,7 +411,7 @@
   }
   .filters button {
     background: var(--surface);
-    color: var(--ink-mute);
+    color: #fff;
     border: 1px solid var(--line);
     padding: 0.35rem 0.7rem;
     font: inherit;
@@ -475,17 +483,6 @@
     }
     .meta-row label {
       flex: 1 1 calc(50% - 0.5rem);
-    }
-    .main {
-      flex-wrap: wrap;
-    }
-    .body {
-      flex: 1 1 100%;
-      order: 4;
-      margin-top: 0.2rem;
-    }
-    .due {
-      order: 5;
     }
     .head {
       flex-wrap: wrap;
@@ -569,6 +566,7 @@
     height: 1rem;
     cursor: pointer;
   }
+  /* Priority dot: 1 (highest) = red → 5 (lowest) = green. */
   .prio {
     display: inline-block;
     width: 1.4rem;
@@ -577,28 +575,16 @@
     text-align: center;
     border-radius: 50%;
     font-size: 0.75rem;
-    font-weight: 600;
-    background: var(--surface);
-    color: var(--ink-mute);
-    border: 1px solid var(--line);
-  }
-  .prio-1 {
-    background: #6d2020;
+    font-weight: 700;
     color: #fff;
-    border-color: #6d2020;
+    background: #888;
+    border: 1px solid transparent;
   }
-  .prio-2 {
-    background: #6d4020;
-    color: #fff;
-    border-color: #6d4020;
-  }
-  .prio-3 {
-    color: var(--ink);
-  }
-  .prio-4,
-  .prio-5 {
-    color: var(--ink-mute);
-  }
+  .prio-1 { background: #c62828; border-color: #c62828; }
+  .prio-2 { background: #e65100; border-color: #e65100; }
+  .prio-3 { background: #bf6f00; border-color: #bf6f00; }
+  .prio-4 { background: #558b2f; border-color: #558b2f; }
+  .prio-5 { background: #2e7d32; border-color: #2e7d32; }
   .body {
     flex: 1;
     min-width: 0;
@@ -678,5 +664,32 @@
   }
   .link.danger:hover {
     color: #ff6b6b;
+  }
+  /* Actions cluster — pinned to the far right of the row, never
+     wraps internally, so the Delete button always sits last. */
+  .actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+  .del-btn {
+    background: #8b1a1a;
+    color: #fff;
+    border: 1px solid #6d2020;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 0.55rem;
+    cursor: pointer;
+  }
+  .del-btn:hover:not(:disabled),
+  .del-btn:active {
+    background: #6d2020;
   }
 </style>

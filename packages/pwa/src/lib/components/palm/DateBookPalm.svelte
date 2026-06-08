@@ -20,6 +20,7 @@
   import { newUlid } from '$lib/ulid';
   import { supabase } from '$lib/supabase';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
   import {
     type CalendarEvent,
     startOfMonth,
@@ -46,6 +47,16 @@
 
   type Mode = 'agenda' | 'week' | 'month';
 
+  interface ParsedDraftEvent {
+    title: string;
+    start_at: string;
+    end_at: string | null;
+    all_day: boolean;
+    location: string | null;
+    notes: string | null;
+    alarm_minutes: number | null;
+  }
+
   const now = new Date();
 
   let mode = $state<Mode>('agenda');
@@ -65,6 +76,15 @@
   let aiInput = $state('');
   let aiSubmitting = $state(false);
   let aiError = $state<string | null>(null);
+  // Banner shown while the worker is parsing / after we auto-accept
+  // the parsed events. The Palm UI doesn't have a draft-review screen,
+  // so we accept anything the worker returns immediately and surface
+  // the result inline instead.
+  let aiStatus = $state<string | null>(null);
+  let aiPendingDraftId = $state<string | null>(null);
+  // Drafts we've already auto-accepted in this session — keeps the
+  // realtime subscription idempotent across re-renders/re-deliveries.
+  const acceptedDrafts = new Set<string>();
 
   // ── edit sheet ─────────────────────────────────────────────
   let sheetOpen = $state(false);
@@ -220,6 +240,56 @@
 
   onMount(() => { void load(); });
 
+  // Realtime subscription to event_drafts so we can auto-accept any
+  // draft the worker finishes parsing. Without this, AI submissions
+  // sat in a "pending" row forever and the user never saw the events.
+  $effect(() => {
+    if (authState.phase !== 'ready') return;
+    if (!authState.userId) return;
+    const ch = supabase
+      .channel(`palm-drafts-${authState.userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_drafts',
+          filter: `user_id=eq.${authState.userId}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            status: string | null;
+            parsed_events: ParsedDraftEvent[] | null;
+            error?: string | null;
+          } | null;
+          if (!row) return;
+          void autoAcceptDraft(row);
+        },
+      )
+      .subscribe();
+    return () => { void ch.unsubscribe(); };
+  });
+
+  // On (re)mount, scan recent drafts already in 'parsed' state and
+  // accept any that finished while the page was elsewhere.
+  $effect(() => {
+    if (authState.phase !== 'ready') return;
+    if (!authState.userId) return;
+    void (async () => {
+      const { data } = await supabase
+        .from('event_drafts')
+        .select('id,status,parsed_events,error')
+        .eq('user_id', authState.userId!)
+        .in('status', ['parsed', 'error'])
+        .order('created_at', { ascending: false })
+        .limit(10);
+      for (const d of data ?? []) {
+        await autoAcceptDraft(d as Parameters<typeof autoAcceptDraft>[0]);
+      }
+    })();
+  });
+
   function setMode(m: Mode) { mode = m; }
 
   /** Month-grid tap handler — clicking a populated day jumps to
@@ -282,17 +352,21 @@
     ev.preventDefault();
     if (!authState.userId || !aiInput.trim()) return;
     aiError = null;
+    aiStatus = null;
     aiSubmitting = true;
     try {
+      const draftId = newUlid();
       const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const { error } = await supabase.from('event_drafts').insert({
-        id: newUlid(),
+        id: draftId,
         user_id: authState.userId,
         raw_input: aiInput.trim(),
         user_tz: userTz,
         status: 'pending',
       });
       if (error) { aiError = error.message; return; }
+      aiPendingDraftId = draftId;
+      aiStatus = t('datebook.aiAnalyzing');
       aiInput = '';
       aiOpen = false;
     } catch (e) {
@@ -300,6 +374,67 @@
     } finally {
       aiSubmitting = false;
     }
+  }
+
+  // Accept a parsed draft inline: insert all parsed_events into
+  // the events table and mark the draft confirmed. The Palm UI
+  // skips the manual review step.
+  async function autoAcceptDraft(draft: {
+    id: string;
+    status: string | null;
+    parsed_events: ParsedDraftEvent[] | null;
+    error?: string | null;
+  }) {
+    if (acceptedDrafts.has(draft.id)) return;
+    if (!authState.userId) return;
+    if (draft.status === 'error') {
+      acceptedDrafts.add(draft.id);
+      aiPendingDraftId = null;
+      aiError = draft.error ?? 'AI parse failed';
+      aiStatus = null;
+      return;
+    }
+    if (draft.status !== 'parsed') return;
+    const list = draft.parsed_events ?? [];
+    if (list.length === 0) {
+      acceptedDrafts.add(draft.id);
+      aiPendingDraftId = null;
+      aiStatus = t('datebook.aiNoEvents');
+      setTimeout(() => { if (aiStatus === t('datebook.aiNoEvents')) aiStatus = null; }, 3500);
+      return;
+    }
+    acceptedDrafts.add(draft.id);
+    const rows = list.map((e) => ({
+      id: newUlid(),
+      user_id: authState.userId!,
+      source: 'ai',
+      title: e.title,
+      start_at: e.start_at,
+      end_at: e.end_at,
+      all_day: e.all_day,
+      location: e.location,
+      notes: e.notes,
+      alarm_minutes: e.alarm_minutes,
+    }));
+    const insertRes = await supabase.from('events').insert(rows);
+    if (insertRes.error) {
+      aiError = insertRes.error.message;
+      return;
+    }
+    await supabase
+      .from('event_drafts')
+      .update({
+        parsed_events: [],
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', draft.id);
+    aiPendingDraftId = null;
+    aiStatus = t('datebook.aiAdded', { count: String(rows.length) });
+    setTimeout(() => {
+      if (aiStatus === t('datebook.aiAdded', { count: String(rows.length) })) aiStatus = null;
+    }, 4000);
+    await load();
   }
 
   // ── edit sheet ───────────────────────────────────────────
@@ -360,7 +495,7 @@
     }
   }
   async function removeEvent(e: CalendarEvent) {
-    if (!confirm(t('datebook.confirmDelete', { title: e.title }))) return;
+    if (!(await palmConfirm(t('datebook.confirmDelete', { title: e.title })))) return;
     await deleteEvent(e.id);
     await load();
   }
@@ -393,6 +528,15 @@
   </div>
 
   {#if loadErr}<p class="err">{loadErr}</p>{/if}
+
+  <!-- AI processing banner — shown after submit and once parsed -->
+  {#if aiStatus || aiError || aiPendingDraftId}
+    <div class="ai-banner" class:err={aiError}>
+      {#if aiError}{aiError}
+      {:else if aiPendingDraftId}{t('datebook.aiAnalyzing')}
+      {:else if aiStatus}{aiStatus}{/if}
+    </div>
+  {/if}
 
   <!-- AI input — collapsed by default, hidden when offline -->
   {#if sync.online}
@@ -513,11 +657,15 @@
           onclick={() => onMonthCellClick(d)}
         >
           <span class="n">{d.getDate()}</span>
-          {#if evs.length > 0}
-            <span class="ev-num">{evs.length}</span>
-          {/if}
-          {#if todoCount > 0}
-            <span class="td-num">+{todoCount}</span>
+          {#if evs.length > 0 || todoCount > 0}
+            <span class="ev-dots">
+              {#each evs as _ev, i (i)}
+                <span class="ev-dot" aria-hidden="true"></span>
+              {/each}
+              {#if todoCount > 0}
+                <span class="td-num">+{todoCount}</span>
+              {/if}
+            </span>
           {/if}
         </button>
       {/each}
@@ -712,29 +860,33 @@
     line-height: 1;
     font-weight: 600;
   }
-  /* Event count — centred in the cell, bold italic, dark red. */
-  .cell .ev-num {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    color: #8b1a1a;
-    font-style: italic;
-    font-weight: 800;
-    font-size: 1.45rem;
-    line-height: 1;
-    pointer-events: none;
-  }
-  /* Todo count — small badge at the bottom-right corner. */
-  .cell .td-num {
+  /* Event dots — one dot per event, packed bottom-right, growing
+     leftward and wrapping upward when the row runs out. */
+  .cell .ev-dots {
     position: absolute;
     bottom: 3px;
-    right: 5px;
+    right: 4px;
+    left: 4px;
+    display: flex;
+    flex-wrap: wrap-reverse;
+    justify-content: flex-end;
+    align-content: flex-end;
+    gap: 2px;
+    pointer-events: none;
+  }
+  .cell .ev-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #8b1a1a;
+  }
+  .cell .td-num {
     color: var(--cat-todo, #c69400);
     font-weight: 700;
     font-size: 0.62rem;
     line-height: 1;
-    pointer-events: none;
+    margin-left: 2px;
   }
 
   /* WEEK grid */
@@ -804,6 +956,23 @@
   .day-head { margin: 0.5rem 0 0.3rem; padding: 0 0.25rem; font-size: 0.85rem; color: var(--ink); }
   .dh-label { color: var(--ink); font-weight: 700; }
   .dh-today { color: var(--ink-mute); font-size: 0.75rem; }
+
+  /* AI processing banner — sits above the AI card */
+  .ai-banner {
+    background: var(--surface-hi);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+    border-radius: 3px;
+  }
+  .ai-banner.err {
+    border-left-color: #8b1a1a;
+    color: #8b1a1a;
+    font-weight: 600;
+  }
 
   /* AI card */
   .ai-card {

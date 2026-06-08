@@ -14,7 +14,6 @@
   import { page } from '$app/state';
   import { authState } from '$lib/auth.svelte';
   import { t } from '$lib/i18n.svelte';
-  import { sync } from '$lib/sync.svelte';
 
   let visible = $derived(drawer.visible);
   let docked = $derived(drawer.docked);
@@ -76,13 +75,6 @@
         </a>
       </nav>
 
-      <div class="meta">
-        <span class="dot" class:on={sync.online}></span>
-        {sync.online ? t('drawer.online') : t('drawer.offline')}
-        {#if sync.pending_count > 0}
-          <span class="pending">{sync.pending_count} {t('drawer.pending')}</span>
-        {/if}
-      </div>
     {/if}
   </aside>
 {/if}
@@ -193,27 +185,5 @@
   .sep {
     border-top: 1px solid var(--line-soft);
     margin: 0.3rem 0.9rem;
-  }
-  .meta {
-    margin-top: auto;
-    padding: 0.55rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
-    font-size: 0.74rem;
-    color: var(--ink-mute);
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    border-top: 1px solid var(--line-soft);
-    background: var(--surface-hi);
-  }
-  .meta .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--ink-mute);
-    display: inline-block;
-  }
-  .meta .dot.on { background: var(--green); }
-  .meta .pending {
-    margin-left: auto;
-    color: var(--ink);
-    font-weight: 600;
   }
 </style>

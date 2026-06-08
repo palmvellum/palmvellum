@@ -11,6 +11,7 @@
   import { drawer } from '$lib/drawer.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
   import PalmDrawer from '$lib/components/palm/PalmDrawer.svelte';
+  import PalmConfirm from '$lib/components/palm/PalmConfirm.svelte';
   import {
     currentLang,
     setLang,
@@ -110,6 +111,7 @@
     <BottomNav />
   {/if}
   <PalmDrawer />
+  <PalmConfirm />
 </div>
 
 <style>

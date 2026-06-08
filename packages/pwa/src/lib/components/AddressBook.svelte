@@ -19,6 +19,7 @@
     deleteContact as deleteContactStore,
   } from '$lib/stores/contacts.svelte';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
 
   type PhoneType = 'Work' | 'Home' | 'Fax' | 'Other' | 'E-mail' | 'Main' | 'Pager' | 'Mobile';
   const PHONE_TYPES: PhoneType[] = [
@@ -208,7 +209,7 @@
   }
 
   async function deleteContact(c: Contact) {
-    if (!confirm(`Delete contact "${c.body}"?`)) return;
+    if (!(await palmConfirm(`Delete contact "${c.body}"?`))) return;
     try {
       await deleteContactStore(c.id);
     } catch (e) {

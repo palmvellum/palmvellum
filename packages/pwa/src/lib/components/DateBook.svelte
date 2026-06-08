@@ -15,6 +15,7 @@
   import { authState } from '$lib/auth.svelte';
   import { newUlid as sharedNewUlid } from '$lib/ulid';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
   import {
     type CalendarEvent,
     startOfMonth,
@@ -366,7 +367,7 @@
   }
 
   async function deleteEvent(e: CalendarEvent) {
-    if (!confirm(`Delete "${e.title}"?`)) return;
+    if (!(await palmConfirm(`Delete "${e.title}"?`))) return;
     const { error } = await supabase
       .from('events')
       .update({ deleted_at: new Date().toISOString() })

@@ -14,6 +14,7 @@
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
 
   type SourceType = 'url' | 'topic';
 
@@ -252,7 +253,7 @@
   }
 
   async function deleteSource(s: MailSource) {
-    if (!confirm(`Stop following "${s.name}"? Existing digests stay in your inbox.`))
+    if (!(await palmConfirm(`Stop following "${s.name}"? Existing digests stay in your inbox.`)))
       return;
     const { error } = await supabase.from('mail_sources').delete().eq('id', s.id);
     if (error) {
@@ -280,7 +281,7 @@
   }
 
   async function deleteMail(m: MailRecord) {
-    if (!confirm('Delete this mail?')) return;
+    if (!(await palmConfirm('Delete this mail?'))) return;
     const { error } = await supabase
       .from('records')
       .update({ deleted_at: new Date().toISOString() })
@@ -699,7 +700,7 @@
   .link {
     background: none;
     border: none;
-    color: var(--ink-mute);
+    color: #fff;
     font: inherit;
     font-size: 0.85rem;
     cursor: pointer;

@@ -23,6 +23,7 @@
     deleteMemo as deleteMemoStore,
   } from '$lib/stores/memos.svelte';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
 
   interface Memo {
     id: string;
@@ -150,7 +151,7 @@
   }
 
   async function deleteMemo(m: Memo) {
-    if (!confirm('Delete this memo?')) return;
+    if (!(await palmConfirm('Delete this memo?'))) return;
     try {
       await deleteMemoStore(m.id);
     } catch (e) {
@@ -435,7 +436,12 @@
               {/if}
               <time>{fmtTime(m.updated_at)}</time>
               <button class="link" onclick={() => startEdit(m)}>edit</button>
-              <button class="link danger" onclick={() => deleteMemo(m)}>×</button>
+              <button
+                type="button"
+                class="del-btn"
+                aria-label="delete"
+                onclick={() => deleteMemo(m)}
+              >×</button>
             </header>
             <pre class="body">{m.body}</pre>
             {#if m.ai_response}
@@ -469,7 +475,7 @@
   }
   .filters button {
     background: var(--surface);
-    color: var(--ink-mute);
+    color: #fff;
     border: 1px solid var(--line);
     padding: 0.35rem 0.7rem;
     font-family: inherit;
@@ -728,5 +734,25 @@
     padding: 0.4rem 0.9rem;
     font-family: inherit;
     cursor: pointer;
+  }
+  /* Touch-friendly delete button, also used in TodoList. */
+  .del-btn {
+    margin-left: auto;
+    background: #8b1a1a;
+    color: #fff;
+    border: 1px solid #6d2020;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0 0.5rem;
+    cursor: pointer;
+  }
+  .del-btn:hover:not(:disabled),
+  .del-btn:active {
+    background: #6d2020;
   }
 </style>

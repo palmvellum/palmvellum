@@ -19,6 +19,7 @@
     deleteExpense as deleteExpenseStore,
   } from '$lib/stores/expenses.svelte';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
 
   // Palm Expense defaults
   const EXPENSE_TYPES = [
@@ -181,7 +182,7 @@
   }
 
   async function deleteExpense(e: Expense) {
-    if (!confirm(`Delete expense "${e.body}"?`)) return;
+    if (!(await palmConfirm(`Delete expense "${e.body}"?`))) return;
     try {
       await deleteExpenseStore(e.id);
     } catch (err) {

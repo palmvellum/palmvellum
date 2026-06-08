@@ -9,6 +9,7 @@
    * organizer surface looks identical across surfaces.
    */
   import { drawer } from '$lib/drawer.svelte';
+  import { sync } from '$lib/sync.svelte';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
   import type { Snippet } from 'svelte';
@@ -74,6 +75,15 @@
     {#if topRight}
       <div class="tr">{@render topRight()}</div>
     {/if}
+    <span
+      class="net"
+      class:on={sync.online}
+      aria-label={sync.online ? 'online' : 'offline'}
+      title={sync.online ? 'online' : 'offline'}
+    >
+      <span class="net-dot"></span>
+      {#if sync.pending_count > 0}<span class="net-pending">{sync.pending_count}</span>{/if}
+    </span>
   </header>
 
   <div class="body">
@@ -151,6 +161,32 @@
     align-items: center;
     gap: 0.4rem;
     color: #fff;
+  }
+  /* Always-on online/offline indicator in the top-right of the bar. */
+  .net {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: 0.4rem;
+    margin-right: 0.2rem;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .net-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #c0392b;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+  .net.on .net-dot {
+    background: #2ecc71;
+  }
+  .net-pending {
+    color: #ffd17a;
+    font-weight: 700;
   }
   .body {
     flex: 1;

@@ -15,6 +15,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { t } from '$lib/i18n.svelte';
+  import { palmConfirm } from '$lib/confirm.svelte';
 
   interface SketchMeta {
     image_path?: string;
@@ -76,7 +77,7 @@
   // in via vellum-sync notepad push.
 
   async function deleteSketch(s: Sketch) {
-    if (!confirm(`Delete sketch "${s.metadata?.palm_title ?? '(untitled)'}"?`)) return;
+    if (!(await palmConfirm(`Delete sketch "${s.metadata?.palm_title ?? '(untitled)'}"?`))) return;
     const path = s.metadata?.image_path;
     if (path) {
       // Best-effort — record soft-delete is the source of truth

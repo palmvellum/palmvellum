@@ -452,6 +452,12 @@
     padding: 1rem;
     z-index: 100;
   }
+  /* The docked side rail sits above this overlay (z-index 101) and would
+     cover its left 260px. Inset the overlay so the centred dialog lives
+     in the content area beside the rail at any docked viewport width. */
+  :global(html.drawer-docked) .modal-bg {
+    left: 260px;
+  }
   .modal {
     background: var(--bg);
     border: 1px solid var(--line);

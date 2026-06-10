@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Plain framework theme; all real theming happens in Compose
+         (PalmVellumTheme). enableEdgeToEdge() in MainActivity drives the
+         system-bar appearance, so no AppCompat/Material XML dependency is
+         needed and there is no Capacitor edge-to-edge inset problem. -->
+    <style name="Theme.PalmVellum" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/palm_bg</item>
+    </style>
+</resources>

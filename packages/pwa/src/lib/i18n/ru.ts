@@ -55,6 +55,8 @@ export default {
   'datebook.tapNewDayHint': 'Нажмите «новое событие» выше, чтобы добавить.',
   'datebook.allDay': 'весь день',
   'datebook.atLocation': 'в {location}',
+  'datebook.todoTag': '(задача)',
+  'datebook.todoUntitled': '(задача без названия)',
   'datebook.aiOpen': '✦ план с ИИ',
   'datebook.aiHint': 'Введите фразу — «Кофе с Мэй в пятницу в 15:00 в Цим Ша Цуй». ИИ разберёт её на событие.',
   'datebook.aiPlaceholder': 'напр.: «Стоматолог в следующий четверг утром, напомнить за 30 мин»',

@@ -55,6 +55,8 @@ export default {
   'datebook.tapNewDayHint': '上の「新規イベント」をタップして追加。',
   'datebook.allDay': '終日',
   'datebook.atLocation': '場所: {location}',
+  'datebook.todoTag': '(やること)',
+  'datebook.todoUntitled': '(無題のタスク)',
   'datebook.aiOpen': '✦ AI でプラン',
   'datebook.aiHint': '一文を入力 — 「金曜午後 3 時に尖沙咀で May とコーヒー」。AI がイベントに解析します。',
   'datebook.aiPlaceholder': '例: 「来週木曜の朝、歯医者。30 分前にリマインド」',

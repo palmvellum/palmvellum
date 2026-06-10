@@ -61,6 +61,8 @@ export default {
   'datebook.tapNewDayHint': 'Tap + new event up top to add one.',
   'datebook.allDay': 'all-day',
   'datebook.atLocation': 'at {location}',
+  'datebook.todoTag': '(TO DO)',
+  'datebook.todoUntitled': '(untitled task)',
   'datebook.aiOpen': '✦ plan with AI',
   'datebook.aiHint': 'Type a sentence — "Coffee with May Friday 3pm at Tsim Sha Tsui". AI parses it into an event.',
   'datebook.aiPlaceholder': 'e.g. "Dentist appt next Thursday morning, 30 min reminder"',

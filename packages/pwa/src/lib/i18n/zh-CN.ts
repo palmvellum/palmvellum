@@ -55,6 +55,8 @@ export default {
   'datebook.tapNewDayHint': '点上方「新事件」添加一个。',
   'datebook.allDay': '全天',
   'datebook.atLocation': '在 {location}',
+  'datebook.todoTag': '(待办)',
+  'datebook.todoUntitled': '(未命名待办)',
   'datebook.aiOpen': '✦ 用 AI 计划',
   'datebook.aiHint': '输入一句话 — 「星期五下午 3 点和 May 在尖沙咀喝咖啡」。AI 会自动解析成事件。',
   'datebook.aiPlaceholder': '例：「下周四早上看牙医，提前 30 分钟提醒」',

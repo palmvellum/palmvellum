@@ -16,6 +16,8 @@
    *     when offline.
    */
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { authState } from '$lib/auth.svelte';
   import { newUlid } from '$lib/ulid';
   import { supabase } from '$lib/supabase';
@@ -47,6 +49,12 @@
 
   type Mode = 'agenda' | 'week' | 'month';
 
+  // A row on the calendar is either a real event or a dated to-do
+  // surfaced as a read-only, all-day pseudo-event. `kind === 'todo'`
+  // marks the latter; tapping it jumps to the To Do List rather than
+  // opening the event edit sheet.
+  type Row = CalendarEvent & { kind?: 'todo'; todoId?: string };
+
   interface ParsedDraftEvent {
     title: string;
     start_at: string;
@@ -66,8 +74,7 @@
   let anchor = $state(atMidnight(now));
   let selectedDay = $state(atMidnight(now));
 
-  let events = $state<CalendarEvent[]>([]);
-  let todoDots = $state<Map<string, number>>(new Map());
+  let events = $state<Row[]>([]);
   let loading = $state(true);
   let loadErr = $state<string | null>(null);
 
@@ -147,8 +154,8 @@
     const win = visibleWindow();
     const fromMs = win.from.getTime();
     const toMs = win.to.getTime();
-    const groups: { key: string; date: Date; events: CalendarEvent[]; isToday: boolean }[] = [];
-    const seen = new Map<string, { key: string; date: Date; events: CalendarEvent[]; isToday: boolean }>();
+    const groups: { key: string; date: Date; events: Row[]; isToday: boolean }[] = [];
+    const seen = new Map<string, { key: string; date: Date; events: Row[]; isToday: boolean }>();
     for (const e of events) {
       const ts = new Date(e.start_at).getTime();
       if (ts < fromMs || ts >= toMs) continue;
@@ -198,13 +205,20 @@
         listEvents({ from: win.from, to: win.to }),
         listTodos(),
       ]);
-      events = evs;
 
+      // Surface open to-dos that carry a due date inside the visible
+      // window as all-day pseudo-events, so they show up alongside real
+      // events in every view. Completed ones are dropped — they live in
+      // the To Do List 'done' tab, that is enough.
       const fromMs = win.from.getTime();
       const toMs = win.to.getTime();
-      const m = new Map<string, number>();
+      const todoEvs: Row[] = [];
       for (const r of todos) {
-        const md = r.metadata as { palm_due_date?: string; palm_completed?: boolean };
+        const md = r.metadata as {
+          palm_due_date?: string;
+          palm_completed?: boolean;
+          palm_notes?: string;
+        };
         const due = (md.palm_due_date ?? '').trim();
         if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) continue;
         if (md.palm_completed === true) continue;
@@ -212,11 +226,28 @@
         const y = parts[0] ?? 0;
         const mo = parts[1] ?? 1;
         const d = parts[2] ?? 1;
-        const dt = new Date(y, mo - 1, d, 0, 0, 0, 0).getTime();
-        if (dt < fromMs || dt >= toMs) continue;
-        m.set(due, (m.get(due) ?? 0) + 1);
+        const dt = new Date(y, mo - 1, d, 0, 0, 0, 0);
+        const ms = dt.getTime();
+        if (ms < fromMs || ms >= toMs) continue;
+        todoEvs.push({
+          id: `todo-${r.id}`,
+          user_id: r.user_id,
+          title: (r.body ?? '').trim() || t('datebook.todoUntitled'),
+          start_at: dt.toISOString(),
+          end_at: null,
+          all_day: true,
+          location: null,
+          notes: md.palm_notes ?? null,
+          alarm_minutes: null,
+          repeat_rule: null,
+          source: 'todo',
+          deleted_at: null,
+          updated_at: r.updated_at,
+          kind: 'todo',
+          todoId: r.id,
+        });
       }
-      todoDots = m;
+      events = [...evs, ...todoEvs];
     } catch (e) {
       loadErr = e instanceof Error ? e.message : String(e);
     } finally {
@@ -296,15 +327,24 @@
    *  Agenda mode anchored on that day so the user immediately sees
    *  the events. Empty days stay in Month and just highlight. */
   function onMonthCellClick(d: Date): void {
-    const evs = byDay.get(ymd(d)) ?? [];
-    const todoCount = todoDots.get(ymd(d)) ?? 0;
-    if (evs.length === 0 && todoCount === 0) {
+    const rows = byDay.get(ymd(d)) ?? [];
+    if (rows.length === 0) {
       selectDay(d);
       return;
     }
     selectedDay = atMidnight(d);
     anchor = atMidnight(d);
     mode = 'agenda';
+  }
+
+  /** Row tap: real events open the edit sheet; a dated to-do jumps to
+   *  the To Do List, where it is actually editable. */
+  function openRow(e: Row): void {
+    if (e.kind === 'todo') {
+      void goto(base + '/palm/todo');
+      return;
+    }
+    openEdit(e);
   }
 
   function prevPeriod() {
@@ -599,9 +639,13 @@
               <PalmCell
                 leading={e.all_day ? '●' : '·'}
                 title={e.title}
-                meta={e.all_day ? t('datebook.allDay') : hhmm(e.start_at)}
+                meta={e.kind === 'todo'
+                  ? t('datebook.todoTag')
+                  : e.all_day
+                    ? t('datebook.allDay')
+                    : hhmm(e.start_at)}
                 metaAccent
-                onclick={() => openEdit(e)}
+                onclick={() => openRow(e)}
               >
                 {#if e.location}{t('datebook.atLocation', { location: e.location })}{/if}
                 {#if e.notes && !e.location}{e.notes}{/if}
@@ -639,8 +683,14 @@
             <ul class="wev">
               {#each evs as e (e.id)}
                 <li>
-                  <button type="button" class="wev-row" onclick={() => openEdit(e)}>
-                    <span class="t">{e.all_day ? t('datebook.allDay') : hhmm(e.start_at)}</span>
+                  <button type="button" class="wev-row" onclick={() => openRow(e)}>
+                    <span class="t">
+                      {e.kind === 'todo'
+                        ? t('datebook.todoTag')
+                        : e.all_day
+                          ? t('datebook.allDay')
+                          : hhmm(e.start_at)}
+                    </span>
                     <span class="ti">{e.title}</span>
                   </button>
                 </li>
@@ -663,8 +713,9 @@
         {@const isCur = d.getMonth() === anchor.getMonth()}
         {@const isToday = sameDay(d, now)}
         {@const isSel = sameDay(d, selectedDay)}
-        {@const evs = byDay.get(ymd(d)) ?? []}
-        {@const todoCount = todoDots.get(ymd(d)) ?? 0}
+        {@const dayRows = byDay.get(ymd(d)) ?? []}
+        {@const evs = dayRows.filter((r) => r.kind !== 'todo')}
+        {@const todoCount = dayRows.length - evs.length}
         {@const dayIdx = d.getDay()}
         <button
           type="button" class="cell"
@@ -699,9 +750,13 @@
           <PalmCell
             leading={e.all_day ? '●' : '·'}
             title={e.title}
-            meta={e.all_day ? t('datebook.allDay') : hhmm(e.start_at)}
+            meta={e.kind === 'todo'
+              ? t('datebook.todoTag')
+              : e.all_day
+                ? t('datebook.allDay')
+                : hhmm(e.start_at)}
             metaAccent
-            onclick={() => openEdit(e)}
+            onclick={() => openRow(e)}
           >
             {#if e.location}{t('datebook.atLocation', { location: e.location })}{/if}
             {#if e.notes && !e.location}{e.notes}{/if}

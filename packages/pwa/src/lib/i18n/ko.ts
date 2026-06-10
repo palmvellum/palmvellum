@@ -55,6 +55,8 @@ export default {
   'datebook.tapNewDayHint': '위의 「새 일정」을 눌러 추가하세요.',
   'datebook.allDay': '종일',
   'datebook.atLocation': '장소: {location}',
+  'datebook.todoTag': '(할 일)',
+  'datebook.todoUntitled': '(제목 없는 할 일)',
   'datebook.aiOpen': '✦ AI로 계획',
   'datebook.aiHint': '한 문장 입력 — 「금요일 오후 3시 침사추이에서 May와 커피」. AI가 일정으로 분석합니다.',
   'datebook.aiPlaceholder': '예: 「다음 목요일 오전 치과, 30분 전 알림」',

@@ -100,8 +100,8 @@ export function hhmm(iso: string): string {
  * Multi-day events appear under their start date only — v0.4.1 will
  * spread them across the days they span.
  */
-export function bucketByDay(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
-  const out = new Map<string, CalendarEvent[]>();
+export function bucketByDay<T extends CalendarEvent>(events: T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>();
   for (const e of events) {
     if (e.deleted_at) continue;
     const key = ymd(new Date(e.start_at));

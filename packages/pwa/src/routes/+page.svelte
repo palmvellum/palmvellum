@@ -79,6 +79,7 @@
   <title>PalmVellum</title>
 </svelte:head>
 
+<div class="auth-screen">
 {#if authState.phase === 'loading'}
   <p class="loading">{t('common.loading')}</p>
 
@@ -161,8 +162,21 @@
 {:else}
   <p class="loading">{t('common.loading')}</p>
 {/if}
+</div>
 
 <style>
+  /* Vertically centre the sign-in / holding card in the viewport.
+     Scoped to this root route only — palm routes render their own
+     full-bleed chrome and never mount this page. The dvh minus a
+     fixed gutter leaves room for the shell's own top/bottom padding
+     so the card lands optically centred rather than pinned to the top. */
+  .auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100dvh - 6rem);
+  }
   .loading {
     text-align: center;
     padding: 2rem 0;

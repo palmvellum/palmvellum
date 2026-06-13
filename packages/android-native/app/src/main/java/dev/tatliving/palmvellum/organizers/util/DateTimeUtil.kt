@@ -3,6 +3,7 @@ package dev.tatliving.palmvellum.organizers.util
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -33,6 +34,51 @@ object DT {
     fun timeOf(iso: String): LocalTime = parse(iso)?.toLocalTime() ?: nowTime()
     fun fmtDate(d: LocalDate): String = d.format(dateFmt)
     fun fmtTime(t: LocalTime): String = t.format(timeFmt)
+
+    // ── Calendar grid (week starts Sunday — the Palm classic) ──────────
+    private val monthTitleFmt = DateTimeFormatter.ofPattern("MMMM yyyy")
+    private val monthShortFmt = DateTimeFormatter.ofPattern("MMM")
+    private val weekdayFullFmt = DateTimeFormatter.ofPattern("EEEE")
+
+    /** Single-letter weekday headers, Sunday-first (mirrors the PWA). */
+    val DOW_SHORT = listOf("S", "M", "T", "W", "T", "F", "S")
+
+    fun isToday(d: LocalDate): Boolean = d == nowDate()
+    fun isWeekend(d: LocalDate): Boolean =
+        d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY
+
+    /** 0 = Sunday … 6 = Saturday (java DayOfWeek is Mon=1..Sun=7). */
+    private fun sundayIndex(d: LocalDate): Int = d.dayOfWeek.value % 7
+
+    fun startOfWeek(d: LocalDate): LocalDate = d.minusDays(sundayIndex(d).toLong())
+    fun startOfMonth(d: LocalDate): LocalDate = d.withDayOfMonth(1)
+
+    /** 42 days (6 weeks) covering the month of [anchor], starting on a Sunday. */
+    fun monthGrid(anchor: LocalDate): List<LocalDate> {
+        val first = startOfWeek(startOfMonth(anchor))
+        return (0L until 42L).map { first.plusDays(it) }
+    }
+
+    /** The 7 days of the week containing [anchor], Sunday-first. */
+    fun weekDays(anchor: LocalDate): List<LocalDate> {
+        val s = startOfWeek(anchor)
+        return (0L until 7L).map { s.plusDays(it) }
+    }
+
+    fun monthTitle(d: LocalDate): String = d.format(monthTitleFmt)
+
+    /** e.g. "Jun 8 – 14" or "Jun 29 – Jul 5". */
+    fun weekTitle(anchor: LocalDate): String {
+        val s = startOfWeek(anchor)
+        val e = s.plusDays(6)
+        return if (s.month == e.month) {
+            "${s.format(monthShortFmt)} ${s.dayOfMonth} – ${e.dayOfMonth}"
+        } else {
+            "${s.format(monthShortFmt)} ${s.dayOfMonth} – ${e.format(monthShortFmt)} ${e.dayOfMonth}"
+        }
+    }
+
+    fun weekdayFull(d: LocalDate): String = d.format(weekdayFullFmt)
 }
 
 fun pickDate(context: Context, initial: LocalDate, onPick: (LocalDate) -> Unit) {

@@ -40,12 +40,13 @@ private data class LauncherApp(
     val sub: String,
 )
 
-// The classic Palm four core apps.
+// The classic Palm core apps.
 private val APPS = listOf(
     LauncherApp(Routes.DATEBOOK, "◫", "Date Book", "calendar"),
     LauncherApp(Routes.TODO, "☑", "To Do List", "tasks + due dates"),
     LauncherApp(Routes.ADDRESS, "✦", "Address", "contacts"),
     LauncherApp(Routes.MEMO, "▤", "Memo Pad", "notes"),
+    LauncherApp(Routes.NOTEPAD, "✎", "Note Pad", "sketches + AI"),
 )
 
 @Composable

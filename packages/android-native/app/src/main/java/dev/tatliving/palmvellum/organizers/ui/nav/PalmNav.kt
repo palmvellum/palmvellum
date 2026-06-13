@@ -9,6 +9,7 @@ import dev.tatliving.palmvellum.organizers.ui.screens.AddressScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.ConflictsScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.DateBookScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.MemoScreen
+import dev.tatliving.palmvellum.organizers.ui.screens.NotePadScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.SettingsScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.TodoScreen
 
@@ -18,6 +19,7 @@ object Routes {
     const val ADDRESS = "address"
     const val TODO = "todo"
     const val MEMO = "memo"
+    const val NOTEPAD = "notepad"
     const val SETTINGS = "settings"
     const val CONFLICTS = "conflicts"
 }
@@ -30,6 +32,7 @@ fun PalmNavHost(navController: NavHostController) {
         composable(Routes.ADDRESS) { AddressScreen(navController) }
         composable(Routes.TODO) { TodoScreen(navController) }
         composable(Routes.MEMO) { MemoScreen(navController) }
+        composable(Routes.NOTEPAD) { NotePadScreen(navController) }
         composable(Routes.SETTINGS) { SettingsScreen(navController) }
         composable(Routes.CONFLICTS) { ConflictsScreen(navController) }
     }

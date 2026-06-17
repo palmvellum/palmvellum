@@ -2,10 +2,13 @@ package dev.tatliving.palmvellum.organizers.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +37,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.CalRefreshWorker
 import dev.tatliving.palmvellum.organizers.data.CalSub
 import dev.tatliving.palmvellum.organizers.data.CalSubStore
@@ -49,6 +53,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmLine
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmRed
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 import kotlinx.coroutines.launch
@@ -97,101 +102,129 @@ fun SettingsScreen(navController: NavHostController) {
         title = "Settings",
         navController = navController,
         currentRoute = Routes.SETTINGS,
+        // Cosmo: use the full landscape width for the two-pane layout.
+        wide = BuildConfig.COSMO,
         titleAction = { TitleAction("home") { navController.navigate(Routes.LAUNCHER) { popUpTo(Routes.LAUNCHER) { inclusive = true } } } },
     ) { padding ->
-        Column(
-            Modifier.fillMaxSize().padding(padding).padding(top = 8.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Text(
-                "Cloud sync",
-                color = PalmInk,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
-            )
-            Text(
-                "PalmVellum works fully on this device with no account. Sign in to back up and sync across devices.",
-                color = PalmInkMute,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 14.dp),
-            )
-            Spacer(Modifier.height(12.dp))
-
-            if (vm.signedIn) {
-                Text(
-                    "Signed in as ${vm.signedInEmail ?: "(unknown)"}",
-                    color = PalmInk,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-                Spacer(Modifier.height(6.dp))
-                val statusText = when (vm.status) {
-                    SyncStatus.SYNCING -> "Syncing..."
-                    SyncStatus.SUCCESS -> "Synced"
-                    SyncStatus.ERROR -> "Sync error: ${vm.syncError ?: ""}"
-                    SyncStatus.IDLE -> "Idle"
+        if (BuildConfig.COSMO) {
+            // Two panes: cloud sync on the left, calendars on the right.
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                Column(
+                    Modifier.weight(1f).fillMaxHeight().padding(top = 8.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    CloudSyncSection(vm)
+                    Spacer(Modifier.height(24.dp))
                 }
-                Text(statusText, color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
-                Spacer(Modifier.height(10.dp))
-                Column(Modifier.padding(horizontal = 14.dp)) {
-                    Button(
-                        onClick = { vm.syncNow() },
-                        enabled = vm.status != SyncStatus.SYNCING,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                    ) { Text("Sync now") }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { vm.signOut() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PalmRed),
-                    ) { Text("Sign out", color = PalmRed) }
-                }
-            } else if (!vm.codeSent) {
-                PalmField("Email", vm.email, { vm.email = it }, keyboardType = KeyboardType.Email)
-                vm.error?.let { Text(it, color = PalmRed, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp)) }
-                Column(Modifier.padding(horizontal = 14.dp)) {
-                    Button(
-                        onClick = { vm.sendCode() },
-                        enabled = !vm.busy && vm.email.contains("@"),
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                    ) { Text(if (vm.busy) "Sending..." else "Send code") }
-                }
-            } else {
-                Text(
-                    "Code sent to ${vm.email}. Enter the 6-digit code.",
-                    color = PalmInk,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-                PalmField("Code", vm.code, { vm.code = it }, keyboardType = KeyboardType.Number)
-                vm.error?.let { Text(it, color = PalmRed, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp)) }
-                Column(Modifier.padding(horizontal = 14.dp)) {
-                    Button(
-                        onClick = { vm.verify() },
-                        enabled = !vm.busy && vm.code.length >= 6,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                    ) { Text(if (vm.busy) "Verifying..." else "Sign in") }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "back / re-send",
-                        color = PalmInkMute,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .padding(vertical = 4.dp)
-                            .fillMaxWidth()
-                            .clickable { vm.codeSent = false; vm.error = null },
-                    )
+                Box(Modifier.width(1.dp).fillMaxHeight().background(PalmLine))
+                Column(
+                    Modifier.weight(1f).fillMaxHeight().padding(top = 8.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    CalendarSubscriptionsSection()
+                    Spacer(Modifier.height(24.dp))
                 }
             }
+        } else {
+            Column(
+                Modifier.fillMaxSize().padding(padding).padding(top = 8.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                CloudSyncSection(vm)
+                Spacer(Modifier.height(20.dp))
+                PalmDivider()
+                Spacer(Modifier.height(12.dp))
+                CalendarSubscriptionsSection()
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+}
 
-            Spacer(Modifier.height(20.dp))
-            PalmDivider()
-            Spacer(Modifier.height(12.dp))
-            CalendarSubscriptionsSection()
-            Spacer(Modifier.height(24.dp))
+/** Cloud sync sign-in / status section. */
+@Composable
+private fun CloudSyncSection(vm: SettingsViewModel) {
+    Text(
+        "Cloud sync",
+        color = PalmInk,
+        fontSize = 16.sp,
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+    )
+    Text(
+        "PalmVellum works fully on this device with no account. Sign in to back up and sync across devices.",
+        color = PalmInkMute,
+        fontSize = 13.sp,
+        modifier = Modifier.padding(horizontal = 14.dp),
+    )
+    Spacer(Modifier.height(12.dp))
+
+    if (vm.signedIn) {
+        Text(
+            "Signed in as ${vm.signedInEmail ?: "(unknown)"}",
+            color = PalmInk,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(horizontal = 14.dp),
+        )
+        Spacer(Modifier.height(6.dp))
+        val statusText = when (vm.status) {
+            SyncStatus.SYNCING -> "Syncing..."
+            SyncStatus.SUCCESS -> "Synced"
+            SyncStatus.ERROR -> "Sync error: ${vm.syncError ?: ""}"
+            SyncStatus.IDLE -> "Idle"
+        }
+        Text(statusText, color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
+        Spacer(Modifier.height(10.dp))
+        Column(Modifier.padding(horizontal = 14.dp)) {
+            Button(
+                onClick = { vm.syncNow() },
+                enabled = vm.status != SyncStatus.SYNCING,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
+            ) { Text("Sync now") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { vm.signOut() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PalmRed),
+            ) { Text("Sign out", color = PalmRed) }
+        }
+    } else if (!vm.codeSent) {
+        PalmField("Email", vm.email, { vm.email = it }, keyboardType = KeyboardType.Email)
+        vm.error?.let { Text(it, color = PalmRed, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp)) }
+        Column(Modifier.padding(horizontal = 14.dp)) {
+            Button(
+                onClick = { vm.sendCode() },
+                enabled = !vm.busy && vm.email.contains("@"),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
+            ) { Text(if (vm.busy) "Sending..." else "Send code") }
+        }
+    } else {
+        Text(
+            "Code sent to ${vm.email}. Enter the 6-digit code.",
+            color = PalmInk,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 14.dp),
+        )
+        PalmField("Code", vm.code, { vm.code = it }, keyboardType = KeyboardType.Number)
+        vm.error?.let { Text(it, color = PalmRed, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp)) }
+        Column(Modifier.padding(horizontal = 14.dp)) {
+            Button(
+                onClick = { vm.verify() },
+                enabled = !vm.busy && vm.code.length >= 6,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
+            ) { Text(if (vm.busy) "Verifying..." else "Sign in") }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "back / re-send",
+                color = PalmInkMute,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .fillMaxWidth()
+                    .clickable { vm.codeSent = false; vm.error = null },
+            )
         }
     }
 }

@@ -126,7 +126,7 @@ const TOOL_FINISH = {
     summary: {
       type: 'string',
       description:
-        'The user-facing reply written into the memo: your answer or ideas, as full as needed (up to ~1200 chars). If you created any tasks or events, end with a one-line note telling the user what you added. Plain text only.',
+        "The user-facing reply written into the memo: answer the user's question or develop their idea thoroughly and in detail — give explanations, concrete options, steps, examples and reasoning, not just a one-liner. Be as detailed as the topic warrants, up to ~3000 chars. If you created any tasks or events, end with a one-line note telling the user what you added. Plain text only.",
     },
   },
   required: ['summary'],
@@ -391,7 +391,7 @@ Keep tool calls under five total. Resolve relative dates ("tomorrow", "next Frid
   if (sourceKind === 'thought') {
     return `You are helping with a Palm Memo Pad note the user prefixed with "(AI)".
 
-YOUR FIRST PRIORITY is to answer the user's question or develop their idea, thoughtfully and directly, in your finish summary. That summary is written back into the memo as your reply, so make it genuinely useful — give the answer, options, or suggestions.
+YOUR FIRST PRIORITY is to answer the user's question or develop their idea, thoughtfully and directly, in your finish summary. That summary is written back into the memo as your reply, so make it genuinely useful and detailed — give the full answer with explanations, concrete options, steps, examples and reasoning. Be thorough; you may use up to ~3000 characters when the topic warrants it (do not pad a simple answer).
 
 THEN, if the memo also contains concrete action items or scheduling arrangements, create them directly: call create_todo(...) for each task and create_event(...) for each appointment. Do this without asking — the user wants them added straight away. Skip this for a memo that is just a question or a note with no action items.
 
@@ -528,7 +528,7 @@ async function runOpenAIAgent(
         messages,
         tools,
         tool_choice: 'auto',
-        max_completion_tokens: 2048,
+        max_completion_tokens: 4096,
       }),
     });
     if (!resp.ok) throw new Error(`openai ${resp.status}: ${await resp.text()}`);
@@ -618,7 +618,7 @@ async function runAnthropicAgent(
       },
       body: JSON.stringify({
         model: model || 'claude-sonnet-4-5-20250929',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: [
           { type: 'text', text: sysPrompt, cache_control: { type: 'ephemeral' } },
         ],
@@ -763,7 +763,7 @@ async function runGeminiAgent(
         systemInstruction: { parts: [{ text: sysPrompt }] },
         contents,
         tools: [{ functionDeclarations }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
+        generationConfig: { maxOutputTokens: 4096, temperature: 0.4 },
       }),
     });
     if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);

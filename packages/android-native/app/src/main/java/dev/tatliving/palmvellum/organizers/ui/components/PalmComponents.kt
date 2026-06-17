@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -28,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -141,6 +144,80 @@ fun PalmCategoryStrip(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
+    }
+}
+
+/**
+ * Compact category chips meant to live inside the dark Palm title bar (Cosmo).
+ * On the wide landscape display the To Do filter / Date Book view switcher move
+ * up next to the title to spare the scarce vertical content height. Light chip
+ * on a dark bar, so the colours invert vs [PalmCategoryStrip].
+ */
+@Composable
+fun TitleCategory(
+    options: List<Pair<String, String>>, // value to label
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        options.forEach { (value, label) ->
+            val active = value == selected
+            Text(
+                text = label,
+                color = if (active) PalmTitleBar else PalmOnDark,
+                fontSize = 13.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier
+                    .background(
+                        color = if (active) PalmOnDark else Color(0x22FFFFFF),
+                        shape = RoundedCornerShape(4.dp),
+                    )
+                    .clickable { onSelect(value) }
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Compact single-line search field for the dark Palm title bar (Cosmo). Used in
+ * place of the in-body [PalmField] "Search" box so the contact list reclaims the
+ * height. Styled by hand because a Material text field is far too tall for the
+ * 44 dp bar.
+ */
+@Composable
+fun TitleSearch(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "search",
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(30.dp)
+            .background(Color(0x22FFFFFF), RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(color = PalmOnDark, fontSize = 14.sp),
+            cursorBrush = SolidColor(PalmOnDark),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                if (value.isEmpty()) {
+                    Text(placeholder, color = Color(0x99FFFFFF), fontSize = 14.sp)
+                }
+                inner()
+            },
+        )
     }
 }
 

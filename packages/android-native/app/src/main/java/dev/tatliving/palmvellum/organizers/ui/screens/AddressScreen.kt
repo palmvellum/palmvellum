@@ -23,6 +23,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.Clock
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.Ulid
@@ -38,6 +39,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -71,10 +73,18 @@ fun AddressScreen(navController: NavHostController) {
         currentRoute = Routes.ADDRESS,
         detail = editing,
         titleAction = { TitleAction("+ new") { editing = newContact() } },
+        // Cosmo: the search box rides in the title bar so the list keeps its height.
+        titleCenter = if (BuildConfig.COSMO) {
+            { TitleSearch(query, { query = it }, placeholder = "search contacts") }
+        } else {
+            null
+        },
         placeholder = "Pick a contact from the list, or tap + new.",
         master = {
             Column(Modifier.fillMaxSize()) {
-                PalmField("Search", query, { query = it })
+                if (!BuildConfig.COSMO) {
+                    PalmField("Search", query, { query = it })
+                }
                 val visible = contacts
                     .map { it to contactFieldsFrom(it.metadataJson) }
                     .filter { (_, f) ->

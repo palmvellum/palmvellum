@@ -71,8 +71,18 @@ Treat it as out of scope unless a future task explicitly targets it.
 4. **Left icon rail, not bottom bar.** On Cosmo the four classic hardware
    buttons (Date Book / Address / To Do / Memo) render as a **60 dp left-edge
    vertical rail, icons only, no labels** (`PalmButtonRail` in `PalmScaffold`).
-   The bottom docked row is `standard`-only. Side rails suit landscape and free
-   up the scarce vertical space.
+   The rail starts with a **home button (`⌂`)** back to the launcher (separated
+   from the four apps by a hairline), so there's always an explicit way home —
+   the bottom docked row (standard-only) has no home button, and standard relies
+   on the system back button instead. The bottom docked row is `standard`-only.
+   Side rails suit landscape and free up the scarce vertical space.
+4a. **Inline filter/search in the title bar.** Cosmo's display is short, so a
+   screen's filter strip / search box moves **up into the empty title-bar space**
+   via `PalmScaffold(titleCenter = …)` instead of eating a content row. Use the
+   dark-bar variants `TitleCategory` (chips: To Do open/done/all, Date Book
+   agenda/week/month) and `TitleSearch` (Address). Gate with `BuildConfig.COSMO`:
+   on standard, pass `titleCenter = null` and keep the in-body `PalmCategoryStrip`
+   / `PalmField` so the portrait look is unchanged.
 5. **Two-pane where it helps.** This is the core Cosmo idiom.
    - List+editor screens (**Address / To Do / Memo**) use
      `MasterDetailScaffold`: list on the **left**, the editor (or a placeholder)
@@ -102,10 +112,14 @@ Treat it as out of scope unless a future task explicitly targets it.
   `applicationIdSuffix ".cosmo"`, `versionNameSuffix "-cosmo"`,
   `app_name = "Palm Organizers (Cosmo)"`, `buildConfigField COSMO=true`.
 - `MainActivity.kt` — landscape lock when `COSMO`.
-- `ui/PalmScaffold.kt` — `COSMO` → left `PalmButtonRail` (no bottom bar) +
-  760 dp width cap (skipped when `wide = true`); `standard` → docked
-  `PalmButtonRow`. Also holds `MasterDetailScaffold<T>` (list left / detail
-  right on Cosmo, full-screen swap on standard).
+- `ui/PalmScaffold.kt` — `COSMO` → left `PalmButtonRail` (home `⌂` + four apps,
+  no bottom bar) + 760 dp width cap (skipped when `wide = true`); `standard` →
+  docked `PalmButtonRow`. `PalmScaffold`/`MasterDetailScaffold` take an optional
+  `titleCenter` slot rendered between the title and the action in the title bar.
+  Also holds `MasterDetailScaffold<T>` (list left / detail right on Cosmo,
+  full-screen swap on standard) and the shared `RailButton`.
+- `ui/components/PalmComponents.kt` — `TitleCategory` / `TitleSearch`: compact
+  dark-bar filter chips / search field for the Cosmo `titleCenter` slot.
 - `ui/components/PalmComponents.kt` — `EditorScaffold(embedded = …)`: omit the
   status-bar inset when shown in a Cosmo detail pane.
 - `ui/screens/AddressScreen.kt`, `TodoScreen.kt`, `MemoScreen.kt` — use

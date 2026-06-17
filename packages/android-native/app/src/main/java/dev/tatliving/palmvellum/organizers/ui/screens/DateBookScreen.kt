@@ -62,6 +62,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -151,18 +152,27 @@ fun DateBookScreen(navController: NavHostController) {
     // Group events by local day once; week/month look up by date.
     val byDay = remember(events) { events.groupBy { DT.dateOf(it.startAt) } }
 
+    val modeOptions = listOf("agenda" to "agenda", "week" to "week", "month" to "month")
     PalmScaffold(
         title = "Date Book",
         navController = navController,
         currentRoute = Routes.DATEBOOK,
         titleAction = { TitleAction("+ new") { editing = newEvent(selectedDay) } },
+        // Cosmo: the agenda/week/month switcher rides in the title bar to save height.
+        titleCenter = if (BuildConfig.COSMO) {
+            { TitleCategory(modeOptions, mode) { mode = it } }
+        } else {
+            null
+        },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            PalmCategoryStrip(
-                options = listOf("agenda" to "agenda", "week" to "week", "month" to "month"),
-                selected = mode,
-                onSelect = { mode = it },
-            )
+            if (!BuildConfig.COSMO) {
+                PalmCategoryStrip(
+                    options = modeOptions,
+                    selected = mode,
+                    onSelect = { mode = it },
+                )
+            }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (mode) {
                     "week" -> WeekView(

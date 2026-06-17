@@ -31,6 +31,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.Clock
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.Ulid
@@ -47,6 +48,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -79,6 +81,7 @@ fun TodoScreen(navController: NavHostController) {
     LaunchedEffect(Unit) { vm.refresh() }
     var filter by remember { mutableStateOf("open") } // open | done | all
     var editing by remember { mutableStateOf<RecordEntity?>(null) }
+    val filterOptions = listOf("open" to "open", "done" to "done", "all" to "all")
 
     MasterDetailScaffold(
         title = "To Do List",
@@ -86,14 +89,22 @@ fun TodoScreen(navController: NavHostController) {
         currentRoute = Routes.TODO,
         detail = editing,
         titleAction = { TitleAction("+ new") { editing = newTodo() } },
+        // Cosmo: the open/done/all filter rides in the title bar to save height.
+        titleCenter = if (BuildConfig.COSMO) {
+            { TitleCategory(filterOptions, filter) { filter = it } }
+        } else {
+            null
+        },
         placeholder = "Pick a task from the list, or tap + new.",
         master = {
             Column(Modifier.fillMaxSize()) {
-                PalmCategoryStrip(
-                    options = listOf("open" to "open", "done" to "done", "all" to "all"),
-                    selected = filter,
-                    onSelect = { filter = it },
-                )
+                if (!BuildConfig.COSMO) {
+                    PalmCategoryStrip(
+                        options = filterOptions,
+                        selected = filter,
+                        onSelect = { filter = it },
+                    )
+                }
                 val visible = todos.filter {
                     val done = todoFieldsFrom(it.metadataJson).palm_completed
                     when (filter) {

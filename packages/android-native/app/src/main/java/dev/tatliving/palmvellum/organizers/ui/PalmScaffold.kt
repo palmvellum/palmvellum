@@ -68,6 +68,9 @@ fun PalmScaffold(
     navController: NavHostController,
     currentRoute: String,
     titleAction: (@Composable RowScope.() -> Unit)? = null,
+    // Cosmo only: a screen's filter/search rendered inline in the title bar's
+    // empty space, to spare the short landscape display's vertical height.
+    titleCenter: (@Composable () -> Unit)? = null,
     // Cosmo only: skip the 760dp centring cap so a genuinely wide layout
     // (e.g. a master/detail two-pane) can use the full landscape width.
     wide: Boolean = false,
@@ -76,7 +79,7 @@ fun PalmScaffold(
     Scaffold(
         containerColor = PalmBg,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { PalmTitleBar(title, titleAction) },
+        topBar = { PalmTitleBar(title, titleCenter, titleAction) },
         // Cosmo puts the four classic buttons in a left-edge icon rail instead
         // of the docked bottom row, so it has no bottom bar.
         bottomBar = { if (!BuildConfig.COSMO) PalmButtonRow(navController, currentRoute) },
@@ -134,6 +137,7 @@ fun <T> MasterDetailScaffold(
     currentRoute: String,
     detail: T?,
     titleAction: (@Composable RowScope.() -> Unit)? = null,
+    titleCenter: (@Composable () -> Unit)? = null,
     placeholder: String = "Pick an item from the list, or tap + new.",
     master: @Composable () -> Unit,
     detailContent: @Composable (item: T, embedded: Boolean) -> Unit,
@@ -148,7 +152,7 @@ fun <T> MasterDetailScaffold(
         }
         return
     }
-    PalmScaffold(title, navController, currentRoute, titleAction, wide = true) { padding ->
+    PalmScaffold(title, navController, currentRoute, titleAction, titleCenter, wide = true) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
             Box(Modifier.weight(1f).fillMaxHeight()) { master() }
             Box(Modifier.width(1.dp).fillMaxHeight().background(PalmLine))
@@ -172,7 +176,11 @@ fun <T> MasterDetailScaffold(
 }
 
 @Composable
-private fun PalmTitleBar(title: String, action: (@Composable RowScope.() -> Unit)?) {
+private fun PalmTitleBar(
+    title: String,
+    center: (@Composable () -> Unit)?,
+    action: (@Composable RowScope.() -> Unit)?,
+) {
     Surface(color = PalmTitleBar, contentColor = PalmOnDark) {
         Row(
             modifier = Modifier
@@ -189,17 +197,22 @@ private fun PalmTitleBar(title: String, action: (@Composable RowScope.() -> Unit
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                // With an inline filter/search the title shrinks to its content
+                // and the centre slot claims the remaining bar space.
+                modifier = if (center == null) Modifier.weight(1f) else Modifier,
             )
+            if (center != null) {
+                Box(Modifier.weight(1f).padding(start = 14.dp)) { center() }
+            }
             if (action != null) action()
         }
     }
 }
 
 /**
- * Cosmo-only left-edge rail of the four classic hardware buttons, shown as
- * icons only (no labels) to suit the narrow vertical strip on the wide
- * landscape display.
+ * Cosmo-only left-edge rail: a home button back to the launcher on top, then the
+ * four classic hardware buttons, shown as icons only (no labels) to suit the
+ * narrow vertical strip on the wide landscape display.
  */
 @Composable
 private fun PalmButtonRail(navController: NavHostController, currentRoute: String) {
@@ -217,29 +230,48 @@ private fun PalmButtonRail(navController: NavHostController, currentRoute: Strin
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Home / Applications launcher.
+            RailButton(
+                glyph = "⌂",
+                selected = currentRoute == Routes.LAUNCHER,
+                onClick = {
+                    navController.navigate(Routes.LAUNCHER) {
+                        popUpTo(Routes.LAUNCHER) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+            )
+            Box(Modifier.width(28.dp).height(1.dp).background(Color(0x33FFFFFF)))
             HARDWARE_BUTTONS.forEach { btn ->
-                val selected = btn.route == currentRoute
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(
-                            color = if (selected) Color(0x33FFFFFF) else Color.Transparent,
-                            shape = RoundedCornerShape(6.dp),
-                        )
-                        .clickable {
-                            if (!selected) {
-                                navController.navigate(btn.route) {
-                                    popUpTo(Routes.LAUNCHER)
-                                    launchSingleTop = true
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(text = btn.glyph, color = PalmOnDark, fontSize = 22.sp)
-                }
+                RailButton(
+                    glyph = btn.glyph,
+                    selected = btn.route == currentRoute,
+                    onClick = {
+                        navController.navigate(btn.route) {
+                            popUpTo(Routes.LAUNCHER)
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
         }
+    }
+}
+
+/** A single 46 dp glyph button in the Cosmo left rail. */
+@Composable
+private fun RailButton(glyph: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .background(
+                color = if (selected) Color(0x33FFFFFF) else Color.Transparent,
+                shape = RoundedCornerShape(6.dp),
+            )
+            .clickable(enabled = !selected, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = glyph, color = PalmOnDark, fontSize = 22.sp)
     }
 }
 

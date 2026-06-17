@@ -133,8 +133,8 @@ Treat it as out of scope unless a future task explicitly targets it.
   - **month** — `MonthCalendarGrid(fillHeight = true)`: the six week rows share
     the pane height (weighted), cells drop their square `aspectRatio` and
     `fillMaxHeight` so the grid never overflows the short pane.
-  - **week** — `WeekViewCosmo`: Monday–Friday (`DT.workWeekDays`) laid out as 5
-    columns across, each a scrollable day column with a dark-red `DayBlockHeader`.
+  - **week** — `WeekViewCosmo`: Monday–Sunday (`DT.weekDaysMonFirst`) laid out as
+    7 columns across, each a scrollable day column with a dark-red `DayBlockHeader`.
   - **agenda** — `AgendaGridCosmo`: the next 7 days (`DT.nextDays`) as a
     `LazyVerticalGrid` (left-to-right, top-to-bottom), each a `DayBlock` card with
     a dark-red header (`PalmDarkRed`, brighter `PalmRed` when today).

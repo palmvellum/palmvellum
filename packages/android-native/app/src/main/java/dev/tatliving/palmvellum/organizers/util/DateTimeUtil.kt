@@ -74,10 +74,10 @@ object DT {
         return (0L until 7L).map { s.plusDays(it) }
     }
 
-    /** Monday–Friday (一至五) of the week containing [anchor]. */
-    fun workWeekDays(anchor: LocalDate): List<LocalDate> {
+    /** All 7 days (Monday–Sunday, 一至日) of the week containing [anchor]. */
+    fun weekDaysMonFirst(anchor: LocalDate): List<LocalDate> {
         val monday = anchor.minusDays(((anchor.dayOfWeek.value + 6) % 7).toLong())
-        return (0L until 5L).map { monday.plusDays(it) }
+        return (0L until 7L).map { monday.plusDays(it) }
     }
 
     /** [count] consecutive days starting at [start] (default today). */

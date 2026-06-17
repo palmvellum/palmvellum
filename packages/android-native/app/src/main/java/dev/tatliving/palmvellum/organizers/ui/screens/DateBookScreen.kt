@@ -410,7 +410,7 @@ private fun DayBlockHeader(day: LocalDate, onAdd: (LocalDate) -> Unit) {
     }
 }
 
-// ── Cosmo week: Monday–Friday across, each day its own column ────────────
+// ── Cosmo week: Monday–Sunday across, each day its own column ────────────
 @Composable
 private fun WeekViewCosmo(
     anchor: LocalDate,
@@ -428,7 +428,7 @@ private fun WeekViewCosmo(
             Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            DT.workWeekDays(anchor).forEach { day ->
+            DT.weekDaysMonFirst(anchor).forEach { day ->
                 Column(
                     Modifier.weight(1f).fillMaxHeight()
                         .border(1.dp, PalmLineSoft).background(PalmSurfaceLo),

@@ -1,7 +1,5 @@
 package dev.tatliving.palmvellum.organizers.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -80,7 +78,6 @@ import dev.tatliving.palmvellum.organizers.ui.theme.PalmRed
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmSurfaceLo
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 import dev.tatliving.palmvellum.organizers.util.DT
-import dev.tatliving.palmvellum.organizers.util.Ics
 import dev.tatliving.palmvellum.organizers.util.pickDate
 import dev.tatliving.palmvellum.organizers.util.pickTime
 import androidx.compose.ui.graphics.Color
@@ -129,29 +126,6 @@ class DateBookViewModel : ViewModel() {
 
     fun parsedEventsOf(d: EventDraftEntity): List<ParsedEvent> =
         runCatching { PalmJson.decodeFromString<List<ParsedEvent>>(d.parsedEventsJson) }.getOrDefault(emptyList())
-
-    /** Import every VEVENT in a .ics document as a new event; reports the count. */
-    fun importIcs(text: String, onDone: (Int) -> Unit) = viewModelScope.launch {
-        val parsed = Ics.parse(text)
-        parsed.forEach { e ->
-            val now = Clock.nowIso()
-            repo.saveEvent(
-                EventEntity(
-                    id = Ulid.new(),
-                    title = e.summary,
-                    startAt = e.startIso,
-                    endAt = e.endIso,
-                    allDay = e.allDay,
-                    location = e.location,
-                    notes = e.description,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            )
-        }
-        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
-        onDone(parsed.size)
-    }
 }
 
 @Composable
@@ -168,15 +142,6 @@ fun DateBookScreen(navController: NavHostController) {
     // anchor day the week/month views revolve around; selectedDay = tapped cell
     var anchor by remember { mutableStateOf(DT.nowDate()) }
     var selectedDay by remember { mutableStateOf(DT.nowDate()) }
-
-    val resolver = LocalContext.current.contentResolver
-    var importMsg by remember { mutableStateOf<String?>(null) }
-    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val text = runCatching { resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull()
-        if (text == null) importMsg = "Could not read that file."
-        else vm.importIcs(text) { n -> importMsg = "Imported $n event(s) from .ics." }
-    }
 
     val target = editing
     if (target != null) {
@@ -199,13 +164,7 @@ fun DateBookScreen(navController: NavHostController) {
         title = "Date Book",
         navController = navController,
         currentRoute = Routes.DATEBOOK,
-        titleAction = {
-            TitleAction("+ ics") {
-                importMsg = null
-                icsPicker.launch(arrayOf("text/calendar", "application/octet-stream", "*/*"))
-            }
-            TitleAction("+ new") { editing = newEvent(selectedDay) }
-        },
+        titleAction = { TitleAction("+ new") { editing = newEvent(selectedDay) } },
         // Cosmo: the agenda/week/month switcher rides in the title bar, with the
         // "plan with AI" input filling the grey space beside it.
         titleCenter = if (BuildConfig.COSMO) {
@@ -233,14 +192,6 @@ fun DateBookScreen(navController: NavHostController) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            importMsg?.let { msg ->
-                Text(
-                    msg,
-                    color = PalmInkMute, fontSize = 13.sp,
-                    modifier = Modifier.fillMaxWidth().clickable { importMsg = null }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
             if (!BuildConfig.COSMO) {
                 PalmCategoryStrip(
                     options = modeOptions,

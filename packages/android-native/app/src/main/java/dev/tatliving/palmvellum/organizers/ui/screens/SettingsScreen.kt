@@ -1,5 +1,7 @@
 package dev.tatliving.palmvellum.organizers.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,12 +34,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import dev.tatliving.palmvellum.organizers.data.CalRefreshWorker
 import dev.tatliving.palmvellum.organizers.data.CalSub
 import dev.tatliving.palmvellum.organizers.data.CalSubStore
 import dev.tatliving.palmvellum.organizers.data.CalendarSync
 import dev.tatliving.palmvellum.organizers.data.Graph
+import dev.tatliving.palmvellum.organizers.data.IcsImport
 import dev.tatliving.palmvellum.organizers.data.sync.SyncStatus
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
+import dev.tatliving.palmvellum.organizers.ui.components.PalmCategoryStrip
 import dev.tatliving.palmvellum.organizers.ui.components.PalmDivider
 import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
@@ -201,7 +206,20 @@ private fun CalendarSubscriptionsSection() {
     var url by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
+    var interval by remember { mutableStateOf(store.intervalHours()) }
+    var importMsg by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+        }.getOrNull()
+        if (text == null) {
+            importMsg = "Could not read that file."
+        } else {
+            scope.launch { importMsg = "Imported ${IcsImport.importText(text)} event(s)." }
+        }
+    }
 
     Text(
         "Calendar subscriptions",
@@ -260,5 +278,37 @@ private fun CalendarSubscriptionsSection() {
                 }
             },
         ) { Text(if (busy) "Refreshing..." else "Refresh now") }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    Text("Auto-update", color = PalmInk, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+    PalmCategoryStrip(
+        options = listOf("0" to "off", "6" to "every 6h", "12" to "every 12h", "24" to "daily"),
+        selected = interval.toString(),
+        onSelect = { sel ->
+            interval = sel.toIntOrNull() ?: 0
+            store.setIntervalHours(interval)
+            CalRefreshWorker.schedule(context)
+        },
+    )
+
+    Spacer(Modifier.height(12.dp))
+    PalmDivider()
+    Spacer(Modifier.height(8.dp))
+    Text("Import calendar file", color = PalmInk, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+    Text(
+        "Load events from a .ics file into your Date Book.",
+        color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp),
+    )
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+        OutlinedButton(
+            onClick = {
+                importMsg = null
+                icsPicker.launch(arrayOf("text/calendar", "application/octet-stream", "*/*"))
+            },
+        ) { Text("Import .ics file") }
+    }
+    importMsg?.let {
+        Text(it, color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
     }
 }

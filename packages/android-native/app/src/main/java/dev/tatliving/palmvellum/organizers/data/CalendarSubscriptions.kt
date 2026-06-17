@@ -34,6 +34,35 @@ class CalSubStore(context: Context) {
     }
 
     fun remove(url: String) = save(list().filterNot { it.url == url })
+
+    /** Auto-update interval in hours; 0 = off. */
+    fun intervalHours(): Int = prefs.getInt("interval_h", 0)
+    fun setIntervalHours(h: Int) = prefs.edit().putInt("interval_h", h).apply()
+}
+
+/** One-off import of a .ics document's VEVENTs as new events. */
+object IcsImport {
+    suspend fun importText(text: String): Int {
+        val parsed = Ics.parse(text)
+        parsed.forEach { e ->
+            val now = Clock.nowIso()
+            Graph.repo.saveEvent(
+                EventEntity(
+                    id = Ulid.new(),
+                    title = e.summary,
+                    startAt = e.startIso,
+                    endAt = e.endIso,
+                    allDay = e.allDay,
+                    location = e.location,
+                    notes = e.description,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        }
+        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
+        return parsed.size
+    }
 }
 
 /** Fetches every subscribed iCal feed and upserts its events. Read-only: events

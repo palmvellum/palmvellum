@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
+import dev.tatliving.palmvellum.organizers.data.CalRefreshWorker
 import dev.tatliving.palmvellum.organizers.data.CalendarSync
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.ui.nav.PalmNavHost
@@ -17,8 +18,10 @@ fun PalmVellumRoot() {
         val context = LocalContext.current
         LaunchedEffect(Unit) {
             if (Graph.sync.isSignedIn) Graph.sync.syncNow()
-            // Best-effort refresh of any read-only calendar subscriptions.
+            // Best-effort refresh of any read-only calendar subscriptions, and
+            // (re)schedule the periodic background refresh to the chosen interval.
             runCatching { CalendarSync.refresh(context) }
+            runCatching { CalRefreshWorker.schedule(context) }
         }
         val navController = rememberNavController()
         PalmNavHost(navController = navController)

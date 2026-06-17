@@ -40,11 +40,33 @@ data class ContactFields(
     val palm_notes: String? = null,
 )
 
+/**
+ * Expense metadata (records.type='expense'). Vendor doubles as records.body.
+ * Key names match the PWA's `metadata.palm_*` so cloud sync stays compatible.
+ */
+@Serializable
+data class ExpenseFields(
+    val palm_amount: Double? = null,
+    val palm_currency: String? = null,
+    val palm_vendor: String? = null,
+    val palm_expense_type: String? = null,
+    val palm_payment: String? = null,
+    val palm_expense_date: String? = null, // yyyy-MM-dd
+    val palm_city: String? = null,
+    val palm_attendees: String? = null,
+    val palm_notes: String? = null,
+    val palm_category_name: String? = null,
+)
+
 fun TodoFields.toJson(): String = PalmJson.encodeToString(this)
 fun ContactFields.toJson(): String = PalmJson.encodeToString(this)
+fun ExpenseFields.toJson(): String = PalmJson.encodeToString(this)
 
 fun todoFieldsFrom(json: String): TodoFields =
     runCatching { PalmJson.decodeFromString<TodoFields>(json) }.getOrDefault(TodoFields())
 
 fun contactFieldsFrom(json: String): ContactFields =
     runCatching { PalmJson.decodeFromString<ContactFields>(json) }.getOrDefault(ContactFields())
+
+fun expenseFieldsFrom(json: String): ExpenseFields =
+    runCatching { PalmJson.decodeFromString<ExpenseFields>(json) }.getOrDefault(ExpenseFields())

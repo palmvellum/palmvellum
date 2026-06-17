@@ -1,5 +1,7 @@
 package dev.tatliving.palmvellum.organizers.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,6 +80,7 @@ import dev.tatliving.palmvellum.organizers.ui.theme.PalmRed
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmSurfaceLo
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 import dev.tatliving.palmvellum.organizers.util.DT
+import dev.tatliving.palmvellum.organizers.util.Ics
 import dev.tatliving.palmvellum.organizers.util.pickDate
 import dev.tatliving.palmvellum.organizers.util.pickTime
 import androidx.compose.ui.graphics.Color
@@ -126,6 +129,29 @@ class DateBookViewModel : ViewModel() {
 
     fun parsedEventsOf(d: EventDraftEntity): List<ParsedEvent> =
         runCatching { PalmJson.decodeFromString<List<ParsedEvent>>(d.parsedEventsJson) }.getOrDefault(emptyList())
+
+    /** Import every VEVENT in a .ics document as a new event; reports the count. */
+    fun importIcs(text: String, onDone: (Int) -> Unit) = viewModelScope.launch {
+        val parsed = Ics.parse(text)
+        parsed.forEach { e ->
+            val now = Clock.nowIso()
+            repo.saveEvent(
+                EventEntity(
+                    id = Ulid.new(),
+                    title = e.summary,
+                    startAt = e.startIso,
+                    endAt = e.endIso,
+                    allDay = e.allDay,
+                    location = e.location,
+                    notes = e.description,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        }
+        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
+        onDone(parsed.size)
+    }
 }
 
 @Composable
@@ -143,6 +169,15 @@ fun DateBookScreen(navController: NavHostController) {
     var anchor by remember { mutableStateOf(DT.nowDate()) }
     var selectedDay by remember { mutableStateOf(DT.nowDate()) }
 
+    val resolver = LocalContext.current.contentResolver
+    var importMsg by remember { mutableStateOf<String?>(null) }
+    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching { resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull()
+        if (text == null) importMsg = "Could not read that file."
+        else vm.importIcs(text) { n -> importMsg = "Imported $n event(s) from .ics." }
+    }
+
     val target = editing
     if (target != null) {
         EventEditor(
@@ -155,15 +190,22 @@ fun DateBookScreen(navController: NavHostController) {
         return
     }
 
-    // Group events by local day once; week/month look up by date.
-    val byDay = remember(events) { events.groupBy { DT.dateOf(it.startAt) } }
+    // Group events by local day, expanding any recurring events across the
+    // visible window (the month grid + the next week for the agenda).
+    val byDay = remember(events, anchor) { expandByDay(events, anchor) }
 
     val modeOptions = listOf("agenda" to "agenda", "month" to "month")
     PalmScaffold(
         title = "Date Book",
         navController = navController,
         currentRoute = Routes.DATEBOOK,
-        titleAction = { TitleAction("+ new") { editing = newEvent(selectedDay) } },
+        titleAction = {
+            TitleAction("+ ics") {
+                importMsg = null
+                icsPicker.launch(arrayOf("text/calendar", "application/octet-stream", "*/*"))
+            }
+            TitleAction("+ new") { editing = newEvent(selectedDay) }
+        },
         // Cosmo: the agenda/week/month switcher rides in the title bar, with the
         // "plan with AI" input filling the grey space beside it.
         titleCenter = if (BuildConfig.COSMO) {
@@ -191,6 +233,14 @@ fun DateBookScreen(navController: NavHostController) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            importMsg?.let { msg ->
+                Text(
+                    msg,
+                    color = PalmInkMute, fontSize = 13.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { importMsg = null }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
             if (!BuildConfig.COSMO) {
                 PalmCategoryStrip(
                     options = modeOptions,
@@ -257,6 +307,62 @@ fun DateBookScreen(navController: NavHostController) {
             }
         }
     }
+}
+
+// ── Recurrence (repeat_rule) ────────────────────────────────────────────
+// repeat_rule is stored as a minimal RRULE ("FREQ=WEEKLY"); we expand the
+// supported frequencies into concrete day occurrences for display only.
+private val REPEAT_FREQS = setOf("DAILY", "WEEKLY", "MONTHLY", "YEARLY")
+
+private fun freqOf(rule: String?): String? {
+    if (rule.isNullOrBlank()) return null
+    return Regex("FREQ=([A-Z]+)", RegexOption.IGNORE_CASE)
+        .find(rule)?.groupValues?.get(1)?.uppercase()?.takeIf { it in REPEAT_FREQS }
+}
+
+/** UI token (none/daily/…) ⇄ RRULE. */
+private fun repeatToken(rule: String?): String = freqOf(rule)?.lowercase() ?: "none"
+private fun ruleForToken(token: String): String? =
+    if (token == "none") null else "FREQ=${token.uppercase()}"
+
+private fun nextOccurrence(d: LocalDate, freq: String): LocalDate = when (freq) {
+    "DAILY" -> d.plusDays(1)
+    "WEEKLY" -> d.plusWeeks(1)
+    "MONTHLY" -> d.plusMonths(1)
+    else -> d.plusYears(1)
+}
+
+/**
+ * Group events by local day across the visible window (the month grid of
+ * [anchor] plus the coming week), expanding recurring events into occurrences.
+ * Editing any occurrence edits the underlying base event.
+ */
+private fun expandByDay(
+    events: List<EventEntity>,
+    anchor: LocalDate,
+): Map<LocalDate, List<EventEntity>> {
+    val grid = DT.monthGrid(anchor)
+    val from = minOf(grid.first(), DT.nowDate())
+    val to = maxOf(grid.last(), DT.nowDate().plusDays(7))
+    val map = HashMap<LocalDate, MutableList<EventEntity>>()
+    for (e in events) {
+        val start = DT.dateOf(e.startAt)
+        val freq = freqOf(e.repeatRule)
+        if (freq == null) {
+            if (!start.isBefore(from) && !start.isAfter(to)) {
+                map.getOrPut(start) { mutableListOf() }.add(e)
+            }
+        } else {
+            var d = start
+            var guard = 0
+            while (d.isBefore(from) && guard < 4000) { d = nextOccurrence(d, freq); guard++ }
+            while (!d.isAfter(to) && guard < 8000) {
+                map.getOrPut(d) { mutableListOf() }.add(e)
+                d = nextOccurrence(d, freq); guard++
+            }
+        }
+    }
+    return map
 }
 
 // ── Agenda (the upcoming-events list + AI planning) ─────────────────────
@@ -687,6 +793,7 @@ private fun EventEditor(
     var allDay by remember { mutableStateOf(initial.allDay) }
     var location by remember { mutableStateOf(initial.location ?: "") }
     var notes by remember { mutableStateOf(initial.notes ?: "") }
+    var repeat by remember { mutableStateOf(repeatToken(initial.repeatRule)) }
 
     EditorScaffold(
         title = if (isNew) "New Event" else "Edit Event",
@@ -701,6 +808,7 @@ private fun EventEditor(
                     allDay = allDay,
                     location = location.trim().ifEmpty { null },
                     notes = notes.trim().ifEmpty { null },
+                    repeatRule = ruleForToken(repeat),
                 ),
             )
         },
@@ -727,6 +835,15 @@ private fun EventEditor(
                 Switch(checked = allDay, onCheckedChange = { allDay = it })
             }
             PalmField("Location", location, { location = it })
+            Text("Repeats", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
+            PalmCategoryStrip(
+                options = listOf(
+                    "none" to "none", "daily" to "daily", "weekly" to "weekly",
+                    "monthly" to "monthly", "yearly" to "yearly",
+                ),
+                selected = repeat,
+                onSelect = { repeat = it },
+            )
             PalmField("Notes", notes, { notes = it }, singleLine = false, minLines = 3)
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))

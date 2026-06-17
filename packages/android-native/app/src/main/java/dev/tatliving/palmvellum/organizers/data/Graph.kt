@@ -18,6 +18,8 @@ object Graph {
         private set
     lateinit var sync: SyncEngine
         private set
+    lateinit var rest: SupabaseRest
+        private set
 
     fun init(context: Context) {
         val app = context.applicationContext
@@ -26,7 +28,7 @@ object Graph {
             .build()
         repo = PalmRepository(db.eventDao(), db.recordDao(), db.draftDao())
         session = SessionStore(app)
-        val rest = SupabaseRest(session)
+        rest = SupabaseRest(session)
         sync = SyncEngine(db.eventDao(), db.recordDao(), db.conflictDao(), db.draftDao(), session, rest)
     }
 }

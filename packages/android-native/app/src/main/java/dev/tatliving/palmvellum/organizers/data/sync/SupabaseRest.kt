@@ -132,6 +132,14 @@ class SupabaseRest(private val session: SessionStore) {
             .fold({ Result.success(it) }, { Result.failure(it) })
     }
 
+    /** Delete rows matching a PostgREST filter (e.g. "id=eq.$id"). */
+    suspend fun delete(table: String, query: String): Result<Unit> = withContext(Dispatchers.IO) {
+        var r = http("DELETE", "$base/rest/v1/$table?$query", authHeaders())
+        if (r.code == 401 && refreshToken()) r = http("DELETE", "$base/rest/v1/$table?$query", authHeaders())
+        if (r.code in 200..299) Result.success(Unit)
+        else Result.failure(Exception(errorMsg(r)))
+    }
+
     // ── Storage ─────────────────────────────────────────────────
     /**
      * Upload raw bytes to a Storage bucket object (memo-uploads). The bucket

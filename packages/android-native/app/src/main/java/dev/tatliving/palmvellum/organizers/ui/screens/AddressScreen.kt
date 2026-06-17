@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +45,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -69,13 +71,16 @@ fun AddressScreen(navController: NavHostController) {
     val contacts by vm.contacts.collectAsState()
     var query by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<RecordEntity?>(null) }
+    // Opening an existing contact shows a read-only card first; "edit" flips this
+    // to the editor. A new contact (+ new) goes straight into editing.
+    var editMode by remember { mutableStateOf(false) }
 
     MasterDetailScaffold(
         title = "Address",
         navController = navController,
         currentRoute = Routes.ADDRESS,
         detail = editing,
-        titleAction = { TitleAction("+ new") { editing = newContact() } },
+        titleAction = { TitleAction("+ new") { editing = newContact(); editMode = true } },
         // Cosmo: the search box rides in the title bar so the list keeps its height.
         titleCenter = if (BuildConfig.COSMO) {
             { TitleSearch(query, { query = it }, placeholder = "search contacts") }
@@ -117,7 +122,7 @@ fun AddressScreen(navController: NavHostController) {
                                         metaSize = 16.sp,
                                         body = listOfNotNull(f.palm_company, f.palm_email)
                                             .filter { it.isNotBlank() }.joinToString("  ").ifEmpty { null },
-                                        onClick = { editing = rec },
+                                        onClick = { editing = rec; editMode = false },
                                     )
                                 }
                             }
@@ -128,19 +133,87 @@ fun AddressScreen(navController: NavHostController) {
         },
         detailContent = { target, embedded ->
             // Key on the record id so tapping another contact while one is open
-            // re-inits the editor fields instead of keeping the first one's state.
+            // re-inits the fields instead of keeping the first one's state.
             key(target.id) {
-                ContactEditor(
-                    initial = target,
-                    isNew = target.id.isEmpty(),
-                    embedded = embedded,
-                    onCancel = { editing = null },
-                    onSave = { vm.save(it); editing = null },
-                    onDelete = { vm.delete(target.id); editing = null },
-                )
+                if (editMode || target.id.isEmpty()) {
+                    ContactEditor(
+                        initial = target,
+                        isNew = target.id.isEmpty(),
+                        embedded = embedded,
+                        onCancel = { editing = null; editMode = false },
+                        onSave = { vm.save(it); editing = null; editMode = false },
+                        onDelete = { vm.delete(target.id); editing = null; editMode = false },
+                    )
+                } else {
+                    ContactCard(
+                        contact = target,
+                        embedded = embedded,
+                        onBack = { editing = null },
+                        onEdit = { editMode = true },
+                        onDelete = { vm.delete(target.id); editing = null },
+                    )
+                }
             }
         },
     )
+}
+
+/** Read-only view of a contact, shown when a contact is opened from the list.
+ *  Reuses the editor frame but with "back" / "edit" header buttons. */
+@Composable
+private fun ContactCard(
+    contact: RecordEntity,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    embedded: Boolean = false,
+) {
+    val f = contactFieldsFrom(contact.metadataJson)
+    EditorScaffold(
+        title = "Contact",
+        onCancel = onBack,
+        onSave = onEdit,
+        cancelLabel = "back",
+        saveLabel = "edit",
+        embedded = embedded,
+    ) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+            Text(displayName(f), color = PalmInk, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            val subtitle = listOfNotNull(f.palm_title, f.palm_company)
+                .filter { it.isNotBlank() }.joinToString(", ")
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(subtitle, color = PalmInkMute, fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(16.dp))
+            val hasDetails = listOf(f.palm_phone, f.palm_email, f.palm_notes).any { !it.isNullOrBlank() }
+            PalmListCard {
+                Column(Modifier.padding(12.dp)) {
+                    if (hasDetails) {
+                        CardRow("Phone", f.palm_phone)
+                        CardRow("E-mail", f.palm_email)
+                        CardRow("Notes", f.palm_notes)
+                    } else {
+                        Text("No contact details.", color = PalmInkMute, fontSize = 14.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            DeleteButton(onDelete)
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** A labelled read-only row; renders nothing when the value is blank. */
+@Composable
+private fun CardRow(label: String, value: String?) {
+    val v = value?.trim().orEmpty()
+    if (v.isBlank()) return
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, color = PalmInkMute, fontSize = 12.sp)
+        Text(v, color = PalmInk, fontSize = 16.sp)
+    }
 }
 
 private fun newContact(): RecordEntity {

@@ -60,7 +60,6 @@ import dev.tatliving.palmvellum.organizers.data.Ulid
 import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
 import dev.tatliving.palmvellum.organizers.data.sync.SupabaseConfig
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
-import dev.tatliving.palmvellum.organizers.ui.components.EditorScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmEmptyState
 import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
@@ -69,6 +68,7 @@ import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmLine
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmOnDark
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmRed
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 import kotlinx.coroutines.Dispatchers
@@ -223,6 +223,7 @@ fun NotePadScreen(navController: NavHostController) {
 
     if (drawing) {
         DrawSketch(
+            navController = navController,
             saving = saving,
             error = error,
             onCancel = { drawing = false; error = null },
@@ -242,6 +243,7 @@ fun NotePadScreen(navController: NavHostController) {
     val live = detail?.let { d -> sketches.firstOrNull { it.id == d.id } ?: d }
     if (live != null) {
         SketchDetail(
+            navController = navController,
             sketch = live,
             onBack = { detail = null },
             onDelete = { vm.delete(live.id); detail = null },
@@ -358,6 +360,7 @@ private fun SketchStatusLine(s: RecordEntity, compact: Boolean) {
 
 @Composable
 private fun SketchDetail(
+    navController: NavHostController,
     sketch: RecordEntity,
     onBack: () -> Unit,
     onDelete: () -> Unit,
@@ -367,13 +370,15 @@ private fun SketchDetail(
     var renaming by remember(sketch.id) { mutableStateOf(false) }
     var titleDraft by remember(sketch.id) { mutableStateOf(sketchTitle(sketch)) }
 
-    EditorScaffold(
+    // Use the Palm frame (not the full-screen editor) so the four core buttons
+    // stay visible while viewing a sketch.
+    PalmScaffold(
         title = "Note Pad",
-        onCancel = onBack,
-        saveEnabled = false,
-        onSave = {},
-    ) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+        navController = navController,
+        currentRoute = Routes.NOTEPAD,
+        titleAction = { TitleAction("done") { onBack() } },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(12.dp)) {
             // Title + rename (only once AI is done, so we never clobber the body)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (renaming) {
@@ -460,6 +465,7 @@ private fun SketchDetail(
 
 @Composable
 private fun DrawSketch(
+    navController: NavHostController,
     saving: Boolean,
     error: String?,
     onCancel: () -> Unit,
@@ -471,21 +477,36 @@ private fun DrawSketch(
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     var title by remember { mutableStateOf("") }
     val hasInk = strokes.isNotEmpty() || current.isNotEmpty()
+    val canSave = hasInk && !saving
+    val doSave: () -> Unit = {
+        val all = strokes.toList() + if (current.isNotEmpty()) listOf(current) else emptyList()
+        val data = all.map { pts ->
+            FloatArray(pts.size * 2) { i -> if (i % 2 == 0) pts[i / 2].x else pts[i / 2].y }
+        }
+        onSave(data, canvasSize.width, canvasSize.height, strokeWidthPx, title)
+    }
 
-    EditorScaffold(
-        title = "Note Pad",
-        onCancel = onCancel,
-        saveEnabled = hasInk && !saving,
-        onSave = {
-            val all = strokes.toList() + if (current.isNotEmpty()) listOf(current) else emptyList()
-            val data = all.map { pts ->
-                FloatArray(pts.size * 2) { i -> if (i % 2 == 0) pts[i / 2].x else pts[i / 2].y }
-            }
-            onSave(data, canvasSize.width, canvasSize.height, strokeWidthPx, title)
+    // Use the Palm frame (not the full-screen editor) so the four core buttons
+    // stay visible while drawing. Cancel / save live in the title bar.
+    PalmScaffold(
+        title = "New Note",
+        navController = navController,
+        currentRoute = Routes.NOTEPAD,
+        wide = true,
+        titleAction = {
+            TitleAction("cancel") { onCancel() }
+            Text(
+                "save",
+                color = if (canSave) PalmOnDark else Color(0x66FFFFFF),
+                fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clickable(enabled = canSave, onClick = doSave)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
         },
-    ) {
+    ) { padding ->
         // Two-pane: text input on the left, a square grid drawing area on the right.
-        Row(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize().padding(padding)) {
             // Left column — text input + drawing controls.
             Column(
                 modifier = Modifier

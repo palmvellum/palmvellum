@@ -295,6 +295,10 @@ fun EditorScaffold(
     onCancel: () -> Unit,
     onSave: () -> Unit,
     saveEnabled: Boolean = true,
+    // Header button labels — overridable so a read-only card can reuse this
+    // frame as e.g. "back" / "edit" instead of "Cancel" / "Save".
+    cancelLabel: String = "Cancel",
+    saveLabel: String = "Save",
     // When embedded in a two-pane detail pane (Cosmo), the header sits below the
     // Palm title bar, so it must NOT add the status-bar inset a second time.
     embedded: Boolean = false,
@@ -312,7 +316,7 @@ fun EditorScaffold(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Cancel",
+                        cancelLabel,
                         color = PalmOnDark,
                         fontSize = 15.sp,
                         modifier = Modifier.clickable(onClick = onCancel),
@@ -325,7 +329,7 @@ fun EditorScaffold(
                         modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                     )
                     Text(
-                        "Save",
+                        saveLabel,
                         color = if (saveEnabled) PalmOnDark else Color(0x66FFFFFF),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,

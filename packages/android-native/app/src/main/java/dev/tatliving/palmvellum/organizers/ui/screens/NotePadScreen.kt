@@ -50,6 +50,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.Clock
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.Ulid
@@ -276,7 +277,9 @@ fun NotePadScreen(navController: NavHostController) {
                 PalmEmptyState("No sketches yet. Tap + draw to scribble a note — AI reads your handwriting.")
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    // Cosmo's wide display made the 2-up tiles huge; halve them to
+                    // ~4 columns. Standard portrait keeps the classic two-up grid.
+                    columns = if (BuildConfig.COSMO) GridCells.Adaptive(190.dp) else GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize().padding(10.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),

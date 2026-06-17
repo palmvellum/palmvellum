@@ -153,9 +153,8 @@ fun <T> MasterDetailScaffold(
         return
     }
     PalmScaffold(title, navController, currentRoute, titleAction, titleCenter, wide = true) { padding ->
+        // Editor on the left, list on the right (Cosmo two-pane).
         Row(Modifier.fillMaxSize().padding(padding)) {
-            Box(Modifier.weight(1f).fillMaxHeight()) { master() }
-            Box(Modifier.width(1.dp).fillMaxHeight().background(PalmLine))
             Box(Modifier.weight(1.3f).fillMaxHeight()) {
                 if (detail != null) {
                     detailContent(detail, true)
@@ -171,6 +170,8 @@ fun <T> MasterDetailScaffold(
                     }
                 }
             }
+            Box(Modifier.width(1.dp).fillMaxHeight().background(PalmLine))
+            Box(Modifier.weight(1f).fillMaxHeight()) { master() }
         }
     }
 }

@@ -126,27 +126,31 @@ const TOOL_FINISH = {
     summary: {
       type: 'string',
       description:
-        '1–2 line summary of what you accomplished. ≤ 400 chars. Plain text only.',
+        'The user-facing reply written into the memo: your answer or ideas, as full as needed (up to ~1200 chars). If you proposed any tasks, end with a one-line note about them. Plain text only.',
     },
   },
   required: ['summary'],
   additionalProperties: false,
 } as const;
 
-const TOOL_LIST = [
-  { name: 'create_event', description: 'Create a Date Book event.', schema: TOOL_CREATE_EVENT },
-  { name: 'create_todo', description: 'Create a To Do task.', schema: TOOL_CREATE_TODO },
-  {
-    name: 'create_memo',
-    description: 'Create a new Memo Pad entry separate from the original.',
-    schema: TOOL_CREATE_MEMO,
-  },
-  {
-    name: 'finish',
-    description: 'Conclude the task with a short summary. MUST call this last.',
-    schema: TOOL_FINISH,
-  },
-];
+const DEF_CREATE_EVENT = { name: 'create_event', description: 'Create a Date Book event.', schema: TOOL_CREATE_EVENT };
+const DEF_CREATE_TODO = { name: 'create_todo', description: 'Create a To Do task.', schema: TOOL_CREATE_TODO };
+const DEF_CREATE_MEMO = { name: 'create_memo', description: 'Create a new Memo Pad entry separate from the original.', schema: TOOL_CREATE_MEMO };
+const DEF_PROPOSE_TODO = {
+  name: 'propose_todo',
+  description: 'SUGGEST a To Do task for the user to approve. Does NOT create it — the user reviews and approves it in the Memo. Use this for any work/action items you spot.',
+  schema: TOOL_CREATE_TODO,
+};
+const DEF_FINISH = { name: 'finish', description: 'Conclude with a short summary. MUST call this last.', schema: TOOL_FINISH };
+
+// Memo notes answer + (approval-gated) task proposals; To-Do tasks still act
+// directly (a separate feature).
+const TOOLS_THOUGHT = [DEF_PROPOSE_TODO, DEF_FINISH];
+const TOOLS_TODO = [DEF_CREATE_EVENT, DEF_CREATE_TODO, DEF_CREATE_MEMO, DEF_FINISH];
+
+function toolsFor(kind: 'thought' | 'todo') {
+  return kind === 'thought' ? TOOLS_THOUGHT : TOOLS_TODO;
+}
 
 // ─── HTTP entrypoint ────────────────────────────────────────────
 
@@ -242,6 +246,19 @@ Deno.serve(async (req: Request) => {
 
   // Finalize per source type
   if (sourceKind === 'thought') {
+    // Proposed To-Do tasks are suggestions the user approves in the Memo.
+    const proposedTodos = actions
+      .filter((a) => a.name === 'propose_todo')
+      .map((a) => {
+        const x = a.args as Record<string, unknown>;
+        return {
+          description: String(x.description ?? '').slice(0, 256),
+          due_date: (x.due_date as string | null) ?? null,
+          priority: typeof x.priority === 'number' ? x.priority : 3,
+          notes: (x.notes as string | null) ?? null,
+        };
+      })
+      .filter((t) => t.description.trim().length > 0);
     const newBody = (r.body ?? '') + AGENT_SEPARATOR + (summary || '(no summary)');
     await supa
       .from('records')
@@ -254,6 +271,7 @@ Deno.serve(async (req: Request) => {
           ...(r.metadata ?? {}),
           agent_processed: true,
           agent_summary: summary,
+          proposed_todos: proposedTodos,
           ai_actions: actions,
         },
       })
@@ -381,12 +399,6 @@ function systemPromptFor(
 ): string {
   const common = `now: ${nowLocal} (${userTz})
 
-Tools available:
-- create_event(title, start_at, end_at, all_day, location, notes, alarm_minutes)
-- create_todo(description, due_date, priority, notes)
-- create_memo(title, body)
-- finish(summary)
-
 PALM CHARACTER SET CONSTRAINT — content you write into tools (title, body, summary, etc.) is shown on a Palm Pilot:
 - ASCII or Mac Roman / Palm Roman characters ONLY.
 - NO emoji whatsoever.
@@ -397,7 +409,13 @@ When done, you MUST call finish(summary). Summary is the user-facing recap of wh
 Keep tool calls under five total. Resolve relative dates ("tomorrow", "next Friday") using the now timestamp above.`;
 
   if (sourceKind === 'thought') {
-    return `You are an agent processing a Palm Memo Pad note that the user prefixed with "(AI)". Read the memo content below and extract every actionable item. Schedule events, file tasks, or write new memos as appropriate. Don't ask the user — just do it. Then call finish(summary).
+    return `You are helping with a Palm Memo Pad note the user prefixed with "(AI)".
+
+YOUR FIRST PRIORITY is to answer the user's question or develop their idea, thoughtfully and directly, in your finish summary. That summary is written back into the memo as your reply, so make it genuinely useful — give the answer, options, or suggestions.
+
+THEN, only if the memo also contains concrete work or scheduling arrangements / action items, call propose_todo(...) once per task to SUGGEST them. These are proposals the user must APPROVE in the Memo before they become real tasks — so never say a task "has been added"; say you have "suggested" or "proposed" it. Do NOT create events or tasks directly, and do NOT propose tasks for a memo that is just a question or a note with no action items.
+
+When you finish: write your answer/ideas first; if you proposed any tasks, end the summary with a short line like "Proposed N task(s) for your To Do - approve them below.". Then call finish(summary).
 
 Memo content (after stripping "(AI)"):
 ${prompt}
@@ -421,6 +439,11 @@ async function executeTool(
 ): Promise<Record<string, unknown> | { error: string }> {
   try {
     switch (call.name) {
+      case 'propose_todo': {
+        // Suggestion only — recorded in `actions` and surfaced to the user as
+        // metadata.proposed_todos; the Memo's approval UI creates the real task.
+        return { ok: true, proposed: true };
+      }
       case 'create_event': {
         const a = call.args as {
           title: string;
@@ -510,7 +533,7 @@ async function runOpenAIAgent(
   actions: ToolResult[],
 ): Promise<{ summary: string; tokensIn: number; tokensOut: number }> {
   const sysPrompt = systemPromptFor(sourceKind, prompt, userTz, nowLocal);
-  const tools = TOOL_LIST.map((t) => ({
+  const tools = toolsFor(sourceKind).map((t) => ({
     type: 'function',
     function: { name: t.name, description: t.description, parameters: t.schema, strict: true },
   }));
@@ -530,7 +553,7 @@ async function runOpenAIAgent(
         messages,
         tools,
         tool_choice: 'auto',
-        max_completion_tokens: 1024,
+        max_completion_tokens: 2048,
       }),
     });
     if (!resp.ok) throw new Error(`openai ${resp.status}: ${await resp.text()}`);
@@ -599,7 +622,7 @@ async function runAnthropicAgent(
   actions: ToolResult[],
 ): Promise<{ summary: string; tokensIn: number; tokensOut: number }> {
   const sysPrompt = systemPromptFor(sourceKind, prompt, userTz, nowLocal);
-  const tools = TOOL_LIST.map((t) => ({
+  const tools = toolsFor(sourceKind).map((t) => ({
     name: t.name,
     description: t.description,
     input_schema: t.schema,
@@ -620,7 +643,7 @@ async function runAnthropicAgent(
       },
       body: JSON.stringify({
         model: model || 'claude-sonnet-4-5-20250929',
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: [
           { type: 'text', text: sysPrompt, cache_control: { type: 'ephemeral' } },
         ],
@@ -738,7 +761,7 @@ async function runGeminiAgent(
   actions: ToolResult[],
 ): Promise<{ summary: string; tokensIn: number; tokensOut: number }> {
   const sysPrompt = systemPromptFor(sourceKind, prompt, userTz, nowLocal);
-  const functionDeclarations = TOOL_LIST.map((t) => ({
+  const functionDeclarations = toolsFor(sourceKind).map((t) => ({
     name: t.name,
     description: t.description,
     parameters: toGeminiSchema(t.schema),
@@ -765,7 +788,7 @@ async function runGeminiAgent(
         systemInstruction: { parts: [{ text: sysPrompt }] },
         contents,
         tools: [{ functionDeclarations }],
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
       }),
     });
     if (!resp.ok) throw new Error(`gemini ${resp.status}: ${await resp.text()}`);

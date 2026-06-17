@@ -109,3 +109,22 @@ fun expenseFieldsFrom(json: String): ExpenseFields =
 
 fun mailFieldsFrom(json: String): MailFields =
     runCatching { PalmJson.decodeFromString<MailFields>(json) }.getOrDefault(MailFields())
+
+/** A To Do task the Memo AI suggested; the user approves it before it's created. */
+@Serializable
+data class ProposedTodo(
+    val description: String = "",
+    val due_date: String? = null,
+    val priority: Int? = null,
+    val notes: String? = null,
+)
+
+/** Memo AI bookkeeping kept in a thought record's metadata. */
+@Serializable
+data class MemoAiFields(
+    val proposed_todos: List<ProposedTodo> = emptyList(),
+    val added_todos: List<String> = emptyList(),
+)
+
+fun memoAiFrom(json: String): MemoAiFields =
+    runCatching { PalmJson.decodeFromString<MemoAiFields>(json) }.getOrDefault(MemoAiFields())

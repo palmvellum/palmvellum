@@ -6,14 +6,19 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +40,12 @@ import dev.tatliving.palmvellum.organizers.data.Clock
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.Ulid
 import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
+import dev.tatliving.palmvellum.organizers.data.model.MemoAiFields
+import dev.tatliving.palmvellum.organizers.data.model.PalmJson
+import dev.tatliving.palmvellum.organizers.data.model.ProposedTodo
+import dev.tatliving.palmvellum.organizers.data.model.TodoFields
+import dev.tatliving.palmvellum.organizers.data.model.memoAiFrom
+import dev.tatliving.palmvellum.organizers.data.model.toJson
 import dev.tatliving.palmvellum.organizers.ui.MasterDetailScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.EditorScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmDivider
@@ -44,13 +55,18 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmRed
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 /** A body starting with "(ai)" routes the row to the server-side AI agent
@@ -82,6 +98,30 @@ class MemoViewModel : ViewModel() {
 
     /** Pull on screen entry so AI results (and other devices' edits) show up. */
     fun refresh() = viewModelScope.launch { if (Graph.sync.isSignedIn) Graph.sync.syncNow() }
+
+    /** Approve an AI-proposed task: create the To Do, move the proposal into the
+     *  memo's "added" list so the memo records that a task was opened. */
+    fun approveProposal(memo: RecordEntity, p: ProposedTodo) = viewModelScope.launch {
+        val now = Clock.nowIso()
+        val todoMeta = TodoFields(
+            palm_due_date = p.due_date,
+            palm_priority = p.priority,
+            palm_completed = false,
+            palm_notes = p.notes,
+            palm_category_name = "Unfiled",
+        ).toJson()
+        repo.saveRecord(
+            RecordEntity(id = Ulid.new(), type = "todo", body = p.description, metadataJson = todoMeta, createdAt = now, updatedAt = now),
+        )
+        repo.saveRecord(memo.copy(metadataJson = rewriteMemoMeta(memo.metadataJson, p.description, addToAdded = true)))
+        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
+    }
+
+    /** Dismiss an AI-proposed task: just drop it from the memo's proposals. */
+    fun dismissProposal(memo: RecordEntity, p: ProposedTodo) = viewModelScope.launch {
+        repo.saveRecord(memo.copy(metadataJson = rewriteMemoMeta(memo.metadataJson, p.description, addToAdded = false)))
+        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
+    }
 
     /**
      * Drop a PDF / DOCX / image into the Memo Pad: upload the bytes to the
@@ -248,6 +288,8 @@ fun MemoScreen(navController: NavHostController) {
                     onCancel = { editing = null },
                     onSave = { vm.save(it); editing = null },
                     onDelete = { vm.delete(target.id); editing = null },
+                    onApprove = { vm.approveProposal(target, it) },
+                    onDismiss = { vm.dismissProposal(target, it) },
                 )
             }
         },
@@ -259,6 +301,21 @@ private fun newMemo(): RecordEntity {
     return RecordEntity(id = "", type = "thought", body = "", createdAt = now, updatedAt = now)
 }
 
+/** Update a memo's AI metadata after the user approves / dismisses a proposed
+ *  task: drop the matching proposal, and (on approve) record it under
+ *  `added_todos`. All other metadata keys are preserved untouched. */
+private fun rewriteMemoMeta(metadataJson: String?, description: String, addToAdded: Boolean): String {
+    val ai = memoAiFrom(metadataJson ?: "")
+    val remaining = ai.proposed_todos.filterNot { it.description == description }
+    val added = if (addToAdded) ai.added_todos + description else ai.added_todos
+    val base = runCatching { PalmJson.parseToJsonElement(metadataJson ?: "").jsonObject }.getOrNull()
+    return buildJsonObject {
+        base?.forEach { (k, v) -> if (k != "proposed_todos" && k != "added_todos") put(k, v) }
+        put("proposed_todos", PalmJson.encodeToJsonElement(remaining))
+        put("added_todos", PalmJson.encodeToJsonElement(added))
+    }.toString()
+}
+
 @Composable
 private fun MemoEditor(
     initial: RecordEntity,
@@ -266,9 +323,13 @@ private fun MemoEditor(
     onCancel: () -> Unit,
     onSave: (RecordEntity) -> Unit,
     onDelete: () -> Unit,
+    onApprove: (ProposedTodo) -> Unit,
+    onDismiss: (ProposedTodo) -> Unit,
     embedded: Boolean = false,
 ) {
     var text by remember { mutableStateOf(initial.body ?: "") }
+    // Tasks the AI suggested for this memo, pending the user's approval.
+    var proposals by remember { mutableStateOf(memoAiFrom(initial.metadataJson ?: "").proposed_todos) }
 
     EditorScaffold(
         title = if (isNew) "New Memo" else "Edit Memo",
@@ -281,11 +342,64 @@ private fun MemoEditor(
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             PalmField("Memo  (start with \"(ai)\" to ask the agent)", text, { text = it }, singleLine = false, minLines = 8)
+            if (proposals.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                ProposedTasks(
+                    proposals = proposals,
+                    onApprove = { p -> proposals = proposals.filterNot { it == p }; onApprove(p) },
+                    onDismiss = { p -> proposals = proposals.filterNot { it == p }; onDismiss(p) },
+                )
+            }
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
                 DeleteButton(onDelete)
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+/** AI-suggested To Do tasks shown under a memo. The user approves each one
+ *  (creates the real task) or dismisses it. Plain-text labels only (Palm). */
+@Composable
+private fun ProposedTasks(
+    proposals: List<ProposedTodo>,
+    onApprove: (ProposedTodo) -> Unit,
+    onDismiss: (ProposedTodo) -> Unit,
+) {
+    Text(
+        "Suggested tasks  (approve to add to To Do)",
+        color = PalmInkMute,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(start = 12.dp, bottom = 6.dp),
+    )
+    proposals.forEach { p ->
+        PalmListCard {
+            Column(Modifier.padding(12.dp)) {
+                Text(p.description, color = PalmInk, fontSize = 14.sp)
+                val detail = listOfNotNull(
+                    p.due_date?.let { "due $it" },
+                    p.priority?.let { "priority $it" },
+                ).joinToString("  -  ")
+                if (detail.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(detail, color = PalmInkMute, fontSize = 12.sp)
+                }
+                p.notes?.takeIf { it.isNotBlank() }?.let {
+                    Spacer(Modifier.height(2.dp))
+                    Text(it, color = PalmInkMute, fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    Button(
+                        onClick = { onApprove(p) },
+                        colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
+                    ) { Text("Approve") }
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedButton(onClick = { onDismiss(p) }) { Text("Dismiss") }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }

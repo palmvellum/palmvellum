@@ -1,5 +1,7 @@
 package dev.tatliving.palmvellum.organizers.ui.nav
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -26,7 +28,17 @@ object Routes {
 
 @Composable
 fun PalmNavHost(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Routes.LAUNCHER) {
+    // A real Palm Pilot snaps between apps instantly. NavHost otherwise defaults
+    // to a 700 ms cross-fade, which on the Cosmo's large landscape display reads
+    // as a click delay on every navigation — so switch to an instant transition.
+    NavHost(
+        navController = navController,
+        startDestination = Routes.LAUNCHER,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
         composable(Routes.LAUNCHER) { LauncherScreen(navController) }
         composable(Routes.DATEBOOK) { DateBookScreen(navController) }
         composable(Routes.ADDRESS) { AddressScreen(navController) }

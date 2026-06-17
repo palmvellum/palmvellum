@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,6 +43,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -110,6 +112,9 @@ fun AddressScreen(navController: NavHostController) {
                                     PalmRow(
                                         title = displayName(f),
                                         meta = f.palm_phone,
+                                        metaColor = PalmInk,
+                                        metaBold = true,
+                                        metaSize = 16.sp,
                                         body = listOfNotNull(f.palm_company, f.palm_email)
                                             .filter { it.isNotBlank() }.joinToString("  ").ifEmpty { null },
                                         onClick = { editing = rec },

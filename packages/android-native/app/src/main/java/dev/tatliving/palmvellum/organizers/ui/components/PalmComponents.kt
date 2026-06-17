@@ -79,6 +79,8 @@ fun PalmRow(
     dim: Boolean = false,
     leading: (@Composable () -> Unit)? = null,
     metaColor: Color = PalmInkMute,
+    metaBold: Boolean = false,
+    metaSize: androidx.compose.ui.unit.TextUnit = 13.sp,
     onClick: () -> Unit,
 ) {
     Column(
@@ -100,7 +102,12 @@ fun PalmRow(
                 modifier = Modifier.weight(1f),
             )
             if (meta != null) {
-                Text(text = meta, color = metaColor, fontSize = 13.sp)
+                Text(
+                    text = meta,
+                    color = metaColor,
+                    fontSize = metaSize,
+                    fontWeight = if (metaBold) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
         if (!body.isNullOrBlank()) {

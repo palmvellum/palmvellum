@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -134,6 +135,17 @@ fun DateBookScreen(navController: NavHostController) {
     val events by vm.events.collectAsState()
     val drafts by vm.drafts.collectAsState()
     LaunchedEffect(Unit) { vm.refresh() }
+    // Date Book AI writes events in directly — no approval step. As soon as a
+    // draft is parsed, insert its events automatically (the draft then leaves
+    // the active list). The set guards against re-firing while the async
+    // accept is in flight.
+    val autoAccepted = remember { mutableStateListOf<String>() }
+    LaunchedEffect(drafts) {
+        drafts.filter { it.status == "parsed" && it.id !in autoAccepted }.forEach { d ->
+            autoAccepted.add(d.id)
+            vm.acceptDraft(d)
+        }
+    }
     // null = list; otherwise the event being edited (id="" => new)
     var editing by remember { mutableStateOf<EventEntity?>(null) }
     var aiText by remember { mutableStateOf("") }
@@ -702,15 +714,8 @@ private fun DraftCard(
                         val time = p.start_at?.let { "${DT.dayLabel(it)} ${DT.timeLabel(it)}" } ?: ""
                         Text("- ${p.title}  $time", color = PalmInk, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Row {
-                        Button(
-                            onClick = onAccept,
-                            colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                        ) { Text("Add all") }
-                        Spacer(Modifier.width(8.dp))
-                        OutlinedButton(onClick = onReject) { Text("Dismiss") }
-                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("added to Date Book", color = PalmInkMute, fontSize = 12.sp)
                 }
                 else -> Text(draft.status, color = PalmInkMute, fontSize = 13.sp)
             }

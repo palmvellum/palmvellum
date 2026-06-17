@@ -49,6 +49,7 @@ private val APPS = listOf(
     LauncherApp(Routes.MEMO, "▤", "Memo Pad", "notes"),
     LauncherApp(Routes.NOTEPAD, "✎", "Note Pad", "sketches + AI"),
     LauncherApp(Routes.EXPENSE, "¤", "Expense", "spending log"),
+    LauncherApp(Routes.MAIL, "✉", "Mail", "AI morning paper"),
 )
 
 @Composable

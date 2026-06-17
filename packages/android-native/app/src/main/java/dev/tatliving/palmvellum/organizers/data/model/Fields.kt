@@ -58,6 +58,42 @@ data class ExpenseFields(
     val palm_category_name: String? = null,
 )
 
+/**
+ * Mail record metadata (records.type='mail'). The digest text lives in
+ * records.body; these mirror the PWA's `metadata.mail_*` keys.
+ */
+@Serializable
+data class MailFields(
+    val mail_subject: String? = null,
+    val mail_from: String? = null,
+    val mail_source_name: String? = null,
+    val mail_source_url: String? = null,
+    val mail_source_type: String? = null,
+    val mail_topic: String? = null,
+    val mail_references: List<String>? = null,
+    val mail_date_local: String? = null,
+    val mail_fetched_at: String? = null,
+)
+
+/**
+ * A row of the `mail_sources` table (subscriptions). Not a record — synced
+ * directly via PostgREST, not through the local Room mirror.
+ */
+@Serializable
+data class MailSource(
+    val id: String,
+    val user_id: String? = null,
+    val name: String,
+    val source_type: String = "url",
+    val url: String? = null,
+    val topic: String? = null,
+    val fetch_time: String = "07:00:00",
+    val timezone: String = "UTC",
+    val enabled: Boolean = true,
+    val digest_hint: String? = null,
+    val output_language: String? = null,
+)
+
 fun TodoFields.toJson(): String = PalmJson.encodeToString(this)
 fun ContactFields.toJson(): String = PalmJson.encodeToString(this)
 fun ExpenseFields.toJson(): String = PalmJson.encodeToString(this)
@@ -70,3 +106,6 @@ fun contactFieldsFrom(json: String): ContactFields =
 
 fun expenseFieldsFrom(json: String): ExpenseFields =
     runCatching { PalmJson.decodeFromString<ExpenseFields>(json) }.getOrDefault(ExpenseFields())
+
+fun mailFieldsFrom(json: String): MailFields =
+    runCatching { PalmJson.decodeFromString<MailFields>(json) }.getOrDefault(MailFields())

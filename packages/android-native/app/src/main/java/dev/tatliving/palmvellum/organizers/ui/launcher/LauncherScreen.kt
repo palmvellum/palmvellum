@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
@@ -64,8 +65,13 @@ fun LauncherScreen(navController: NavHostController) {
             TitleAction("settings") { navController.navigate(Routes.SETTINGS) }
         },
     ) { padding ->
+        // Standard phones keep the classic two-up grid. The Cosmo Communicator's
+        // wide landscape main display fits more columns, so let the grid grow to
+        // fill it (adaptive ~160dp tiles => ~4 columns at 2160x1080).
+        val columns = if (BuildConfig.COSMO) GridCells.Adaptive(160.dp) else GridCells.Fixed(2)
+        val tileHeight = if (BuildConfig.COSMO) 140.dp else 180.dp
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = columns,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -77,7 +83,7 @@ fun LauncherScreen(navController: NavHostController) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(180.dp)
+                        .height(tileHeight)
                         .background(PalmSurfaceLo)
                         .border(1.dp, PalmLine)
                         .clickable {

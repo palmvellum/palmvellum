@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Palm Organizers</string>
+    <!-- app_name is supplied per product flavor via resValue (see app/build.gradle.kts). -->
 </resources>

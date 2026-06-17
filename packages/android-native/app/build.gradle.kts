@@ -18,6 +18,27 @@ android {
         versionName = "0.1.0-native"
     }
 
+    // Two device targets from one codebase:
+    //  - standard: the classic portrait Palm UI (any phone).
+    //  - cosmo:    tuned for the Planet Cosmo Communicator (2160x1080 landscape
+    //              clamshell + physical keyboard). Distinct applicationId so it
+    //              installs side-by-side with the standard build.
+    flavorDimensions += "device"
+    productFlavors {
+        create("standard") {
+            dimension = "device"
+            resValue("string", "app_name", "Palm Organizers")
+            buildConfigField("boolean", "COSMO", "false")
+        }
+        create("cosmo") {
+            dimension = "device"
+            applicationIdSuffix = ".cosmo"
+            versionNameSuffix = "-cosmo"
+            resValue("string", "app_name", "Palm Organizers (Cosmo)")
+            buildConfigField("boolean", "COSMO", "true")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -37,6 +58,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

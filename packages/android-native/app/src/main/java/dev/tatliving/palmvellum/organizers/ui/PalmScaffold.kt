@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
@@ -64,8 +66,20 @@ fun PalmScaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { PalmTitleBar(title, titleAction) },
         bottomBar = { PalmButtonRow(navController, currentRoute) },
-        content = content,
-    )
+    ) { padding ->
+        // On a wide display (the Cosmo Communicator's landscape main screen)
+        // a full-bleed single column of forms/lists stretches uncomfortably far.
+        // Centre the content and cap its width. On a normal portrait phone this
+        // cap never engages, so the standard build is unaffected.
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Box(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
+                content(padding)
+            }
+        }
+    }
 }
 
 @Composable

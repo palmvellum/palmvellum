@@ -196,6 +196,9 @@ fun EditorScaffold(
     onCancel: () -> Unit,
     onSave: () -> Unit,
     saveEnabled: Boolean = true,
+    // When embedded in a two-pane detail pane (Cosmo), the header sits below the
+    // Palm title bar, so it must NOT add the status-bar inset a second time.
+    embedded: Boolean = false,
     body: @Composable () -> Unit,
 ) {
     Surface(color = dev.tatliving.palmvellum.organizers.ui.theme.PalmBg) {
@@ -204,7 +207,7 @@ fun EditorScaffold(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .then(if (embedded) Modifier else Modifier.windowInsetsPadding(WindowInsets.statusBars))
                         .height(44.dp)
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,

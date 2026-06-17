@@ -73,11 +73,18 @@ Treat it as out of scope unless a future task explicitly targets it.
    vertical rail, icons only, no labels** (`PalmButtonRail` in `PalmScaffold`).
    The bottom docked row is `standard`-only. Side rails suit landscape and free
    up the scarce vertical space.
-5. **Two-pane where it helps.** Date Book defaults to **month** on Cosmo and
-   lays out **calendar on the right, selected-day schedule on the left**
-   (`MonthViewTwoPane`). Consider the same master/detail split for Address and
-   To Do in future (list left, detail right) — but only if it reads well at
-   ~432 dp tall.
+5. **Two-pane where it helps.** This is the core Cosmo idiom.
+   - List+editor screens (**Address / To Do / Memo**) use
+     `MasterDetailScaffold`: list on the **left**, the editor (or a placeholder)
+     on the **right**, instead of the portrait full-screen swap. Add new
+     list+editor screens through `MasterDetailScaffold` too.
+   - Date Book defaults to **month** on Cosmo with **calendar right /
+     selected-day schedule left** (`MonthViewTwoPane`).
+   - Use `PalmScaffold(wide = true)` for any full-width two-pane layout (it
+     bypasses the 760 dp cap). Editors rendered in a right pane must be passed
+     `embedded = true` so `EditorScaffold` drops its status-bar inset.
+   - Future candidates: **Note Pad** (sketch gallery left / preview right).
+     Only split when it still reads at ~432 dp tall.
 6. **Glyphs only for nav.** Hard constraint #1 (see project memory): no
    emoji/icons in UI *content*. The launcher tiles + hardware-button glyphs
    (◫ ✦ ☑ ▤ ✎ ✷) are the pre-approved structural-navigation exception. Keep it
@@ -96,7 +103,13 @@ Treat it as out of scope unless a future task explicitly targets it.
   `app_name = "Palm Organizers (Cosmo)"`, `buildConfigField COSMO=true`.
 - `MainActivity.kt` — landscape lock when `COSMO`.
 - `ui/PalmScaffold.kt` — `COSMO` → left `PalmButtonRail` (no bottom bar) +
-  760 dp width cap; `standard` → docked `PalmButtonRow`.
+  760 dp width cap (skipped when `wide = true`); `standard` → docked
+  `PalmButtonRow`. Also holds `MasterDetailScaffold<T>` (list left / detail
+  right on Cosmo, full-screen swap on standard).
+- `ui/components/PalmComponents.kt` — `EditorScaffold(embedded = …)`: omit the
+  status-bar inset when shown in a Cosmo detail pane.
+- `ui/screens/AddressScreen.kt`, `TodoScreen.kt`, `MemoScreen.kt` — use
+  `MasterDetailScaffold`; each editor takes an `embedded` flag.
 - `ui/launcher/LauncherScreen.kt` — `COSMO` → `GridCells.Adaptive(160.dp)`
   (~4 cols) + 140 dp tiles; `standard` → `GridCells.Fixed(2)` + 180 dp tiles.
 - `ui/screens/DateBookScreen.kt` — `COSMO` → default `month` + `MonthViewTwoPane`

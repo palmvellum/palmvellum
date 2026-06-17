@@ -38,7 +38,7 @@ import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
 import dev.tatliving.palmvellum.organizers.data.model.TodoFields
 import dev.tatliving.palmvellum.organizers.data.model.todoFieldsFrom
 import dev.tatliving.palmvellum.organizers.data.model.toJson
-import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
+import dev.tatliving.palmvellum.organizers.ui.MasterDetailScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.EditorScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmCategoryStrip
 import dev.tatliving.palmvellum.organizers.ui.components.PalmDivider
@@ -80,74 +80,75 @@ fun TodoScreen(navController: NavHostController) {
     var filter by remember { mutableStateOf("open") } // open | done | all
     var editing by remember { mutableStateOf<RecordEntity?>(null) }
 
-    val target = editing
-    if (target != null) {
-        TodoEditor(
-            initial = target,
-            isNew = target.id.isEmpty(),
-            onCancel = { editing = null },
-            onSave = { vm.save(it); editing = null },
-            onDelete = { vm.delete(target.id); editing = null },
-        )
-        return
-    }
-
-    PalmScaffold(
+    MasterDetailScaffold(
         title = "To Do List",
         navController = navController,
         currentRoute = Routes.TODO,
+        detail = editing,
         titleAction = { TitleAction("+ new") { editing = newTodo() } },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            PalmCategoryStrip(
-                options = listOf("open" to "open", "done" to "done", "all" to "all"),
-                selected = filter,
-                onSelect = { filter = it },
-            )
-            val visible = todos.filter {
-                val done = todoFieldsFrom(it.metadataJson).palm_completed
-                when (filter) {
-                    "open" -> !done
-                    "done" -> done
-                    else -> true
+        placeholder = "Pick a task from the list, or tap + new.",
+        master = {
+            Column(Modifier.fillMaxSize()) {
+                PalmCategoryStrip(
+                    options = listOf("open" to "open", "done" to "done", "all" to "all"),
+                    selected = filter,
+                    onSelect = { filter = it },
+                )
+                val visible = todos.filter {
+                    val done = todoFieldsFrom(it.metadataJson).palm_completed
+                    when (filter) {
+                        "open" -> !done
+                        "done" -> done
+                        else -> true
+                    }
                 }
-            }
-            if (visible.isEmpty()) {
-                PalmEmptyState("No tasks.")
-                return@Column
-            }
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(10.dp),
-            ) {
-                item {
-                    PalmListCard {
-                        visible.forEachIndexed { i, rec ->
-                            if (i > 0) PalmDivider()
-                            val f = todoFieldsFrom(rec.metadataJson)
-                            PalmRow(
-                                title = rec.body ?: "(untitled)",
-                                meta = buildList {
-                                    if (rec.aiStatus in listOf("pending", "processing", "queued")) add("AI...")
-                                    f.palm_priority?.let { add("P$it") }
-                                    f.palm_due_date?.let { add(it) }
-                                }.joinToString("  ").ifEmpty { null },
-                                dim = f.palm_completed,
-                                leading = {
-                                    Checkbox(
-                                        checked = f.palm_completed,
-                                        onCheckedChange = { checked ->
-                                            vm.save(rec.copy(metadataJson = f.copy(palm_completed = checked).toJson()))
+                if (visible.isEmpty()) {
+                    PalmEmptyState("No tasks.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(10.dp),
+                    ) {
+                        item {
+                            PalmListCard {
+                                visible.forEachIndexed { i, rec ->
+                                    if (i > 0) PalmDivider()
+                                    val f = todoFieldsFrom(rec.metadataJson)
+                                    PalmRow(
+                                        title = rec.body ?: "(untitled)",
+                                        meta = buildList {
+                                            if (rec.aiStatus in listOf("pending", "processing", "queued")) add("AI...")
+                                            f.palm_priority?.let { add("P$it") }
+                                            f.palm_due_date?.let { add(it) }
+                                        }.joinToString("  ").ifEmpty { null },
+                                        dim = f.palm_completed,
+                                        leading = {
+                                            Checkbox(
+                                                checked = f.palm_completed,
+                                                onCheckedChange = { checked ->
+                                                    vm.save(rec.copy(metadataJson = f.copy(palm_completed = checked).toJson()))
+                                                },
+                                            )
                                         },
+                                        onClick = { editing = rec },
                                     )
-                                },
-                                onClick = { editing = rec },
-                            )
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
-    }
+        },
+        detailContent = { target, embedded ->
+            TodoEditor(
+                initial = target,
+                isNew = target.id.isEmpty(),
+                embedded = embedded,
+                onCancel = { editing = null },
+                onSave = { vm.save(it); editing = null },
+                onDelete = { vm.delete(target.id); editing = null },
+            )
+        },
+    )
 }
 
 private fun newTodo(): RecordEntity {
@@ -162,6 +163,7 @@ private fun TodoEditor(
     onCancel: () -> Unit,
     onSave: (RecordEntity) -> Unit,
     onDelete: () -> Unit,
+    embedded: Boolean = false,
 ) {
     val context = LocalContext.current
     val f0 = todoFieldsFrom(initial.metadataJson)
@@ -173,6 +175,7 @@ private fun TodoEditor(
     EditorScaffold(
         title = if (isNew) "New Task" else "Edit Task",
         onCancel = onCancel,
+        embedded = embedded,
         saveEnabled = desc.isNotBlank(),
         onSave = {
             val fields = TodoFields(

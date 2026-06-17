@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +41,8 @@ import androidx.navigation.NavHostController
 import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmBg
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmLine
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmOnDark
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 
@@ -65,6 +68,9 @@ fun PalmScaffold(
     navController: NavHostController,
     currentRoute: String,
     titleAction: (@Composable RowScope.() -> Unit)? = null,
+    // Cosmo only: skip the 760dp centring cap so a genuinely wide layout
+    // (e.g. a master/detail two-pane) can use the full landscape width.
+    wide: Boolean = false,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -78,16 +84,22 @@ fun PalmScaffold(
         if (BuildConfig.COSMO) {
             // Cosmo Communicator (landscape clamshell): the four core apps live
             // in a vertical icon rail down the left edge. The rest of the wide
-            // display holds the content, width-capped and centred so single
-            // column forms/lists don't stretch uncomfortably far.
+            // display holds the content — width-capped and centred for single
+            // column forms/lists, or full-bleed when `wide` (two-pane layouts).
             Row(modifier = Modifier.fillMaxSize().padding(padding)) {
                 PalmButtonRail(navController, currentRoute)
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                    Box(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
+                if (wide) {
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         content(PaddingValues(0.dp))
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentAlignment = Alignment.TopCenter,
+                    ) {
+                        Box(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
+                            content(PaddingValues(0.dp))
+                        }
                     }
                 }
             }
@@ -101,6 +113,58 @@ fun PalmScaffold(
             ) {
                 Box(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
                     content(padding)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * List + editor screens. On the standard portrait build the editor replaces
+ * the whole screen (classic Palm swap). On the Cosmo landscape build it becomes
+ * a two-pane master/detail: the list stays on the left while the editor (or a
+ * placeholder when nothing is selected) fills the right pane — making use of the
+ * wide clamshell display. `detailContent` receives `embedded = true` in the
+ * two-pane case so the editor can drop its status-bar inset.
+ */
+@Composable
+fun <T> MasterDetailScaffold(
+    title: String,
+    navController: NavHostController,
+    currentRoute: String,
+    detail: T?,
+    titleAction: (@Composable RowScope.() -> Unit)? = null,
+    placeholder: String = "Pick an item from the list, or tap + new.",
+    master: @Composable () -> Unit,
+    detailContent: @Composable (item: T, embedded: Boolean) -> Unit,
+) {
+    if (!BuildConfig.COSMO) {
+        if (detail != null) {
+            detailContent(detail, false)
+        } else {
+            PalmScaffold(title, navController, currentRoute, titleAction) { padding ->
+                Box(Modifier.fillMaxSize().padding(padding)) { master() }
+            }
+        }
+        return
+    }
+    PalmScaffold(title, navController, currentRoute, titleAction, wide = true) { padding ->
+        Row(Modifier.fillMaxSize().padding(padding)) {
+            Box(Modifier.weight(1f).fillMaxHeight()) { master() }
+            Box(Modifier.width(1.dp).fillMaxHeight().background(PalmLine))
+            Box(Modifier.weight(1.3f).fillMaxHeight()) {
+                if (detail != null) {
+                    detailContent(detail, true)
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            placeholder,
+                            color = PalmInkMute,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(24.dp),
+                        )
+                    }
                 }
             }
         }

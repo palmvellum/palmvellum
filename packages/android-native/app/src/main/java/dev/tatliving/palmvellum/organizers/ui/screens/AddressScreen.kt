@@ -30,7 +30,7 @@ import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
 import dev.tatliving.palmvellum.organizers.data.model.ContactFields
 import dev.tatliving.palmvellum.organizers.data.model.contactFieldsFrom
 import dev.tatliving.palmvellum.organizers.data.model.toJson
-import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
+import dev.tatliving.palmvellum.organizers.ui.MasterDetailScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.EditorScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmDivider
 import dev.tatliving.palmvellum.organizers.ui.components.PalmEmptyState
@@ -65,57 +65,58 @@ fun AddressScreen(navController: NavHostController) {
     var query by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<RecordEntity?>(null) }
 
-    val target = editing
-    if (target != null) {
-        ContactEditor(
-            initial = target,
-            isNew = target.id.isEmpty(),
-            onCancel = { editing = null },
-            onSave = { vm.save(it); editing = null },
-            onDelete = { vm.delete(target.id); editing = null },
-        )
-        return
-    }
-
-    PalmScaffold(
+    MasterDetailScaffold(
         title = "Address",
         navController = navController,
         currentRoute = Routes.ADDRESS,
+        detail = editing,
         titleAction = { TitleAction("+ new") { editing = newContact() } },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            PalmField("Search", query, { query = it })
-            val visible = contacts
-                .map { it to contactFieldsFrom(it.metadataJson) }
-                .filter { (_, f) ->
-                    query.isBlank() ||
-                        listOfNotNull(
-                            f.palm_first_name, f.palm_last_name, f.palm_company, f.palm_phone, f.palm_email,
-                        ).any { it.contains(query, ignoreCase = true) }
-                }
-                .sortedBy { (_, f) -> displayName(f).lowercase() }
-            if (visible.isEmpty()) {
-                PalmEmptyState("No contacts.")
-                return@Column
-            }
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
-                item {
-                    PalmListCard {
-                        visible.forEachIndexed { i, (rec, f) ->
-                            if (i > 0) PalmDivider()
-                            PalmRow(
-                                title = displayName(f),
-                                meta = f.palm_phone,
-                                body = listOfNotNull(f.palm_company, f.palm_email)
-                                    .filter { it.isNotBlank() }.joinToString("  ").ifEmpty { null },
-                                onClick = { editing = rec },
-                            )
+        placeholder = "Pick a contact from the list, or tap + new.",
+        master = {
+            Column(Modifier.fillMaxSize()) {
+                PalmField("Search", query, { query = it })
+                val visible = contacts
+                    .map { it to contactFieldsFrom(it.metadataJson) }
+                    .filter { (_, f) ->
+                        query.isBlank() ||
+                            listOfNotNull(
+                                f.palm_first_name, f.palm_last_name, f.palm_company, f.palm_phone, f.palm_email,
+                            ).any { it.contains(query, ignoreCase = true) }
+                    }
+                    .sortedBy { (_, f) -> displayName(f).lowercase() }
+                if (visible.isEmpty()) {
+                    PalmEmptyState("No contacts.")
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+                        item {
+                            PalmListCard {
+                                visible.forEachIndexed { i, (rec, f) ->
+                                    if (i > 0) PalmDivider()
+                                    PalmRow(
+                                        title = displayName(f),
+                                        meta = f.palm_phone,
+                                        body = listOfNotNull(f.palm_company, f.palm_email)
+                                            .filter { it.isNotBlank() }.joinToString("  ").ifEmpty { null },
+                                        onClick = { editing = rec },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
-    }
+        },
+        detailContent = { target, embedded ->
+            ContactEditor(
+                initial = target,
+                isNew = target.id.isEmpty(),
+                embedded = embedded,
+                onCancel = { editing = null },
+                onSave = { vm.save(it); editing = null },
+                onDelete = { vm.delete(target.id); editing = null },
+            )
+        },
+    )
 }
 
 private fun newContact(): RecordEntity {
@@ -130,6 +131,7 @@ private fun ContactEditor(
     onCancel: () -> Unit,
     onSave: (RecordEntity) -> Unit,
     onDelete: () -> Unit,
+    embedded: Boolean = false,
 ) {
     val f0 = contactFieldsFrom(initial.metadataJson)
     var first by remember { mutableStateOf(f0.palm_first_name ?: "") }
@@ -143,6 +145,7 @@ private fun ContactEditor(
     EditorScaffold(
         title = if (isNew) "New Contact" else "Edit Contact",
         onCancel = onCancel,
+        embedded = embedded,
         saveEnabled = first.isNotBlank() || last.isNotBlank() || company.isNotBlank(),
         onSave = {
             val fields = ContactFields(

@@ -34,7 +34,7 @@ import dev.tatliving.palmvellum.organizers.data.Clock
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.Ulid
 import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
-import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
+import dev.tatliving.palmvellum.organizers.ui.MasterDetailScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.EditorScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmDivider
 import dev.tatliving.palmvellum.organizers.ui.components.PalmEmptyState
@@ -187,66 +187,67 @@ fun MemoScreen(navController: NavHostController) {
         }
     }
 
-    val target = editing
-    if (target != null) {
-        MemoEditor(
-            initial = target,
-            isNew = target.id.isEmpty(),
-            onCancel = { editing = null },
-            onSave = { vm.save(it); editing = null },
-            onDelete = { vm.delete(target.id); editing = null },
-        )
-        return
-    }
-
-    PalmScaffold(
+    MasterDetailScaffold(
         title = "Memo Pad",
         navController = navController,
         currentRoute = Routes.MEMO,
+        detail = editing,
         titleAction = {
             TitleAction(if (uploading) "uploading..." else "+ file") {
                 if (!uploading) picker.launch(UPLOAD_MIME_FILTER)
             }
             TitleAction("+ new") { editing = newMemo() }
         },
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            uploadError?.let { err ->
-                Text(
-                    text = "(!) $err",
-                    color = PalmRed,
-                    fontSize = 13.sp,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
-            if (memos.isEmpty()) {
-                PalmEmptyState("No memos. Tap + new to jot one down, or + file to have AI read a PDF / DOCX / image.")
-                return@Column
-            }
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
-                item {
-                    PalmListCard {
-                        memos.forEachIndexed { i, rec ->
-                            if (i > 0) PalmDivider()
-                            val text = rec.body.orEmpty().trim()
-                            val firstLine = text.lineSequence().firstOrNull().orEmpty()
-                            val rest = text.removePrefix(firstLine).trim()
-                            val aiMeta = when (rec.aiStatus) {
-                                "pending", "processing", "queued" -> "AI thinking..."
-                                else -> null
+        placeholder = "Pick a memo from the list, or tap + new.",
+        master = {
+            Column(modifier = Modifier.fillMaxSize()) {
+                uploadError?.let { err ->
+                    Text(
+                        text = "(!) $err",
+                        color = PalmRed,
+                        fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+                if (memos.isEmpty()) {
+                    PalmEmptyState("No memos. Tap + new to jot one down, or + file to have AI read a PDF / DOCX / image.")
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+                        item {
+                            PalmListCard {
+                                memos.forEachIndexed { i, rec ->
+                                    if (i > 0) PalmDivider()
+                                    val text = rec.body.orEmpty().trim()
+                                    val firstLine = text.lineSequence().firstOrNull().orEmpty()
+                                    val rest = text.removePrefix(firstLine).trim()
+                                    val aiMeta = when (rec.aiStatus) {
+                                        "pending", "processing", "queued" -> "AI thinking..."
+                                        else -> null
+                                    }
+                                    PalmRow(
+                                        title = firstLine.ifBlank { "(empty memo)" },
+                                        meta = aiMeta,
+                                        body = rest.ifBlank { null },
+                                        onClick = { editing = rec },
+                                    )
+                                }
                             }
-                            PalmRow(
-                                title = firstLine.ifBlank { "(empty memo)" },
-                                meta = aiMeta,
-                                body = rest.ifBlank { null },
-                                onClick = { editing = rec },
-                            )
                         }
                     }
                 }
             }
-        }
-    }
+        },
+        detailContent = { target, embedded ->
+            MemoEditor(
+                initial = target,
+                isNew = target.id.isEmpty(),
+                embedded = embedded,
+                onCancel = { editing = null },
+                onSave = { vm.save(it); editing = null },
+                onDelete = { vm.delete(target.id); editing = null },
+            )
+        },
+    )
 }
 
 private fun newMemo(): RecordEntity {
@@ -261,12 +262,14 @@ private fun MemoEditor(
     onCancel: () -> Unit,
     onSave: (RecordEntity) -> Unit,
     onDelete: () -> Unit,
+    embedded: Boolean = false,
 ) {
     var text by remember { mutableStateOf(initial.body ?: "") }
 
     EditorScaffold(
         title = if (isNew) "New Memo" else "Edit Memo",
         onCancel = onCancel,
+        embedded = embedded,
         saveEnabled = text.isNotBlank(),
         onSave = {
             onSave(initial.copy(id = initial.id.ifEmpty { Ulid.new() }, body = text.trim()))

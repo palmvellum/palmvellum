@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -238,14 +239,17 @@ fun MemoScreen(navController: NavHostController) {
             }
         },
         detailContent = { target, embedded ->
-            MemoEditor(
-                initial = target,
-                isNew = target.id.isEmpty(),
-                embedded = embedded,
-                onCancel = { editing = null },
-                onSave = { vm.save(it); editing = null },
-                onDelete = { vm.delete(target.id); editing = null },
-            )
+            // Key on the record id so tapping another memo re-inits the editor.
+            key(target.id) {
+                MemoEditor(
+                    initial = target,
+                    isNew = target.id.isEmpty(),
+                    embedded = embedded,
+                    onCancel = { editing = null },
+                    onSave = { vm.save(it); editing = null },
+                    onDelete = { vm.delete(target.id); editing = null },
+                )
+            }
         },
     )
 }

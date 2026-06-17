@@ -158,7 +158,7 @@ fun DateBookScreen(navController: NavHostController) {
     // Group events by local day once; week/month look up by date.
     val byDay = remember(events) { events.groupBy { DT.dateOf(it.startAt) } }
 
-    val modeOptions = listOf("agenda" to "agenda", "week" to "week", "month" to "month")
+    val modeOptions = listOf("agenda" to "agenda", "month" to "month")
     PalmScaffold(
         title = "Date Book",
         navController = navController,
@@ -219,27 +219,6 @@ fun DateBookScreen(navController: NavHostController) {
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (mode) {
-                    "week" -> if (BuildConfig.COSMO) {
-                        WeekViewCosmo(
-                            anchor = anchor,
-                            byDay = byDay,
-                            onPrev = { anchor = anchor.minusWeeks(1) },
-                            onNext = { anchor = anchor.plusWeeks(1) },
-                            onToday = { anchor = DT.nowDate() },
-                            onEdit = { editing = it },
-                            onAdd = { day -> editing = newEvent(day) },
-                        )
-                    } else {
-                        WeekView(
-                            anchor = anchor,
-                            byDay = byDay,
-                            onPrev = { anchor = anchor.minusWeeks(1) },
-                            onNext = { anchor = anchor.plusWeeks(1) },
-                            onToday = { anchor = DT.nowDate() },
-                            onEdit = { editing = it },
-                            onAdd = { day -> editing = newEvent(day) },
-                        )
-                    }
                     "month" -> {
                         // On the Cosmo's wide landscape display, show the month
                         // calendar on the right and the selected day's schedule
@@ -410,56 +389,6 @@ private fun DayBlockHeader(day: LocalDate, onAdd: (LocalDate) -> Unit) {
     }
 }
 
-// ── Cosmo week: Monday–Sunday across, each day its own column ────────────
-@Composable
-private fun WeekViewCosmo(
-    anchor: LocalDate,
-    byDay: Map<LocalDate, List<EventEntity>>,
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onToday: () -> Unit,
-    onEdit: (EventEntity) -> Unit,
-    onAdd: (LocalDate) -> Unit,
-) {
-    Column(Modifier.fillMaxSize().padding(10.dp)) {
-        PeriodNav(DT.weekTitle(anchor), onPrev, onNext, onToday)
-        Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier.fillMaxWidth().weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            DT.weekDaysMonFirst(anchor).forEach { day ->
-                Column(
-                    Modifier.weight(1f).fillMaxHeight()
-                        .border(1.dp, PalmLineSoft).background(PalmSurfaceLo),
-                ) {
-                    DayBlockHeader(day, onAdd)
-                    val dayEvents = byDay[day].orEmpty().sortedBy { it.startAt }
-                    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                        if (dayEvents.isEmpty()) {
-                            Text(
-                                "—", color = PalmInkMute, fontSize = 13.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            )
-                        } else {
-                            dayEvents.forEachIndexed { i, ev ->
-                                if (i > 0) PalmDivider()
-                                PalmRow(
-                                    title = ev.title,
-                                    meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt),
-                                    body = ev.location,
-                                    metaColor = PalmRed,
-                                    onClick = { onEdit(ev) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 // ── Month view ──────────────────────────────────────────────────────────
 /** Shared inputs for the month calendar + selected-day schedule. */
 private class MonthViewArgs(
@@ -616,48 +545,6 @@ private fun RowScope.MonthCell(
                 }
             }
         }
-    }
-}
-
-// ── Week view (7 day blocks, Sunday-first) ──────────────────────────────
-@Composable
-private fun WeekView(
-    anchor: LocalDate,
-    byDay: Map<LocalDate, List<EventEntity>>,
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onToday: () -> Unit,
-    onEdit: (EventEntity) -> Unit,
-    onAdd: (LocalDate) -> Unit,
-) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp),
-    ) {
-        PeriodNav(DT.weekTitle(anchor), onPrev, onNext, onToday)
-        Spacer(Modifier.height(8.dp))
-        DT.weekDays(anchor).forEach { day ->
-            val dayEvents = byDay[day].orEmpty().sortedBy { it.startAt }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                Text(
-                    "${DT.weekdayFull(day)} · ${DT.fmtDate(day)}".uppercase(),
-                    color = if (DT.isToday(day)) PalmInk else PalmInkMute,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f).padding(start = 2.dp, bottom = 4.dp),
-                )
-                Text(
-                    "+ add",
-                    color = PalmTitleBar, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onAdd(day) }.padding(6.dp),
-                )
-            }
-            if (dayEvents.isEmpty()) {
-                Text("—", color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
-            } else {
-                DayEventsCard(dayEvents, onEdit)
-            }
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }
 

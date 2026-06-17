@@ -133,11 +133,12 @@ Treat it as out of scope unless a future task explicitly targets it.
   - **month** — `MonthCalendarGrid(fillHeight = true)`: the six week rows share
     the pane height (weighted), cells drop their square `aspectRatio` and
     `fillMaxHeight` so the grid never overflows the short pane.
-  - **week** — `WeekViewCosmo`: Monday–Sunday (`DT.weekDaysMonFirst`) laid out as
-    7 columns across, each a scrollable day column with a dark-red `DayBlockHeader`.
   - **agenda** — `AgendaGridCosmo`: the next 7 days (`DT.nextDays`) as a
     `LazyVerticalGrid` (left-to-right, top-to-bottom), each a `DayBlock` card with
     a dark-red header (`PalmDarkRed`, brighter `PalmRed` when today).
+  - Mode switcher is **agenda + month only** (week view was removed). Editors in
+    the master/detail screens are wrapped in `key(record.id)` so tapping another
+    row swaps the editor directly instead of needing Cancel first.
   - **plan with AI** — the input rides in `titleCenter` beside the mode chips
     (`TitleSearch(onSubmit=…)`); parsed `DraftCard`s surface in a capped strip
     above the view so results show in any mode.

@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -85,15 +86,19 @@ fun AddressScreen(navController: NavHostController) {
                 if (!BuildConfig.COSMO) {
                     PalmField("Search", query, { query = it })
                 }
-                val visible = contacts
-                    .map { it to contactFieldsFrom(it.metadataJson) }
-                    .filter { (_, f) ->
-                        query.isBlank() ||
-                            listOfNotNull(
-                                f.palm_first_name, f.palm_last_name, f.palm_company, f.palm_phone, f.palm_email,
-                            ).any { it.contains(query, ignoreCase = true) }
-                    }
-                    .sortedBy { (_, f) -> displayName(f).lowercase() }
+                // Memoised so selecting a contact (which recomposes the screen)
+                // doesn't re-map/filter/sort the whole list every tap.
+                val visible = remember(contacts, query) {
+                    contacts
+                        .map { it to contactFieldsFrom(it.metadataJson) }
+                        .filter { (_, f) ->
+                            query.isBlank() ||
+                                listOfNotNull(
+                                    f.palm_first_name, f.palm_last_name, f.palm_company, f.palm_phone, f.palm_email,
+                                ).any { it.contains(query, ignoreCase = true) }
+                        }
+                        .sortedBy { (_, f) -> displayName(f).lowercase() }
+                }
                 if (visible.isEmpty()) {
                     PalmEmptyState("No contacts.")
                 } else {
@@ -117,14 +122,18 @@ fun AddressScreen(navController: NavHostController) {
             }
         },
         detailContent = { target, embedded ->
-            ContactEditor(
-                initial = target,
-                isNew = target.id.isEmpty(),
-                embedded = embedded,
-                onCancel = { editing = null },
-                onSave = { vm.save(it); editing = null },
-                onDelete = { vm.delete(target.id); editing = null },
-            )
+            // Key on the record id so tapping another contact while one is open
+            // re-inits the editor fields instead of keeping the first one's state.
+            key(target.id) {
+                ContactEditor(
+                    initial = target,
+                    isNew = target.id.isEmpty(),
+                    embedded = embedded,
+                    onCancel = { editing = null },
+                    onSave = { vm.save(it); editing = null },
+                    onDelete = { vm.delete(target.id); editing = null },
+                )
+            }
         },
     )
 }

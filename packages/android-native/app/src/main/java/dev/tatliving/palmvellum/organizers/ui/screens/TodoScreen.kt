@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -105,12 +106,15 @@ fun TodoScreen(navController: NavHostController) {
                         onSelect = { filter = it },
                     )
                 }
-                val visible = todos.filter {
-                    val done = todoFieldsFrom(it.metadataJson).palm_completed
-                    when (filter) {
-                        "open" -> !done
-                        "done" -> done
-                        else -> true
+                // Memoised so toggling/selecting a task doesn't re-filter every tap.
+                val visible = remember(todos, filter) {
+                    todos.filter {
+                        val done = todoFieldsFrom(it.metadataJson).palm_completed
+                        when (filter) {
+                            "open" -> !done
+                            "done" -> done
+                            else -> true
+                        }
                     }
                 }
                 if (visible.isEmpty()) {
@@ -150,14 +154,17 @@ fun TodoScreen(navController: NavHostController) {
             }
         },
         detailContent = { target, embedded ->
-            TodoEditor(
-                initial = target,
-                isNew = target.id.isEmpty(),
-                embedded = embedded,
-                onCancel = { editing = null },
-                onSave = { vm.save(it); editing = null },
-                onDelete = { vm.delete(target.id); editing = null },
-            )
+            // Key on the record id so tapping another task re-inits the editor.
+            key(target.id) {
+                TodoEditor(
+                    initial = target,
+                    isNew = target.id.isEmpty(),
+                    embedded = embedded,
+                    onCancel = { editing = null },
+                    onSave = { vm.save(it); editing = null },
+                    onDelete = { vm.delete(target.id); editing = null },
+                )
+            }
         },
     )
 }

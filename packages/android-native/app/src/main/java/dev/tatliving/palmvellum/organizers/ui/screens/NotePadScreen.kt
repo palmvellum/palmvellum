@@ -7,14 +7,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -481,48 +484,62 @@ private fun DrawSketch(
             onSave(data, canvasSize.width, canvasSize.height, strokeWidthPx, title)
         },
     ) {
-        Column(Modifier.fillMaxSize()) {
-            error?.let { err ->
-                Text(
-                    "(!) $err",
-                    color = PalmRed, fontSize = 13.sp,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
-            PalmField("Title (optional)", title, { title = it })
-            // Toolbar
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        // Two-pane: text input on the left, a square grid drawing area on the right.
+        Row(Modifier.fillMaxSize()) {
+            // Left column — text input + drawing controls.
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(12.dp),
             ) {
-                Text(
-                    "undo",
-                    color = if (hasInk) PalmTitleBar else PalmInkMute,
-                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clickable(enabled = hasInk) {
-                            if (current.isNotEmpty()) current = emptyList()
-                            else if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex)
-                        }
-                        .padding(6.dp),
-                )
-                Spacer(Modifier.width(20.dp))
-                Text(
-                    "clear",
-                    color = if (hasInk) PalmRed else PalmInkMute,
-                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clickable(enabled = hasInk) { strokes.clear(); current = emptyList() }
-                        .padding(6.dp),
-                )
-                Spacer(Modifier.weight(1f))
-                if (saving) Text("saving...", color = PalmInkMute, fontSize = 13.sp)
+                error?.let { err ->
+                    Text(
+                        "(!) $err",
+                        color = PalmRed, fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    )
+                }
+                PalmField("Title (optional)", title, { title = it })
+                Spacer(Modifier.height(8.dp))
+                // Toolbar
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "undo",
+                        color = if (hasInk) PalmTitleBar else PalmInkMute,
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clickable(enabled = hasInk) {
+                                if (current.isNotEmpty()) current = emptyList()
+                                else if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex)
+                            }
+                            .padding(6.dp),
+                    )
+                    Spacer(Modifier.width(20.dp))
+                    Text(
+                        "clear",
+                        color = if (hasInk) PalmRed else PalmInkMute,
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clickable(enabled = hasInk) { strokes.clear(); current = emptyList() }
+                            .padding(6.dp),
+                    )
+                }
+                if (saving) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("saving...", color = PalmInkMute, fontSize = 13.sp)
+                }
             }
-            // Canvas surface
-            Box(Modifier.fillMaxWidth().weight(1f).padding(12.dp)) {
+            // Right column — square graph-paper drawing surface.
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).fillMaxHeight().padding(12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val side = if (maxWidth < maxHeight) maxWidth else maxHeight
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(side)
                         .background(PaperBg)
                         .border(1.dp, PalmLine)
                         .onSizeChanged { canvasSize = it }
@@ -543,6 +560,19 @@ private fun DrawSketch(
                         },
                 ) {
                     Canvas(Modifier.fillMaxSize()) {
+                        // Faint graph-paper grid (square cells).
+                        val cell = size.minDimension / 12f
+                        val gridColor = Color(0x22000000)
+                        var gx = cell
+                        while (gx < size.width) {
+                            drawLine(gridColor, Offset(gx, 0f), Offset(gx, size.height), 1f)
+                            gx += cell
+                        }
+                        var gy = cell
+                        while (gy < size.height) {
+                            drawLine(gridColor, Offset(0f, gy), Offset(size.width, gy), 1f)
+                            gy += cell
+                        }
                         val all = strokes + listOf(current)
                         all.forEach { pts ->
                             when {

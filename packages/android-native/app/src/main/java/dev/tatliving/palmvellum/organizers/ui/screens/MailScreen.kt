@@ -41,6 +41,7 @@ import dev.tatliving.palmvellum.organizers.data.model.MailFields
 import dev.tatliving.palmvellum.organizers.data.model.MailSource
 import dev.tatliving.palmvellum.organizers.data.model.PalmJson
 import dev.tatliving.palmvellum.organizers.data.model.mailFieldsFrom
+import dev.tatliving.palmvellum.organizers.ui.MasterDetailScaffold
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.EditorScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmCategoryStrip
@@ -97,61 +98,65 @@ fun MailScreen(navController: NavHostController) {
     var tab by remember { mutableStateOf("inbox") } // inbox | sources
     var openId by remember { mutableStateOf<String?>(null) }
 
-    val open = openId?.let { id -> mails.firstOrNull { it.id == id } }
-    if (open != null) {
-        MailRead(open, onBack = { openId = null })
+    // Sources management is its own full screen, reachable via the title action.
+    if (tab == "sources") {
+        PalmScaffold(
+            title = "Mail",
+            navController = navController,
+            currentRoute = Routes.MAIL,
+            titleAction = { TitleAction("inbox") { tab = "inbox" } },
+        ) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding)) { MailSources(vm) }
+        }
         return
     }
 
-    PalmScaffold(
+    // Inbox: two-pane on Cosmo (open message left / inbox list right), classic
+    // full-screen swap on standard — like the other list+detail screens.
+    val open = openId?.let { id -> mails.firstOrNull { it.id == id } }
+    MasterDetailScaffold(
         title = "Mail",
         navController = navController,
         currentRoute = Routes.MAIL,
-        titleAction = {
-            TitleAction(if (tab == "inbox") "sources" else "inbox") {
-                tab = if (tab == "inbox") "sources" else "inbox"
-            }
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            if (!vm.signedIn) {
-                Text(
-                    "Sign in (Settings) to subscribe to sources and receive your AI morning paper.",
-                    color = PalmInkMute, fontSize = 13.sp,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
-            if (tab == "inbox") {
-                MailInbox(mails, onOpen = { openId = it })
-            } else {
-                MailSources(vm)
-            }
-        }
-    }
+        detail = open,
+        titleAction = { TitleAction("sources") { tab = "sources" } },
+        placeholder = "Pick a message from the inbox, or add a source.",
+        master = { MailInbox(mails, signedIn = vm.signedIn, onOpen = { openId = it }) },
+        detailContent = { rec, embedded -> MailRead(rec, embedded = embedded, onBack = { openId = null }) },
+    )
 }
 
 @Composable
-private fun MailInbox(mails: List<RecordEntity>, onOpen: (String) -> Unit) {
-    if (mails.isEmpty()) {
-        PalmEmptyState("No mail yet. Add a subscription under 'sources' — your AI digest arrives at the time you set.")
-        return
-    }
-    val sorted = remember(mails) { mails.sortedByDescending { it.createdAt } }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
-        item {
-            PalmListCard {
-                sorted.forEachIndexed { i, rec ->
-                    if (i > 0) PalmDivider()
-                    val f = mailFieldsFrom(rec.metadataJson)
-                    val unread = rec.aiStatus in listOf("pending", "processing", "queued")
-                    PalmRow(
-                        title = f.mail_subject ?: "(no subject)",
-                        meta = f.mail_date_local ?: rec.createdAt.take(10),
-                        body = listOfNotNull(f.mail_from ?: f.mail_source_name).joinToString().ifBlank { null },
-                        dim = false,
-                        metaColor = if (unread) PalmRed else PalmInkMute,
-                        onClick = { onOpen(rec.id) },
-                    )
+private fun MailInbox(mails: List<RecordEntity>, signedIn: Boolean, onOpen: (String) -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        if (!signedIn) {
+            Text(
+                "Sign in (Settings) to subscribe to sources and receive your AI morning paper.",
+                color = PalmInkMute, fontSize = 13.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+        if (mails.isEmpty()) {
+            PalmEmptyState("No mail yet. Add a subscription under 'sources' — your AI digest arrives at the time you set.")
+        } else {
+            val sorted = remember(mails) { mails.sortedByDescending { it.createdAt } }
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+                item {
+                    PalmListCard {
+                        sorted.forEachIndexed { i, rec ->
+                            if (i > 0) PalmDivider()
+                            val f = mailFieldsFrom(rec.metadataJson)
+                            val unread = rec.aiStatus in listOf("pending", "processing", "queued")
+                            PalmRow(
+                                title = f.mail_subject ?: "(no subject)",
+                                meta = f.mail_date_local ?: rec.createdAt.take(10),
+                                body = listOfNotNull(f.mail_from ?: f.mail_source_name).joinToString().ifBlank { null },
+                                dim = false,
+                                metaColor = if (unread) PalmRed else PalmInkMute,
+                                onClick = { onOpen(rec.id) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -159,9 +164,9 @@ private fun MailInbox(mails: List<RecordEntity>, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun MailRead(rec: RecordEntity, onBack: () -> Unit) {
+private fun MailRead(rec: RecordEntity, embedded: Boolean = false, onBack: () -> Unit) {
     val f = mailFieldsFrom(rec.metadataJson)
-    EditorScaffold(title = "Mail", onCancel = onBack, saveEnabled = false, onSave = {}) {
+    EditorScaffold(title = "Mail", onCancel = onBack, saveEnabled = false, embedded = embedded, onSave = {}) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)) {
             Text(f.mail_subject ?: "(no subject)", color = PalmInk, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))

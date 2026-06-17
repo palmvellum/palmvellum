@@ -14,3 +14,4 @@ val PalmInkMute = Color(0xFF555555)   // secondary text
 val PalmOnDark = Color(0xFFFFFFFF)    // text on dark title bar
 val PalmGreen = Color(0xFF1E7A3A)     // online indicator
 val PalmRed = Color(0xFFC0392B)       // offline / danger
+val PalmDarkRed = Color(0xFF7E2B22)   // dark red — Cosmo agenda/week day headers

@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -63,7 +67,9 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
+import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
+import dev.tatliving.palmvellum.organizers.ui.theme.PalmDarkRed
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmLineSoft
@@ -158,9 +164,28 @@ fun DateBookScreen(navController: NavHostController) {
         navController = navController,
         currentRoute = Routes.DATEBOOK,
         titleAction = { TitleAction("+ new") { editing = newEvent(selectedDay) } },
-        // Cosmo: the agenda/week/month switcher rides in the title bar to save height.
+        // Cosmo: the agenda/week/month switcher rides in the title bar, with the
+        // "plan with AI" input filling the grey space beside it.
         titleCenter = if (BuildConfig.COSMO) {
-            { TitleCategory(modeOptions, mode) { mode = it } }
+            {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TitleCategory(modeOptions, mode) { mode = it }
+                    if (vm.signedIn) {
+                        TitleSearch(
+                            value = aiText,
+                            onValueChange = { aiText = it },
+                            placeholder = "plan with AI",
+                            modifier = Modifier.weight(1f),
+                            onSubmit = {
+                                if (aiText.isNotBlank()) { vm.planWithAi(aiText); aiText = "" }
+                            },
+                        )
+                    }
+                }
+            }
         } else {
             null
         },
@@ -172,18 +197,49 @@ fun DateBookScreen(navController: NavHostController) {
                     selected = mode,
                     onSelect = { mode = it },
                 )
+            } else if (drafts.isNotEmpty()) {
+                // The plan-with-AI input now lives in the title bar, so surface its
+                // pending/parsed results across every Cosmo view — capped in height
+                // so they never crowd out the calendar.
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 150.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    drafts.forEach { d ->
+                        DraftCard(
+                            draft = d,
+                            parsed = vm.parsedEventsOf(d),
+                            onAccept = { vm.acceptDraft(d) },
+                            onReject = { vm.rejectDraft(d) },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (mode) {
-                    "week" -> WeekView(
-                        anchor = anchor,
-                        byDay = byDay,
-                        onPrev = { anchor = anchor.minusWeeks(1) },
-                        onNext = { anchor = anchor.plusWeeks(1) },
-                        onToday = { anchor = DT.nowDate() },
-                        onEdit = { editing = it },
-                        onAdd = { day -> editing = newEvent(day) },
-                    )
+                    "week" -> if (BuildConfig.COSMO) {
+                        WeekViewCosmo(
+                            anchor = anchor,
+                            byDay = byDay,
+                            onPrev = { anchor = anchor.minusWeeks(1) },
+                            onNext = { anchor = anchor.plusWeeks(1) },
+                            onToday = { anchor = DT.nowDate() },
+                            onEdit = { editing = it },
+                            onAdd = { day -> editing = newEvent(day) },
+                        )
+                    } else {
+                        WeekView(
+                            anchor = anchor,
+                            byDay = byDay,
+                            onPrev = { anchor = anchor.minusWeeks(1) },
+                            onNext = { anchor = anchor.plusWeeks(1) },
+                            onToday = { anchor = DT.nowDate() },
+                            onEdit = { editing = it },
+                            onAdd = { day -> editing = newEvent(day) },
+                        )
+                    }
                     "month" -> {
                         // On the Cosmo's wide landscape display, show the month
                         // calendar on the right and the selected day's schedule
@@ -202,14 +258,22 @@ fun DateBookScreen(navController: NavHostController) {
                         )
                         if (BuildConfig.COSMO) MonthViewTwoPane(monthArgs) else MonthView(monthArgs)
                     }
-                    else -> AgendaView(
-                        vm = vm,
-                        events = events,
-                        drafts = drafts,
-                        aiText = aiText,
-                        onAiText = { aiText = it },
-                        onEdit = { editing = it },
-                    )
+                    else -> if (BuildConfig.COSMO) {
+                        AgendaGridCosmo(
+                            byDay = byDay,
+                            onEdit = { editing = it },
+                            onAdd = { day -> editing = newEvent(day) },
+                        )
+                    } else {
+                        AgendaView(
+                            vm = vm,
+                            events = events,
+                            drafts = drafts,
+                            aiText = aiText,
+                            onAiText = { aiText = it },
+                            onEdit = { editing = it },
+                        )
+                    }
                 }
             }
         }
@@ -271,6 +335,131 @@ private fun AgendaView(
     }
 }
 
+// ── Cosmo agenda: next 7 days, left-to-right then top-to-bottom ──────────
+@Composable
+private fun AgendaGridCosmo(
+    byDay: Map<LocalDate, List<EventEntity>>,
+    onEdit: (EventEntity) -> Unit,
+    onAdd: (LocalDate) -> Unit,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(210.dp),
+        modifier = Modifier.fillMaxSize().padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        gridItems(DT.nextDays(count = 7), key = { it.toString() }) { day ->
+            DayBlock(day, byDay[day].orEmpty(), onEdit, onAdd)
+        }
+    }
+}
+
+/** One bordered day card: a dark-red header (brighter when today) + its events. */
+@Composable
+private fun DayBlock(
+    day: LocalDate,
+    events: List<EventEntity>,
+    onEdit: (EventEntity) -> Unit,
+    onAdd: (LocalDate) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().border(1.dp, PalmLineSoft).background(PalmSurfaceLo)) {
+        DayBlockHeader(day, onAdd)
+        val sorted = events.sortedBy { it.startAt }
+        if (sorted.isEmpty()) {
+            Text(
+                "No events.",
+                color = PalmInkMute, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            )
+        } else {
+            sorted.forEachIndexed { i, ev ->
+                if (i > 0) PalmDivider()
+                PalmRow(
+                    title = ev.title,
+                    meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt),
+                    body = ev.location,
+                    metaColor = PalmRed,
+                    onClick = { onEdit(ev) },
+                )
+            }
+        }
+    }
+}
+
+/** Dark-red day header used by the Cosmo agenda + week day columns. */
+@Composable
+private fun DayBlockHeader(day: LocalDate, onAdd: (LocalDate) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(if (DT.isToday(day)) PalmRed else PalmDarkRed)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                DT.weekdayFull(day).uppercase(),
+                color = PalmOnDark, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            )
+            Text(DT.fmtDate(day), color = PalmOnDark, fontSize = 11.sp)
+        }
+        Text(
+            "+ add",
+            color = PalmOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onAdd(day) }.padding(4.dp),
+        )
+    }
+}
+
+// ── Cosmo week: Monday–Friday across, each day its own column ────────────
+@Composable
+private fun WeekViewCosmo(
+    anchor: LocalDate,
+    byDay: Map<LocalDate, List<EventEntity>>,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit,
+    onEdit: (EventEntity) -> Unit,
+    onAdd: (LocalDate) -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(10.dp)) {
+        PeriodNav(DT.weekTitle(anchor), onPrev, onNext, onToday)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DT.workWeekDays(anchor).forEach { day ->
+                Column(
+                    Modifier.weight(1f).fillMaxHeight()
+                        .border(1.dp, PalmLineSoft).background(PalmSurfaceLo),
+                ) {
+                    DayBlockHeader(day, onAdd)
+                    val dayEvents = byDay[day].orEmpty().sortedBy { it.startAt }
+                    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                        if (dayEvents.isEmpty()) {
+                            Text(
+                                "—", color = PalmInkMute, fontSize = 13.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            )
+                        } else {
+                            dayEvents.forEachIndexed { i, ev ->
+                                if (i > 0) PalmDivider()
+                                PalmRow(
+                                    title = ev.title,
+                                    meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt),
+                                    body = ev.location,
+                                    metaColor = PalmRed,
+                                    onClick = { onEdit(ev) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── Month view ──────────────────────────────────────────────────────────
 /** Shared inputs for the month calendar + selected-day schedule. */
 private class MonthViewArgs(
@@ -310,41 +499,48 @@ private fun MonthViewTwoPane(args: MonthViewArgs) {
             Spacer(Modifier.height(24.dp))
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
-            MonthCalendarGrid(args)
+            // Cosmo's pane is short and not scrollable, so let the grid fill the
+            // available height instead of forcing square cells that overflow.
+            MonthCalendarGrid(args, fillHeight = true)
         }
     }
 }
 
-/** ‹ month › nav + weekday header + the 6×7 day grid. */
+/** ‹ month › nav + weekday header + the 6×7 day grid. When [fillHeight] the six
+ *  week rows share the available vertical space (Cosmo); otherwise the cells stay
+ *  square and the grid takes its natural height (standard, inside a scroll). */
 @Composable
-private fun MonthCalendarGrid(args: MonthViewArgs) {
+private fun MonthCalendarGrid(args: MonthViewArgs, fillHeight: Boolean = false) {
     val grid = DT.monthGrid(args.anchor)
-    PeriodNav(DT.monthTitle(args.anchor), args.onPrev, args.onNext, args.onToday)
-    Spacer(Modifier.height(8.dp))
-    // Weekday header
-    Row(Modifier.fillMaxWidth()) {
-        DT.DOW_SHORT.forEachIndexed { i, d ->
-            Text(
-                text = d,
-                color = if (i == 0 || i == 6) PalmRed else PalmInkMute,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f).padding(bottom = 4.dp),
-            )
-        }
-    }
-    // 6 weeks
-    grid.chunked(7).forEach { week ->
+    Column(if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth()) {
+        PeriodNav(DT.monthTitle(args.anchor), args.onPrev, args.onNext, args.onToday)
+        Spacer(Modifier.height(8.dp))
+        // Weekday header
         Row(Modifier.fillMaxWidth()) {
-            week.forEach { day ->
-                MonthCell(
-                    day = day,
-                    inMonth = day.month == args.anchor.month,
-                    selected = day == args.selectedDay,
-                    count = args.byDay[day]?.size ?: 0,
-                    onClick = { args.onSelectDay(day) },
+            DT.DOW_SHORT.forEachIndexed { i, d ->
+                Text(
+                    text = d,
+                    color = if (i == 0 || i == 6) PalmRed else PalmInkMute,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f).padding(bottom = 4.dp),
                 )
+            }
+        }
+        // 6 weeks
+        grid.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth().then(if (fillHeight) Modifier.weight(1f) else Modifier)) {
+                week.forEach { day ->
+                    MonthCell(
+                        day = day,
+                        inMonth = day.month == args.anchor.month,
+                        selected = day == args.selectedDay,
+                        count = args.byDay[day]?.size ?: 0,
+                        fillHeight = fillHeight,
+                        onClick = { args.onSelectDay(day) },
+                    )
+                }
             }
         }
     }
@@ -379,6 +575,7 @@ private fun RowScope.MonthCell(
     inMonth: Boolean,
     selected: Boolean,
     count: Int,
+    fillHeight: Boolean = false,
     onClick: () -> Unit,
 ) {
     val bg = when {
@@ -389,7 +586,7 @@ private fun RowScope.MonthCell(
     Box(
         Modifier
             .weight(1f)
-            .aspectRatio(1f)
+            .then(if (fillHeight) Modifier.fillMaxHeight() else Modifier.aspectRatio(1f))
             .padding(1.dp)
             .background(bg)
             .border(

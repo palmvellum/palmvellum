@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -195,6 +197,9 @@ fun TitleSearch(
     onValueChange: (String) -> Unit,
     placeholder: String = "search",
     modifier: Modifier = Modifier,
+    // When set, the keyboard shows a "Go" action that fires this (used by the
+    // Date Book "plan with AI" field; the contact search leaves it null).
+    onSubmit: (() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier
@@ -210,6 +215,16 @@ fun TitleSearch(
             singleLine = true,
             textStyle = TextStyle(color = PalmOnDark, fontSize = 14.sp),
             cursorBrush = SolidColor(PalmOnDark),
+            keyboardOptions = if (onSubmit != null) {
+                KeyboardOptions(imeAction = ImeAction.Go)
+            } else {
+                KeyboardOptions.Default
+            },
+            keyboardActions = if (onSubmit != null) {
+                KeyboardActions(onGo = { onSubmit() })
+            } else {
+                KeyboardActions.Default
+            },
             modifier = Modifier.fillMaxWidth(),
             decorationBox = { inner ->
                 if (value.isEmpty()) {

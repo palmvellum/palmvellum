@@ -8,6 +8,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -26,7 +27,15 @@ object DT {
         date.atTime(time).atZone(zone).toInstant().toString()
 
     private fun parse(iso: String): LocalDateTime? =
-        runCatching { Instant.parse(iso).atZone(zone).toLocalDateTime() }.getOrNull()
+        // Server timestamptz comes back with a numeric offset
+        // ("2026-06-17T10:00:00+00:00"), which Instant.parse rejects — it only
+        // accepts a "Z" suffix (what our own toIso() emits). Before this was
+        // lenient, every server-pulled event fell through to nowDate() and the
+        // whole calendar collapsed onto today. OffsetDateTime handles both forms.
+        runCatching { OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDateTime() }
+            .recoverCatching { Instant.parse(iso).atZone(zone).toLocalDateTime() }
+            .recoverCatching { LocalDateTime.parse(iso) }
+            .getOrNull()
 
     fun dayLabel(iso: String): String = parse(iso)?.toLocalDate()?.format(dayFmt) ?: iso
     fun timeLabel(iso: String): String = parse(iso)?.toLocalTime()?.format(timeFmt) ?: ""
@@ -64,6 +73,16 @@ object DT {
         val s = startOfWeek(anchor)
         return (0L until 7L).map { s.plusDays(it) }
     }
+
+    /** Monday–Friday (一至五) of the week containing [anchor]. */
+    fun workWeekDays(anchor: LocalDate): List<LocalDate> {
+        val monday = anchor.minusDays(((anchor.dayOfWeek.value + 6) % 7).toLong())
+        return (0L until 5L).map { monday.plusDays(it) }
+    }
+
+    /** [count] consecutive days starting at [start] (default today). */
+    fun nextDays(start: LocalDate = nowDate(), count: Int = 7): List<LocalDate> =
+        (0L until count.toLong()).map { start.plusDays(it) }
 
     fun monthTitle(d: LocalDate): String = d.format(monthTitleFmt)
 

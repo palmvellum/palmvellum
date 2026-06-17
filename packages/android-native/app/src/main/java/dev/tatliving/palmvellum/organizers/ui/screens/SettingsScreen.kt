@@ -2,11 +2,15 @@ package dev.tatliving.palmvellum.organizers.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
@@ -14,18 +18,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import dev.tatliving.palmvellum.organizers.data.CalSub
+import dev.tatliving.palmvellum.organizers.data.CalSubStore
+import dev.tatliving.palmvellum.organizers.data.CalendarSync
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.sync.SyncStatus
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
+import dev.tatliving.palmvellum.organizers.ui.components.PalmDivider
 import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
@@ -81,7 +94,10 @@ fun SettingsScreen(navController: NavHostController) {
         currentRoute = Routes.SETTINGS,
         titleAction = { TitleAction("home") { navController.navigate(Routes.LAUNCHER) { popUpTo(Routes.LAUNCHER) { inclusive = true } } } },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(top = 8.dp)) {
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(top = 8.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text(
                 "Cloud sync",
                 color = PalmInk,
@@ -165,6 +181,84 @@ fun SettingsScreen(navController: NavHostController) {
                     )
                 }
             }
+
+            Spacer(Modifier.height(20.dp))
+            PalmDivider()
+            Spacer(Modifier.height(12.dp))
+            CalendarSubscriptionsSection()
+            Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+/** Manage read-only iCal calendar subscriptions (e.g. a Google Calendar feed). */
+@Composable
+private fun CalendarSubscriptionsSection() {
+    val context = LocalContext.current
+    val store = remember { CalSubStore(context) }
+    var subs by remember { mutableStateOf(store.list()) }
+    var name by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var msg by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    Text(
+        "Calendar subscriptions",
+        color = PalmInk, fontSize = 16.sp,
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+    )
+    Text(
+        "Read-only iCal feeds — e.g. a Google Calendar's \"Secret address in iCal format\". Events are pulled in and synced. Tap Refresh after adding.",
+        color = PalmInkMute, fontSize = 13.sp,
+        modifier = Modifier.padding(horizontal = 14.dp),
+    )
+    Spacer(Modifier.height(8.dp))
+
+    subs.forEach { sub ->
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(sub.name.ifBlank { sub.url }, color = PalmInk, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(sub.url, color = PalmInkMute, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(
+                "remove",
+                color = PalmRed, fontSize = 13.sp,
+                modifier = Modifier.clickable { store.remove(sub.url); subs = store.list() }.padding(6.dp),
+            )
+        }
+    }
+
+    PalmField("Name", name, { name = it })
+    PalmField("iCal URL", url, { url = it })
+    msg?.let {
+        Text(it, color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+    }
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+        Button(
+            onClick = {
+                if (url.isNotBlank()) {
+                    store.add(CalSub(name.trim(), url.trim()))
+                    subs = store.list(); name = ""; url = ""; msg = null
+                }
+            },
+            enabled = url.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
+        ) { Text("Add") }
+        Spacer(Modifier.width(8.dp))
+        OutlinedButton(
+            enabled = !busy,
+            onClick = {
+                busy = true; msg = null
+                scope.launch {
+                    val r = CalendarSync.refresh(context)
+                    busy = false
+                    msg = r.fold({ "Refreshed: $it event(s) updated." }, { "Error: ${it.message}" })
+                }
+            },
+        ) { Text(if (busy) "Refreshing..." else "Refresh now") }
     }
 }

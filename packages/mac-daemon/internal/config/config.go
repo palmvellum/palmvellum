@@ -9,11 +9,22 @@ import (
 	"strings"
 )
 
+// Baked-in public defaults so the shipped end-user app works with no
+// configuration. Both are safe to distribute: the publishable key only
+// permits RLS-scoped access once a user logs in.
+const (
+	DefaultSupabaseURL            = "https://jrkwncplngmznfzzqwee.supabase.co"
+	DefaultSupabasePublishableKey = "sb_publishable_UoFQ7p6EPTm0cbqimURGPQ_J1HO_aR-"
+)
+
 // Config is the resolved runtime configuration. All fields are
 // populated from environment variables.
 type Config struct {
-	SupabaseURL       string
-	SupabaseSecretKey string
+	SupabaseURL string
+	// SupabasePublishableKey is the public apikey sent on every request.
+	// The per-user bearer token comes from the saved login session.
+	SupabasePublishableKey string
+	SupabaseSecretKey      string
 
 	// AI provider selection: "openai" (default) or "anthropic".
 	AIProvider      string
@@ -47,8 +58,9 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		SupabaseURL:       env("SUPABASE_URL", ""),
-		SupabaseSecretKey: env("SUPABASE_SECRET_KEY", ""),
+		SupabaseURL:            env("SUPABASE_URL", DefaultSupabaseURL),
+		SupabasePublishableKey: env("SUPABASE_PUBLISHABLE_KEY", DefaultSupabasePublishableKey),
+		SupabaseSecretKey:      env("SUPABASE_SECRET_KEY", ""),
 
 		AIProvider:      env("AI_PROVIDER", "openai"),
 		OpenAIAPIKey:    env("OPENAI_API_KEY", ""),

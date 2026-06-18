@@ -23,7 +23,8 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/pdb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/charset"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/pdb"
 )
 
 const (
@@ -59,7 +60,7 @@ func ParseAppInfo(b []byte) (*AppInfo, error) {
 		for nameEnd < end && b[nameEnd] != 0 {
 			nameEnd++
 		}
-		ai.Categories[i].Name = string(b[off:nameEnd])
+		ai.Categories[i].Name = charset.FromPalm(b[off:nameEnd])
 		ai.Categories[i].UniqID = b[2+NumCategories*CategoryNameLen+i]
 		ai.Categories[i].Renamed = (renamed & (1 << i)) != 0
 	}
@@ -83,7 +84,7 @@ func (ai *AppInfo) Encode() []byte {
 	binary.BigEndian.PutUint16(out[0:2], renamed)
 	for i, c := range ai.Categories {
 		off := 2 + i*CategoryNameLen
-		name := []byte(c.Name)
+		name := charset.ToPalm(c.Name)
 		if len(name) > CategoryNameLen-1 {
 			name = name[:CategoryNameLen-1]
 		}
@@ -176,7 +177,7 @@ func DecodeMemos(db *pdb.DB) []Memo {
 		out = append(out, Memo{
 			UniqueID: r.UniqueID,
 			Category: r.Attributes & 0x0F,
-			Text:     string(txt),
+			Text:     charset.FromPalm(txt),
 		})
 	}
 	return out
@@ -188,8 +189,9 @@ func DecodeMemos(db *pdb.DB) []Memo {
 func EncodeMemos(memos []Memo) []pdb.Record {
 	out := make([]pdb.Record, 0, len(memos))
 	for _, m := range memos {
-		data := make([]byte, 0, len(m.Text)+1)
-		data = append(data, []byte(m.Text)...)
+		enc := charset.ToPalm(m.Text)
+		data := make([]byte, 0, len(enc)+1)
+		data = append(data, enc...)
 		data = append(data, 0)
 		out = append(out, pdb.Record{
 			UniqueID:   m.UniqueID,

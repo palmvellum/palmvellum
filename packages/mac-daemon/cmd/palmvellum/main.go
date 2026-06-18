@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/rs/zerolog"
@@ -38,6 +39,14 @@ func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
+	// When double-clicked as PalmVellum.app, macOS launches the binary
+	// from inside the bundle with no arguments. In that case default to
+	// the menu-bar UI; from a terminal (any other path) keep full CLI
+	// semantics so `palmvellum login`, `version`, etc. still work.
+	if len(os.Args) == 1 && strings.Contains(os.Args[0], "/Contents/MacOS/") {
+		os.Args = append(os.Args, "app")
+	}
+
 	root := &cobra.Command{
 		Use:   "palmvellum",
 		Short: "PalmVellum Mac daemon",
@@ -50,7 +59,11 @@ localhost HTTP API for the PWA / system tray UI.`,
 	root.AddCommand(
 		serveCmd(),
 		doctorCmd(),
-		syncCmd(),
+		loginCmd(),
+		logoutCmd(),
+		whoamiCmd(),
+		cardSyncCmd(),
+		appCmd(),
 		versionCmd(),
 	)
 
@@ -183,17 +196,6 @@ func doctorCmd() *cobra.Command {
 			// TODO(v0.5): check Removable Media access for serial cradle
 
 			fmt.Println("✅ doctor finished")
-			return nil
-		},
-	}
-}
-
-func syncCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "sync",
-		Short: "Trigger a one-shot sync (placeholder until issue #10/14)",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Println("sync not yet implemented — see GitHub issue #14")
 			return nil
 		},
 	}

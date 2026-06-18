@@ -1,0 +1,21 @@
+<!--
+  Magic Link / email-OTP template for PalmVellum — MIRRORS PRODUCTION.
+
+  IMPORTANT: code-only, NO {{ .ConfirmationURL }} link. The desktop app
+  (packages/mac-daemon) logs in with the 6-digit code. Email security
+  scanners (Outlook SafeLinks, etc.) auto-visit any link in the email,
+  which consumes the shared token and makes the code fail with
+  "otp_expired / Token has expired or is invalid" — even seconds after it
+  arrives. Removing the link removes the thing that gets pre-consumed.
+
+  Applied to the hosted project via the Management API field
+  `mailer_templates_magic_link_content` (2026-06-19). Keep this file in
+  sync if you edit the template in the dashboard.
+-->
+<h2>Your PalmVellum sign-in code</h2>
+
+<p>Enter this 6-digit code in the app to sign in. The code expires in 60 minutes.</p>
+
+<p style="font-size:28px;letter-spacing:0.3em;font-weight:bold;background:#f4d35e;color:#1c1c1c;padding:12px 20px;display:inline-block;border-radius:6px;">{{ .Token }}</p>
+
+<p style="color:#999;font-size:12px;margin-top:30px;">If you did not request this email, you can safely ignore it.</p>

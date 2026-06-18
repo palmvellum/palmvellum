@@ -194,6 +194,15 @@ tests pass. What remains is hardware/identity-gated and left to the owner.
 - GoTrue endpoint + publishable key reachable (bad creds → 400, not 401).
 - Live cloud pull post-refactor: 8 memos, ASCII separator, zero em-dash bytes.
 
+**On-device flow + soft reset (resolved 2026-06-19)**
+
+The on-device half uses the **Sony CLIE's built-in MS Backup** app: back up
+to the Memory Stick, sync on the Mac, restore from the card. No custom
+software on the Palm. After Fix B removes the AppleDouble droppings, the CLIE
+still does a brief **soft reset** when restoring from card — confirmed by the
+owner to be **expected and harmless**: records load normally and the device
+keeps working. So it is accepted behaviour, not an outstanding bug.
+
 **Left to the owner (hardware / identity gated)**
 
 - Real login from the app (needs the account password — not available to CI).

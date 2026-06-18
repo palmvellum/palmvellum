@@ -53,14 +53,26 @@
   <section class="card">
     <h2>3 · Sync a card</h2>
     <ol>
-      <li>On the Palm, run <em>MS Backup</em> → back up to the card.</li>
+      <li>
+        On the Sony CLIE, use the <strong>built-in MS Backup</strong> app to
+        back up to the Memory Stick — the same on-device flow you already use,
+        nothing new to install on the Palm.
+      </li>
       <li>Put the card into a reader connected to your Mac.</li>
       <li>
-        The app detects the card and syncs automatically — or click
-        <em>Sync inserted card</em> in the menu.
+        The app detects the card and syncs automatically (it waits for any
+        <em>(AI)</em> answers), then ejects it for you.
       </li>
-      <li>Eject, put the card back in the Palm, and <em>restore from card</em>.</li>
+      <li>
+        Put the card back in the CLIE and <strong>restore from card</strong> in
+        MS Backup.
+      </li>
     </ol>
+    <p class="note">
+      On restore the CLIE may do a brief <strong>soft reset</strong> — this is
+      expected and harmless; your records load normally and the device keeps
+      working as usual.
+    </p>
     <p class="note">
       Today this syncs <strong>Memo Pad</strong> and <strong>To Do</strong>.
       Date Book, Address, Mail and Expense are coming. Conflicting edits use

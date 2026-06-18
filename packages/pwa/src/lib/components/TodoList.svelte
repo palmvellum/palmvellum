@@ -234,6 +234,12 @@
   const openCount = $derived(todos.filter((t) => !completed(t)).length);
   const doneCount = $derived(todos.filter((t) => completed(t)).length);
 
+  // Precomputed outside the list loop: inside `{#each ... as t}` the
+  // loop variable `t` shadows the imported i18n `t()`, so calling
+  // `t('common.delete')` there throws (a todo object is not a function)
+  // and crashes the whole list render once any task exists.
+  const deleteLabel = $derived(t('common.delete'));
+
   $effect(() => {
     if (authState.phase === 'ready') void load();
   });
@@ -382,7 +388,7 @@
                   type="button"
                   class="del-btn"
                   onclick={() => deleteTodo(t)}
-                >{t('common.delete')}</button>
+                >{deleteLabel}</button>
               </div>
             </div>
           {/if}

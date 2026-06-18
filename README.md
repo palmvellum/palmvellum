@@ -79,9 +79,12 @@ It ships in two flavors that install side by side:
 
 #### Screenshots — Cosmo edition
 
-<!-- Screenshots live in docs/screenshots/ — captured on a real Cosmo (2160×1080):
-     cosmo-launcher.png · cosmo-datebook.png · cosmo-address.png · cosmo-editor.png -->
-_Coming soon — captured on a real Cosmo Communicator (2160×1080)._
+| | |
+|---|---|
+| ![Launcher](docs/screenshots/cosmo-launcher.png) | ![Date Book](docs/screenshots/cosmo-datebook.png) |
+| ![Address](docs/screenshots/cosmo-address.png) | ![Memo editor](docs/screenshots/cosmo-editor.png) |
+
+_Captured on a real Cosmo Communicator (2160×1080): the Applications launcher, Date Book month view, an Address contact, and the Memo Pad AI editor._
 
 ### Quick start (development)
 
@@ -143,7 +146,13 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 > ⚠️ **冇喺 Play Store 上架。** 呢啲係 sideload（debug 簽署）APK，未經 Play 審查，要先允許「安裝未知來源 app」先裝到。**冇任何保養，使用風險自負。**
 
 #### Screenshots — Cosmo 版
-_即將加入 — 喺真 Cosmo Communicator（2160×1080）影。_
+
+| | |
+|---|---|
+| ![啟動器](docs/screenshots/cosmo-launcher.png) | ![日程](docs/screenshots/cosmo-datebook.png) |
+| ![通訊錄](docs/screenshots/cosmo-address.png) | ![備忘編輯](docs/screenshots/cosmo-editor.png) |
+
+_喺真 Cosmo Communicator（2160×1080）影：應用程式啟動器、Date Book 月曆、通訊錄聯絡人、Memo Pad AI 編輯器。_
 
 ---
 
@@ -195,7 +204,13 @@ _即將加入 — 喺真 Cosmo Communicator（2160×1080）影。_
 > ⚠️ **未在 Play Store 上架。** 这些是 sideload（debug 签名）APK，未经 Play 审查，需先允许「安装未知来源应用」才能安装。**不提供任何保修，使用风险自负。**
 
 #### Screenshots — Cosmo 版
-_即将加入 — 在真 Cosmo Communicator（2160×1080）拍摄。_
+
+| | |
+|---|---|
+| ![启动器](docs/screenshots/cosmo-launcher.png) | ![日程](docs/screenshots/cosmo-datebook.png) |
+| ![通讯录](docs/screenshots/cosmo-address.png) | ![备忘编辑](docs/screenshots/cosmo-editor.png) |
+
+_在真 Cosmo Communicator（2160×1080）拍摄：应用程序启动器、Date Book 月历、通讯录联系人、Memo Pad AI 编辑器。_
 
 ---
 

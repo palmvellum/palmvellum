@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="432" height="432" viewBox="0 0 432 432" xmlns="http://www.w3.org/2000/svg">
+  <!-- PalmVellum launcher foreground: a cream "vellum" organizer card with a
+       lowercase Palm-style "palm" wordmark heading and orange ruled lines,
+       plus a folded bottom-right corner (dog-ear). Content sits inside the
+       72dp adaptive safe zone (72..360 px @4x). -->
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBFAF4"/>
+      <stop offset="1" stop-color="#ECEADE"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E6E3D4"/>
+      <stop offset="1" stop-color="#CBC7B5"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#2C2C2A" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+
+  <!-- Card body with a cut bottom-right corner (the dog-ear crease). -->
+  <path filter="url(#cardShadow)" fill="url(#card)" stroke="#C9C7B8" stroke-width="1.5"
+        d="M122,84
+           H310
+           a18,18 0 0 1 18,18
+           V292
+           L274,346
+           H122
+           a18,18 0 0 1 -18,-18
+           V102
+           a18,18 0 0 1 18,-18 Z"/>
+
+  <!-- Folded corner flap (back of the sheet). -->
+  <path fill="url(#fold)" stroke="#BCB8A6" stroke-width="1"
+        d="M328,292 L274,346 L328,346 Z"/>
+  <path fill="none" stroke="#B7B097" stroke-width="2.5" stroke-opacity="0.55"
+        d="M328,292 L274,346"/>
+
+  <!-- Left margin rule (Palm orange, light). -->
+  <rect x="150" y="160" width="3" height="158" rx="1.5" fill="#F2A571" fill-opacity="0.9"/>
+
+  <!-- "palm" wordmark heading (lowercase, rounded, Palm orange). -->
+  <text x="148" y="146" fill="#EE6A1F"
+        font-family="'Arial Rounded MT Bold','Arial Rounded Bold',Arial,sans-serif"
+        font-size="52" font-weight="700" letter-spacing="-1.5">palm</text>
+
+  <!-- Ruled organizer lines (orange). -->
+  <g fill="#C9621F" fill-opacity="0.8">
+    <rect x="166" y="180" width="134" height="7" rx="3.5"/>
+    <rect x="166" y="210" width="134" height="7" rx="3.5"/>
+    <rect x="166" y="240" width="128" height="7" rx="3.5"/>
+    <rect x="166" y="270" width="120" height="7" rx="3.5"/>
+  </g>
+</svg>

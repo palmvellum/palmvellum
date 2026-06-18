@@ -1,0 +1,5 @@
+module github.com/palmvellum/palmvellum/packages/palm-engine
+
+go 1.23
+
+require golang.org/x/text v0.21.0

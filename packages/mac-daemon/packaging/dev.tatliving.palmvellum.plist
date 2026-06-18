@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Optional LaunchAgent for auto-start on login.
+
+  The shipped .app is a menu-bar (LSUIElement) app; the proper macOS 13+
+  way to auto-start it is SMAppService from inside the app. This plist is
+  the simpler fallback for a manual install:
+
+    cp packaging/dev.tatliving.palmvellum.plist ~/Library/LaunchAgents/
+    # edit the path below to your installed app, then:
+    launchctl load ~/Library/LaunchAgents/dev.tatliving.palmvellum.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.tatliving.palmvellum</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Applications/PalmVellum.app/Contents/MacOS/palmvellum</string>
+    <string>menubar</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+</dict>
+</plist>

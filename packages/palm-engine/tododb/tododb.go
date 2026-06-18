@@ -25,8 +25,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/memodb"
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/pdb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/charset"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/memodb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/pdb"
 )
 
 const AppInfoLen = 282
@@ -82,7 +83,7 @@ func DecodeTodo(data []byte) (Todo, error) {
 	for descEnd < len(data) && data[descEnd] != 0 {
 		descEnd++
 	}
-	t.Description = string(data[3:descEnd])
+	t.Description = charset.FromPalm(data[3:descEnd])
 
 	if descEnd+1 < len(data) {
 		notesStart := descEnd + 1
@@ -90,7 +91,7 @@ func DecodeTodo(data []byte) (Todo, error) {
 		for notesEnd < len(data) && data[notesEnd] != 0 {
 			notesEnd++
 		}
-		t.Notes = string(data[notesStart:notesEnd])
+		t.Notes = charset.FromPalm(data[notesStart:notesEnd])
 	}
 	return t, nil
 }
@@ -109,10 +110,10 @@ func (t Todo) Encode() []byte {
 		prio |= 0x80
 	}
 	buf.WriteByte(prio)
-	buf.WriteString(t.Description)
+	buf.Write(charset.ToPalm(t.Description))
 	buf.WriteByte(0)
 	if t.Notes != "" {
-		buf.WriteString(t.Notes)
+		buf.Write(charset.ToPalm(t.Notes))
 	}
 	buf.WriteByte(0)
 	return buf.Bytes()

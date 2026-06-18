@@ -58,9 +58,13 @@ Help you accumulate a slow, deliberate body of personal records — calendar, co
 packages/
 ├── pwa/             SvelteKit + adapter-static web app
 │                    (Organizers dashboard at tatliving.dev/palmvellum/app)
-├── sync-cli/        Go CLI: vellum-sync — manual VellumDB / MemoDB /
+├── palm-engine/     Shared Go module: .pdb codec, UTF-8⇄Big5 charset,
+│                    AppleDouble-safe card I/O, Supabase client, and the
+│                    card↔cloud sync engine (Memo + To Do)
+├── mac-daemon/      PalmVellum.app — macOS window app: passwordless login,
+│                    card auto-detect + sync + eject (uses palm-engine)
+├── sync-cli/        Go CLI prototype: vellum-sync — manual MemoDB /
 │                    ToDoDB ↔ Supabase round-trip
-├── mac-daemon/      Go scaffold for the future Network HotSync daemon
 └── android/         Capacitor scaffold for the Palm Organizers Android
                      companion app (in prep)
 supabase/
@@ -72,6 +76,31 @@ supabase/
 docs/                Project docs: hardware-compatibility (reference
                      target list + buying tips)
 ```
+
+### Desktop sync app — PalmVellum.app (macOS)
+
+A small macOS app syncs a Palm backup card with your cloud copy. The on‑device
+half uses the **Sony CLIE's built‑in MS Backup** — back up to the Memory Stick,
+drop the card in a reader, and the app does the rest. Nothing new is installed
+on the Palm.
+
+<p align="center">
+  <img src="docs/screenshots/sync-app.png" width="420" alt="PalmVellum desktop sync app — login status, settings, and a live sync log">
+</p>
+
+- **Passwordless login** — sign in with your platform account via an emailed
+  code; the session is kept in the macOS Keychain, so you stay logged in until
+  you log out. Every sync is scoped to you by Postgres RLS (no keys to copy).
+- **Insert‑and‑go** — the app detects the card, syncs **Memo Pad** and
+  **To Do**, and ejects it for you. It can wait for any `(AI)` memo answers so
+  they come back to the card in the same sync.
+- **Restore on the Palm** — put the card back and use MS Backup's *restore from
+  card*. The CLIE may do a brief **soft reset** on restore — this is expected
+  and harmless; your records load normally.
+
+Build it from [`packages/mac-daemon/`](packages/mac-daemon/) with
+`bash packaging/build-app.sh` → `dist/PalmVellum.app`. Today it syncs Memo Pad
+and To Do; Date Book, Address, Mail and Expense are on the way.
 
 ### Android app — Palm Organizers (native)
 

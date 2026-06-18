@@ -10,6 +10,7 @@
    * is scoped to this user by Postgres RLS — no keys to copy.
    */
   import { authState } from '$lib/auth.svelte';
+  import { base } from '$app/paths';
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 </script>
 
@@ -22,6 +23,9 @@
     desktop app syncs it with your cloud copy — then writes the merged
     databases back so you can restore on the Palm.
   </p>
+
+  <img class="shot" src="{base}/sync-app.png"
+       alt="PalmVellum desktop sync app — login status, settings, and a live sync log" />
 
   <section class="card">
     <h2>1 · Install the app</h2>
@@ -91,6 +95,15 @@
     color: var(--ink-dim);
     line-height: 1.5;
     margin: 0 0 1.25rem;
+  }
+  .shot {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    height: auto;
+    margin: 0 auto 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
   }
   .card {
     border: 1px solid var(--line);

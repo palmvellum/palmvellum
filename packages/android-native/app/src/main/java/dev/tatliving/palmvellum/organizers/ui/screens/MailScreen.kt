@@ -74,6 +74,9 @@ class MailViewModel : ViewModel() {
 
     fun refresh() = viewModelScope.launch { if (Graph.sync.isSignedIn) Graph.sync.syncNow() }
 
+    /** Delete a mail digest from the inbox (soft-deletes the record + syncs). */
+    fun delete(id: String) = viewModelScope.launch { repo.deleteRecord(id) }
+
     // ── mail_sources (subscriptions) live in their own table, online-only ──
     suspend fun loadSources(): Result<List<MailSource>> {
         val uid = Graph.session.userId ?: return Result.success(emptyList())
@@ -122,7 +125,14 @@ fun MailScreen(navController: NavHostController) {
         titleAction = { TitleAction("sources") { tab = "sources" } },
         placeholder = "Pick a message from the inbox, or add a source.",
         master = { MailInbox(mails, signedIn = vm.signedIn, onOpen = { openId = it }) },
-        detailContent = { rec, embedded -> MailRead(rec, embedded = embedded, onBack = { openId = null }) },
+        detailContent = { rec, embedded ->
+            MailRead(
+                rec,
+                embedded = embedded,
+                onBack = { openId = null },
+                onDelete = { vm.delete(rec.id); openId = null },
+            )
+        },
     )
 }
 
@@ -164,7 +174,7 @@ private fun MailInbox(mails: List<RecordEntity>, signedIn: Boolean, onOpen: (Str
 }
 
 @Composable
-private fun MailRead(rec: RecordEntity, embedded: Boolean = false, onBack: () -> Unit) {
+private fun MailRead(rec: RecordEntity, embedded: Boolean = false, onBack: () -> Unit, onDelete: () -> Unit) {
     val f = mailFieldsFrom(rec.metadataJson)
     EditorScaffold(title = "Mail", onCancel = onBack, saveEnabled = false, embedded = embedded, onSave = {}) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)) {
@@ -187,6 +197,8 @@ private fun MailRead(rec: RecordEntity, embedded: Boolean = false, onBack: () ->
                     Text("· $ref", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(vertical = 1.dp))
                 }
             }
+            Spacer(Modifier.height(20.dp))
+            DeleteButton(onDelete)
             Spacer(Modifier.height(24.dp))
         }
     }

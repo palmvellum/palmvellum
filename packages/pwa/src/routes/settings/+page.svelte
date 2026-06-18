@@ -5,6 +5,7 @@
   import { goto } from '$app/navigation';
   import { t, currentLang, setLang, SUPPORTED_LANGUAGES, type Lang } from '$lib/i18n.svelte';
   import { prefs } from '$lib/prefs.svelte';
+  import { calsubs } from '$lib/stores/calsubs.svelte';
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   type Provider = 'openai' | 'anthropic' | 'gemini';
@@ -92,6 +93,62 @@
     await navigator.clipboard.writeText(u);
     icalCopied = true;
     setTimeout(() => { icalCopied = false; }, 2000);
+  }
+
+  // ── Subscribed calendars (inbound iCal: Google Calendar etc.) ──
+  // Reads external feeds INTO Date Book (read-only). URL fetches go
+  // through the fetch-ics Edge Function (browsers can't fetch most
+  // feeds cross-origin); .ics file import is fully client-side.
+  let subName = $state('');
+  let subUrl = $state('');
+  let subBusy = $state(false);
+  let subMsg = $state<string | null>(null);
+  let subError = $state<string | null>(null);
+  let icsFileInput = $state<HTMLInputElement | null>(null);
+
+  function addSub(e: Event) {
+    e.preventDefault();
+    subError = null;
+    subMsg = null;
+    const url = subUrl.trim();
+    if (!url) return;
+    calsubs.add({ name: subName.trim() || url, url });
+    subName = '';
+    subUrl = '';
+    void refreshSubs();
+  }
+
+  async function refreshSubs() {
+    subError = null;
+    subMsg = null;
+    subBusy = true;
+    try {
+      const n = await calsubs.refresh();
+      subMsg = `refreshed — ${n} event${n === 1 ? '' : 's'} added/updated`;
+    } catch (err) {
+      subError = err instanceof Error ? err.message : String(err);
+    } finally {
+      subBusy = false;
+    }
+  }
+
+  async function importIcsFile(e: Event) {
+    subError = null;
+    subMsg = null;
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    subBusy = true;
+    try {
+      const text = await file.text();
+      const n = await calsubs.importText(text);
+      subMsg = `imported ${n} event${n === 1 ? '' : 's'} from ${file.name}`;
+    } catch (err) {
+      subError = err instanceof Error ? err.message : String(err);
+    } finally {
+      subBusy = false;
+      input.value = '';
+    }
   }
 
   // Guard: redirect to / if not signed in
@@ -262,6 +319,81 @@
     {/if}
 
     {#if icalError}<p class="error">{icalError}</p>{/if}
+  </section>
+
+  <!-- Subscribed calendars (inbound: Google Calendar / .ics) -->
+  <section class="card">
+    <h2>subscribed calendars</h2>
+    <p class="sub">
+      pull an external calendar into your date book (read-only). paste a
+      google calendar "secret address in iCal format", or an .ics url —
+      or import an .ics file. events refresh when you open the app.
+    </p>
+
+    {#if calsubs.subs.length > 0}
+      <ul class="sub-list">
+        {#each calsubs.subs as s (s.url)}
+          <li>
+            <div class="sub-info">
+              <span class="sub-name">{s.name}</span>
+              <span class="sub-url">{s.url}</span>
+            </div>
+            <button type="button" class="secondary" onclick={() => calsubs.remove(s.url)} disabled={subBusy}>
+              remove
+            </button>
+          </li>
+        {/each}
+      </ul>
+      <div class="sub-actions">
+        <button type="button" onclick={refreshSubs} disabled={subBusy}>
+          {subBusy ? 'refreshing…' : 'refresh now'}
+        </button>
+        <label class="interval">
+          auto-refresh
+          <select
+            value={String(calsubs.intervalHours)}
+            onchange={(e) => calsubs.setIntervalHours(+(e.currentTarget as HTMLSelectElement).value)}
+          >
+            <option value="0">on open</option>
+            <option value="6">every 6h</option>
+            <option value="12">every 12h</option>
+            <option value="24">daily</option>
+          </select>
+        </label>
+      </div>
+    {/if}
+
+    <form class="sub-form" onsubmit={addSub}>
+      <label>
+        name (optional)
+        <input bind:value={subName} placeholder="e.g. Work, Family" maxlength="80" />
+      </label>
+      <label>
+        iCal URL
+        <input
+          bind:value={subUrl}
+          placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+          inputmode="url"
+        />
+      </label>
+      <button type="submit" disabled={subBusy || !subUrl.trim()}>add subscription</button>
+    </form>
+
+    <div class="ics-import">
+      <button type="button" class="secondary" onclick={() => icsFileInput?.click()} disabled={subBusy}>
+        import .ics file
+      </button>
+      <input
+        bind:this={icsFileInput}
+        type="file"
+        accept=".ics,text/calendar"
+        onchange={importIcsFile}
+        hidden
+      />
+    </div>
+
+    {#if subMsg}<p class="ok">{subMsg}</p>{/if}
+    {#if subError}<p class="error">{subError}</p>{/if}
   </section>
 
   <!-- Credits + subscription -->
@@ -463,6 +595,75 @@
     border: 1px solid var(--line);
   }
   .ical-actions button.secondary:hover:not(:disabled) {
+    background: var(--surface-hi);
+    color: var(--ink);
+  }
+
+  /* Subscribed calendars (inbound) */
+  .sub-list {
+    list-style: none;
+    margin: 0 0 0.8rem;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .sub-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 0.5rem 0.65rem;
+  }
+  .sub-info {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+  }
+  .sub-name {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .sub-url {
+    color: var(--ink-mute);
+    font-size: 0.72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sub-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px dashed var(--line-soft);
+  }
+  .sub-actions .interval {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-direction: row;
+    color: var(--ink-mute);
+    font-size: 0.85rem;
+  }
+  .sub-actions .interval select {
+    width: auto;
+  }
+  .sub-form {
+    margin-bottom: 0.7rem;
+  }
+  .ics-import {
+    margin-top: 0.3rem;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--ink-mute);
+    border: 1px solid var(--line);
+  }
+  button.secondary:hover:not(:disabled) {
     background: var(--surface-hi);
     color: var(--ink);
   }

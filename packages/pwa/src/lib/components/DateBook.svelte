@@ -16,6 +16,7 @@
   import { newUlid as sharedNewUlid } from '$lib/ulid';
   import { t } from '$lib/i18n.svelte';
   import { palmConfirm } from '$lib/confirm.svelte';
+  import { calsubs } from '$lib/stores/calsubs.svelte';
   import {
     type CalendarEvent,
     startOfMonth,
@@ -209,6 +210,9 @@
     if (authState.phase !== 'ready') return;
     void loadEvents();
     void loadDrafts();
+    // Best-effort pull of subscribed external calendars (Google iCal,
+    // etc.), throttled by the user's interval; reload once it lands.
+    void calsubs.autoRefresh().then(() => loadEvents());
 
     eventsChannel?.unsubscribe();
     eventsChannel = supabase

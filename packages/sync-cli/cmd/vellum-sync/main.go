@@ -43,13 +43,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/cloud"
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/memodb"
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/pdb"
-	"github.com/palmvellum/palmvellum/packages/sync-cli/internal/tododb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/cloud"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/memodb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/pdb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/tododb"
 )
 
-const AISeparator = "\n— AI —\n"
+// AISeparator divides the user's question from the cloud AI answer in a
+// single memo. ASCII-only so it survives the UTF-8→Big5 conversion the
+// engine applies before writing to a CJKOS Palm (the old em-dash form
+// "— AI —" is not valid Big5 and rendered as 亂碼 on-device).
+const AISeparator = "\n-- AI --\n"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -114,7 +118,10 @@ func mustEnv(k string) string {
 }
 
 func newClient() *cloud.Client {
-	return cloud.New(mustEnv("SUPABASE_URL"), mustEnv("SUPABASE_SERVICE_ROLE_KEY"))
+	// Legacy single-user CLI: service_role as both apikey and bearer
+	// (admin, bypasses RLS). The end-user daemon uses anon + user JWT.
+	key := mustEnv("SUPABASE_SERVICE_ROLE_KEY")
+	return cloud.New(mustEnv("SUPABASE_URL"), key, key)
 }
 
 func die(err error) {

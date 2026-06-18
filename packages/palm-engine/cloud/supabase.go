@@ -15,16 +15,31 @@ import (
 	"time"
 )
 
+// Client talks to Supabase PostgREST. Auth is split into the static
+// project apikey and a per-request bearer token:
+//
+//   - End-user desktop app: apikey = anon key (public, embeddable),
+//     bearer = the logged-in user's access_token (a GoTrue JWT). RLS
+//     then scopes every read/write to auth.uid() automatically.
+//   - Legacy / single-user CLI: pass the service_role key as BOTH
+//     apikey and bearer to keep the old admin behaviour (bypasses RLS).
+//
+// Never ship the service_role key inside a distributed binary — it
+// grants full, RLS-bypassing access to every user's data.
 type Client struct {
 	Endpoint string // e.g. https://jrkwncplngmznfzzqwee.supabase.co
-	AdminKey string // SUPABASE_SERVICE_ROLE_KEY
+	APIKey   string // anon key (or service_role for the legacy CLI)
+	Token    string // bearer: user access_token (or service_role)
 	HTTP     *http.Client
 }
 
-func New(endpoint, key string) *Client {
+// New builds a Client. apikey is the static project key sent in the
+// "apikey" header; bearer is the token sent as "Authorization: Bearer".
+func New(endpoint, apikey, bearer string) *Client {
 	return &Client{
 		Endpoint: strings.TrimRight(endpoint, "/"),
-		AdminKey: key,
+		APIKey:   apikey,
+		Token:    bearer,
 		HTTP:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -142,8 +157,8 @@ func (c *Client) ListForUser(userID string) ([]Record, error) {
 }
 
 func (c *Client) auth(req *http.Request) {
-	req.Header.Set("apikey", c.AdminKey)
-	req.Header.Set("Authorization", "Bearer "+c.AdminKey)
+	req.Header.Set("apikey", c.APIKey)
+	req.Header.Set("Authorization", "Bearer "+c.Token)
 }
 
 // ─── ULID generation ──────────────────────────────────────────────

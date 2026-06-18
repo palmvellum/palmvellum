@@ -66,3 +66,4 @@ packages/mac-daemon/bin/
 # Landing page source lives in the separate tathome2025/tatlivingio repo
 # (deployed to tatliving.dev/palmvellum). Do not re-commit it here.
 website/
+/packages/mac-daemon/palmvellum

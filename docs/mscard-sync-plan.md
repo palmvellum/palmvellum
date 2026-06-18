@@ -82,3 +82,133 @@ natural foundation: "the card folder" is just another directory of `.pdb` files.
 - "Keep both" provenance: how to mark duplicates so a future dedupe/merge can act
   without re-cloning every round.
 - Expense and Mail `.pdb` formats + AppInfo specifics (least-documented of the six).
+
+## Real-device test log — 2026-06-18 (Sony CLIE, Memory Stick)
+
+First end-to-end run of Stages 1–2 against a real CLIE + USB card reader on
+macOS, using the `packages/sync-cli` `vellum-sync` binary (service-role key,
+single user `hello@tatliving.dev`).
+
+### What worked
+
+- **Card layout confirmed** (closes open question #4). Sony MS Backup writes
+  full-device backups to:
+  ```
+  <MS root>/PALM/PROGRAMS/MSBackup/<N>/   # N = backup set; "0" was active, "1" empty
+  ```
+  with one `.pdb`/`.prc` per database: `MemoDB.pdb`, `ToDoDB.pdb`,
+  `DatebookDB.pdb`, `AddressDB.pdb`, `MailDB.pdb`, etc. (No `ExpenseDB` on this
+  unit.) Restore reads from the same folder.
+- **Round-trip mechanics.** `vellum-sync memo sync` / `todo sync` pushed (empty
+  CLIE records correctly skipped), pulled cloud state into a regenerated PDB
+  (8 memos + 12 todos, full fidelity: categories, AI answers, due/priority/
+  completed), backfilled device_ids. Written back to the card, the CLIE
+  **restore-from-card loaded all memos + todos successfully.**
+
+### Bugs found (real device)
+
+1. **AppleDouble `._*` files cause a soft reset on restore.** Copying the PDBs
+   onto the FAT card with `cp` made macOS write `._MemoDB.pdb` / `._ToDoDB.pdb`
+   sidecars (extended-attribute forks). Sony restore treats them as databases →
+   garbage → **soft reset**. (Memos/todos still loaded afterward, but the reset
+   is unacceptable for end users.)
+2. **Blank/`— AI —` separator line shows as garbage on the Palm.** Root cause is
+   the same as #3: the separator `"\n— AI —\n"` uses an em-dash `—` (U+2014 =
+   `e2 80 94`), which is not valid Big5, so CJKOS renders it as 亂碼. Confirmed in
+   the PDB hex. (Line endings are clean `\n`; not a CRLF issue.)
+3. **Chinese text is garbage on the Palm.** `memodb.EncodeMemos` writes
+   `[]byte(m.Text)` — raw UTF-8 — straight into the record (memodb.go:192), with
+   **no charset conversion anywhere in the repo**. The CLIE runs CJKOS with
+   Traditional Chinese = **Big5**, so UTF-8 bytes render as 亂碼. `tododb` has the
+   same gap (its own comment already flags "UTF-8 / Palm Latin-1").
+
+### Fixes (fold into Stage 2 / the desktop sync engine)
+
+- **Fix A — UTF-8 ⇄ Big5 codec (fixes #2 and #3; one root cause).**
+  - Add `golang.org/x/text/encoding/traditionalchinese.Big5`.
+  - New `internal/charset`: `ToPalm(string) []byte` (UTF-8→Big5, un-mappable
+    rune → `?`) and `FromPalm([]byte) string` (Big5→UTF-8).
+  - Wire into `memodb` (Encode/DecodeMemos), `tododb` (description + notes), and
+    AppInfo category names (so Chinese category names work).
+  - `AISeparator`: em-dash exists in Big5 (0xA156) so the encoder can map it;
+    consider switching to ASCII `"\n-- AI --\n"` for robustness. **Decision
+    pending.**
+  - ⚠️ **Big5 is lossy** vs UTF-8 (emoji, simplified-only chars, most of
+    Unicode). Cloud stays the UTF-8 source of truth; the card is a lossy view.
+    Because push is last-write-wins, pushing a Big5-decoded card record back can
+    degrade the cloud copy — accept for v1, revisit with the "keep both" merge.
+- **Fix B — no AppleDouble on the card (fixes #1).**
+  - Desktop write-back must use a plain byte write (`os.WriteFile`), not `cp`/
+    copyfile — Go does not emit AppleDouble forks.
+  - Before eject, sweep `._*` and `.DS_Store` from the backup dir (`dot_clean` /
+    `rm -f`).
+
+Both fixes are implementable in `sync-cli` today and re-testable on the same
+CLIE before the engine is lifted into `mac-daemon`.
+
+## End-user GUI build — status 2026-06-18 (Phases 0–6 landed)
+
+The card-sync engine was lifted into a shared module and an end-user menu-bar
+app was built on top. All Go builds/vets clean; unit + live-cloud integration
+tests pass. What remains is hardware/identity-gated and left to the owner.
+
+**Architecture**
+
+- New shared module `packages/palm-engine` (tied via root `go.work`):
+  `pdb`, `memodb`, `tododb`, `cloud`, plus new `charset` (Fix A, UTF-8⇄Big5),
+  `cardio` (Fix B, no AppleDouble + Clean), and `sync` (the reusable
+  push/pull/SyncCard engine, ported from the CLI and returning result structs).
+- `cloud.Client` auth split into `apikey` + bearer: **anon/publishable key +
+  per-user access_token**, so RLS scopes every call. service_role never ships.
+- `packages/mac-daemon`:
+  - `internal/auth` — GoTrue **passwordless** login (emailed 6-digit OTP code;
+    the owner uses magic-link, never a password), session stored in the macOS
+    Keychain (`go-keyring`), auto-refresh.
+  - `internal/cardwatch` — polls `/Volumes`, finds the newest MS Backup set.
+  - CLI: `login` (`--otp`) / `logout` / `whoami` / `sync <set-dir>` / `app`.
+  - `app` — windowed **Fyne** desktop app: passwordless email-code login,
+    auto-sync toggle, "Sync now", and a live sync log (`sync.SyncCardLog`
+    streams progress). Replaced the earlier menu-bar/systray prototype because
+    the owner wanted a real settings + progress window.
+  - **Supabase config required:** the Magic Link email template must include
+    `{{ .Token }}` so the 6-digit code appears in the email.
+  - `packaging/` — `build-app.sh` (builds `PalmVellum.app`, optional
+    codesign + notarize), `Info.plist` (LSUIElement menu-bar app), LaunchAgent.
+
+**Decisions made during the build**
+
+- AI separator switched to ASCII `-- AI --` (verified: 0 em-dash bytes in a live
+  pull). Big5-unmappable runes → `?`. CRLF/CR normalised to LF.
+- The end-user daemon does **not** run the local AI worker — AI runs server-side
+  in the existing Edge Functions; the daemon is purely a card↔cloud bridge.
+- No launcher shim in the bundle: `PalmVellum` would collide with the
+  `palmvellum` binary on a case-insensitive volume, so the binary detects a
+  bundle launch (argv contains `/Contents/MacOS/`) and defaults to `menubar`.
+
+**Verified**
+
+- `charset` round-trips Traditional Chinese + ASCII; em-dash never leaks as raw
+  UTF-8; emoji → `?`; newline normalisation.
+- `memodb`/`sync` round-trip Chinese memos through real `.pdb` bytes; blank
+  memos skipped; `SyncCard` sweeps `._*` / `.DS_Store`.
+- GoTrue endpoint + publishable key reachable (bad creds → 400, not 401).
+- Live cloud pull post-refactor: 8 memos, ASCII separator, zero em-dash bytes.
+
+**On-device flow + soft reset (resolved 2026-06-19)**
+
+The on-device half uses the **Sony CLIE's built-in MS Backup** app: back up
+to the Memory Stick, sync on the Mac, restore from the card. No custom
+software on the Palm. After Fix B removes the AppleDouble droppings, the CLIE
+still does a brief **soft reset** when restoring from card — confirmed by the
+owner to be **expected and harmless**: records load normally and the device
+keeps working. So it is accepted behaviour, not an outstanding bug.
+
+**Left to the owner (hardware / identity gated)**
+
+- Real login from the app (needs the account password — not available to CI).
+- On-device restore of a Big5 memo on the CLIE (final visual confirmation).
+- Menu-bar UI visual pass; app icon (`packaging/icon.icns` not yet supplied).
+- Code-sign + notarize (`DEVELOPER_ID` / `AC_KEYCHAIN_PROFILE`).
+- `/desktop` page download link points at a not-yet-published artefact.
+- `sync-cli` still has its own copy of the push/pull logic; fold it onto
+  `palm-engine/sync` later to avoid drift.

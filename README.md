@@ -64,9 +64,24 @@ docs/                Project docs: hardware-compatibility (reference
                      target list + buying tips)
 ```
 
-### Companion Android app
+### Android app — Palm Organizers (native)
 
-A native Android companion called **Palm Organizers** is in preparation under `packages/android/` — wrapping the SvelteKit Organizers shell via Capacitor so the same UI runs on phones for users who want the AI assist without sitting at a desk. Status: scaffold only.
+**Palm Organizers** is a native, local‑first Android build of the organizer apps (Date Book, Address, To Do, Memo, Note Pad, Expense, Mail) — Kotlin + Jetpack Compose, Room on‑device, with optional cloud sync + AI (BYOK). Source: [`packages/android-native/`](packages/android-native/). *(The earlier Capacitor wrapper under `packages/android/` is superseded.)*
+
+It ships in two flavors that install side by side:
+
+- **Standard** — portrait, any phone.
+- **Cosmo edition** — built specifically for the **Planet Cosmo Communicator** (landscape clamshell + physical QWERTY): landscape‑locked for the 2160×1080 main display, a left icon rail, two‑pane master/detail layouts, and inline title‑bar filters/search. UI spec: [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md). On a Cosmo stuck on firmware V19, see the companion [**Cosmo V19→V23 upgrade & standby‑battery‑fix guide**](https://github.com/tathome2025/cosmo-standby-battery-fix).
+
+**Download:** [Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0) — or build from `packages/android-native/` with `./gradlew :app:assembleStandardDebug` / `:app:assembleCosmoDebug`.
+
+> ⚠️ **Not on the Play Store.** These are sideload (debug‑signed) APKs, not Play‑reviewed. You'll need to allow "Install unknown apps", then open the APK. **No warranty of any kind — use at your own risk.**
+
+#### Screenshots — Cosmo edition
+
+<!-- Screenshots live in docs/screenshots/ — captured on a real Cosmo (2160×1080):
+     cosmo-launcher.png · cosmo-datebook.png · cosmo-address.png · cosmo-editor.png -->
+_Coming soon — captured on a real Cosmo Communicator (2160×1080)._
 
 ### Quick start (development)
 
@@ -116,9 +131,19 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 - **AAA 電池 Palm (1996-2003) 係我哋嘅參考目標同設計重點** — 嗰個係我哋相信、會親自測試嘅機型。但平台本身只講 HotSync，所以其他唔係我哋 target 嘅 Palm OS 機都一樣可以用 — 我哋只係唔會替佢哋做測試。
 - **Palm 機保持 Palm 機。** 我哋不會推 custom firmware。平台講嘅係現有 HotSync 協議，對住現有 PalmOS app。如果某個 model conduit 唔通，我哋會修 conduit — 唔會改 Palm 嘅 app。
 
-### Android 伴隨 app
+### Android app — Palm Organizers（原生）
 
-`packages/android/` 入面正在準備一隻叫 **Palm Organizers** 嘅 Android 原生 app — 用 Capacitor 包住 SvelteKit Organizers shell，等同一個介面可以喺手機上跑。狀態：scaffold 階段。
+**Palm Organizers** 係原生、local‑first 嘅 Android 版（Date Book / Address / To Do / Memo / Note Pad / Expense / Mail），Kotlin + Jetpack Compose、機上 Room，雲同步同 AI 都係 opt‑in（BYOK）。源碼喺 [`packages/android-native/`](packages/android-native/)。出兩個可並存嘅版本：
+
+- **Standard** — 直屏，任何手機。
+- **Cosmo 版** — 專為 **Planet Cosmo Communicator**（橫向翻蓋 + 實體 QWERTY）設計：橫屏鎖定（2160×1080）、左側圖示 rail、兩欄 master/detail、標題列 inline 篩選/搜尋。UI 規格見 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。部 Cosmo 仲喺 firmware V19？睇埋 [**Cosmo V19→V23 升級＋待機省電指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
+
+**下載：**[Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0)。
+
+> ⚠️ **冇喺 Play Store 上架。** 呢啲係 sideload（debug 簽署）APK，未經 Play 審查，要先允許「安裝未知來源 app」先裝到。**冇任何保養，使用風險自負。**
+
+#### Screenshots — Cosmo 版
+_即將加入 — 喺真 Cosmo Communicator（2160×1080）影。_
 
 ---
 
@@ -158,9 +183,19 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 - **AAA 电池 Palm (1996-2003) 是我们的参考目标和设计重点** — 那是我们相信、会亲自测试的机型。但平台本身只讲 HotSync，所以其他不是我们 target 的 Palm OS 机都一样可以用 — 我们只是不会替它们做测试。
 - **Palm 机保持 Palm 机。** 我们不会推 custom firmware。平台讲的是现有 HotSync 协议，对着现有 PalmOS app。如果某个 model conduit 不通，我们会修 conduit — 不会改 Palm 上的 app。
 
-### Android 配套 app
+### Android app — Palm Organizers（原生）
 
-`packages/android/` 中正在准备一款叫 **Palm Organizers** 的 Android 原生 app — 用 Capacitor 包装 SvelteKit Organizers shell，让同一个界面可以在手机上运行。状态：scaffold 阶段。
+**Palm Organizers** 是原生、local‑first 的 Android 版（Date Book / Address / To Do / Memo / Note Pad / Expense / Mail），Kotlin + Jetpack Compose、设备端 Room，云同步与 AI 均为 opt‑in（BYOK）。源码在 [`packages/android-native/`](packages/android-native/)。提供两个可并存的版本：
+
+- **Standard** — 竖屏，任何手机。
+- **Cosmo 版** — 专为 **Planet Cosmo Communicator**（横向翻盖 + 实体 QWERTY）设计：横屏锁定（2160×1080）、左侧图标 rail、两栏 master/detail、标题栏 inline 筛选/搜索。UI 规格见 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。设备仍在 firmware V19？另见 [**Cosmo V19→V23 升级＋待机省电指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
+
+**下载：**[Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0)。
+
+> ⚠️ **未在 Play Store 上架。** 这些是 sideload（debug 签名）APK，未经 Play 审查，需先允许「安装未知来源应用」才能安装。**不提供任何保修，使用风险自负。**
+
+#### Screenshots — Cosmo 版
+_即将加入 — 在真 Cosmo Communicator（2160×1080）拍摄。_
 
 ---
 

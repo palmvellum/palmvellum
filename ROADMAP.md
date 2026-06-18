@@ -8,8 +8,8 @@ cryptocurrency or vault features.
 
 > Earlier drafts of this roadmap pitched cold signers, Bitcoin /
 > Ethereum support, and a three-tier security posture. That direction
-> was removed in June 2026. The platform is now exclusively a low-fi
-> productivity companion. If you want a hardware wallet, buy a hardware
+> was removed in June 2026. The platform is now exclusively a
+> retro-computing productivity companion. If you want a hardware wallet, buy a hardware
 > wallet - this is not it.
 
 ## Done - Phase 1 to Phase 5 (v0.1 to v0.5)

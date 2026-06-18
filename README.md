@@ -13,9 +13,9 @@
 
 You write on the Palm because it's quiet. Two AAA batteries. 160×160 monochrome screen. No always-on radio. No camera. No infinite scroll. You hold it, you note things down, you put it away. The platform watches the cloud copy and helps when called.
 
-### What "low-fi" means here
+### What "retro computing" means here
 
-Not low quality. Not retro for retro's sake. **Low-fi = low fidelity, deliberately.** Fewer pixels, fewer notifications, fewer pretexts to pick up the device. The platform brings AI and cloud in where they're genuinely useful — natural-language input parsing, transcription of handwritten sketches, daily research digests, agentic event / task creation — and stops there. We don't profile you. We don't show ads. We don't notify because someone you don't know looked at your profile. There is no profile.
+Not low quality. Not nostalgia for nostalgia's sake. **Retro computing = deliberately old, deliberately limited.** Fewer pixels, fewer notifications, fewer pretexts to pick up the device. The platform brings AI and cloud in where they're genuinely useful — natural-language input parsing, transcription of handwritten sketches, daily research digests, agentic event / task creation — and stops there. We don't profile you. We don't show ads. We don't notify because someone you don't know looked at your profile. There is no profile.
 
 ### The platform — what it actually does
 
@@ -104,9 +104,9 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 
 你揀 Palm 是因為佢靜。兩粒 AAA 電池。160×160 黑白屏。冇恆常通訊。冇鏡頭。冇無限滾動。攞上手寫嘢，寫完放低。平台就喺後台守住雲端副本，要用 AI 嗰陣先攞出嚟。
 
-### 「low-fi」對我哋嚟講是甚麼
+### 「retro computing（復古運算）」對我哋嚟講是甚麼
 
-唔係指品質低。唔係懷舊 for 懷舊。**Low-fi = 低保真，有意嘅。** 像素少啲、通知少啲、令你拎機嘅藉口少啲。平台只係喺 AI 同雲端真係有用嘅地方介入 — 自然語言輸入解析、手稿辨識、每日新聞摘要、自動執行任務／日程 — 然後止步。我哋唔追蹤你嘅閱讀習慣，唔賣廣告，唔會因為「有人睇過你嘅 profile」推 push notification 畀你。根本冇 profile。
+唔係指品質低。唔係為咗懷舊而懷舊。**Retro computing（復古運算）＝刻意用舊機、刻意有限制。** 像素少啲、通知少啲、令你拎機嘅藉口少啲。平台只係喺 AI 同雲端真係有用嘅地方介入 — 自然語言輸入解析、手稿辨識、每日新聞摘要、自動執行任務／日程 — 然後止步。我哋唔追蹤你嘅閱讀習慣，唔賣廣告，唔會因為「有人睇過你嘅 profile」推 push notification 畀你。根本冇 profile。
 
 ### 平台真正做嘅事
 
@@ -162,9 +162,9 @@ _喺真 Cosmo Communicator（2160×1080）影：應用程式啟動器、Date Boo
 
 你选 Palm 是因为它安静。两节 AAA 电池。160×160 黑白屏。没有常驻通讯。没有摄像头。没有无限滚动。拿上手写东西，写完放下。平台在后台保存云端副本，要用 AI 时才取出来。
 
-### 「low-fi」对我们来说意味着什么
+### 「retro computing（复古计算）」对我们来说意味着什么
 
-不是说品质低。不是为复古而复古。**Low-fi = 低保真，有意为之。** 像素少一些、通知少一些、让你拿起设备的理由少一些。平台只在 AI 和云端真正有用的地方介入 — 自然语言输入解析、手稿识别、每日新闻摘要、自动执行任务／日程 — 然后止步。我们不追踪你的阅读习惯，不卖广告，不会因为「有人看过你的 profile」推送通知。根本没有 profile。
+不是说品质低。不是为怀旧而怀旧。**Retro computing（复古计算）＝刻意用旧机、刻意有限制。** 像素少一些、通知少一些、让你拿起设备的理由少一些。平台只在 AI 和云端真正有用的地方介入 — 自然语言输入解析、手稿识别、每日新闻摘要、自动执行任务／日程 — 然后止步。我们不追踪你的阅读习惯，不卖广告，不会因为「有人看过你的 profile」推送通知。根本没有 profile。
 
 ### 平台具体做什么
 

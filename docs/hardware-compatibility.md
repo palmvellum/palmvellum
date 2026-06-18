@@ -78,7 +78,7 @@ Three reasons:
    anything. What you sync to the cloud is your choice, not a
    background process.
 3. **The form factor and the constraints are the product.** 160x160,
-   monochrome, Graffiti, no notifications - that is the low-fi
+   monochrome, Graffiti, no notifications - that is the retro-computing
    experience the platform is designed around.
 
 ## Buying tips

@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmLine
@@ -315,19 +316,35 @@ fun EditorScaffold(
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        cancelLabel,
-                        color = PalmOnDark,
-                        fontSize = 15.sp,
-                        modifier = Modifier.clickable(onClick = onCancel),
-                    )
+                    // Standard: Cancel on the far left, title, Save on the right.
+                    // Cosmo: title first, then Cancel grouped next to Save on the right.
+                    if (!BuildConfig.COSMO) {
+                        Text(
+                            cancelLabel,
+                            color = PalmOnDark,
+                            fontSize = 15.sp,
+                            modifier = Modifier.clickable(onClick = onCancel),
+                        )
+                    }
                     Text(
                         title,
                         color = PalmOnDark,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                        modifier = Modifier.weight(1f).padding(
+                            start = if (BuildConfig.COSMO) 0.dp else 12.dp,
+                            end = 12.dp,
+                        ),
                     )
+                    if (BuildConfig.COSMO) {
+                        Text(
+                            cancelLabel,
+                            color = PalmOnDark,
+                            fontSize = 15.sp,
+                            modifier = Modifier.clickable(onClick = onCancel),
+                        )
+                        Spacer(Modifier.width(20.dp))
+                    }
                     Text(
                         saveLabel,
                         color = if (saveEnabled) PalmOnDark else Color(0x66FFFFFF),

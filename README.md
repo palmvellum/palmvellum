@@ -5,6 +5,15 @@
 
 [繁體中文](#palmvellum-繁體中文) · [简体中文](#palmvellum-简体中文) · [English](#english)
 
+<table>
+  <tr>
+    <td width="50%"><img src="docs/photos/palm-iiie.jpg" alt="A 1999 Palm IIIe running its classic launcher — Date Book, Address, To Do, Memo Pad"></td>
+    <td width="50%"><img src="docs/photos/sony-clie.jpg" alt="A Sony Clié PEG-SL10 with a Memory Stick inserted, showing its launcher"></td>
+  </tr>
+</table>
+
+<sub>Reference hardware: a 1999 Palm IIIe and a Sony Clié PEG-SL10 — the AAA-battery devices PalmVellum is built around. 繁中／简中：PalmVellum 圍繞嘅 AAA 電池機 — 1999 年 Palm IIIe 同 Sony Clié PEG-SL10。</sub>
+
 ---
 
 ## English

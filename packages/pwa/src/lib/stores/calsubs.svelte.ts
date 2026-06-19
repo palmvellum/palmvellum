@@ -1,22 +1,27 @@
 /**
  * calsubs store — read-only external calendar subscriptions + .ics import.
  *
- * Web port of the native app's data/CalendarSubscriptions.kt
- * (CalSubStore + CalendarSync + IcsImport). A subscription is a name +
- * an iCal feed URL (e.g. a Google Calendar "Secret address in iCal
- * format"). The list itself is device-local (localStorage); the events
- * it pulls in go through the normal events store, so they sync.
+ * Web port of the native app's data/CalendarSubscriptions.kt. A subscription
+ * is a name + an iCal feed URL (e.g. a Google Calendar "Secret address in
+ * iCal format").
  *
- * Browsers can't fetch most feeds cross-origin (no CORS), so the URL
- * fetch is proxied through the `fetch-ics` Supabase Edge Function. The
- * .ics FILE import is fully client-side and needs no network.
+ * The subscription LIST is a cloud-synced record (type='calsub') — body holds
+ * the URL, metadata.name the display name — so feeds you add on the web show
+ * up on Android (and vice versa) through the normal records sync. The id is
+ * deterministic ("calsub" + the URL's Java hashCode), matching the native
+ * CalSubs.idFor, so the same feed on two devices de-dupes to one row. The
+ * refresh cadence (intervalHours) stays device-local in localStorage.
  *
- * Read-only: events removed upstream are NOT deleted locally — a
- * deliberate simplification matching the native app.
+ * The events a feed pulls in go through the events sync with a deterministic
+ * id too. Browsers can't fetch most feeds cross-origin (no CORS), so the URL
+ * fetch is proxied through the `fetch-ics` Supabase Edge Function; the .ics
+ * FILE import is fully client-side. Read-only: events removed upstream are
+ * NOT deleted locally — a deliberate simplification matching native.
  */
 
 import { browser } from '$app/environment';
 import { supabase } from '../supabase';
+import { db, type LocalRecord } from '../db';
 import { sync } from '../sync.svelte';
 import { authState } from '../auth.svelte';
 import { getEvent, createEvent } from './events.svelte';
@@ -28,34 +33,39 @@ export interface CalSub {
   url: string;
 }
 
-const STORAGE_KEY = 'palmvellum.calsubs.v1';
+// Device-local refresh prefs (cadence + last run); the subscription list
+// itself lives in synced records, not here.
+const PREF_KEY = 'palmvellum.calsubs.prefs.v1';
 
-interface Blob {
-  subs: CalSub[];
+interface Prefs {
   intervalHours: number; // 0 = manual only
   lastRefreshAt: string | null;
 }
 
-const DEFAULTS: Blob = { subs: [], intervalHours: 0, lastRefreshAt: null };
+const DEFAULTS: Prefs = { intervalHours: 0, lastRefreshAt: null };
 
-function read(): Blob {
+function readPrefs(): Prefs {
   if (!browser) return { ...DEFAULTS };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(PREF_KEY);
     if (!raw) return { ...DEFAULTS };
-    return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Blob>) };
+    return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Prefs>) };
   } catch {
     return { ...DEFAULTS };
   }
 }
 
-/** Java String.hashCode — replicated so a feed's events get the SAME
- *  deterministic id on web and on native, avoiding duplicates when both
- *  subscribe to the same calendar. */
+/** Java String.hashCode — replicated so a URL maps to the SAME deterministic
+ *  record/event id on web and on native, avoiding duplicates across devices. */
 function javaHashCode(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return Math.abs(h);
+}
+
+/** Subscription record id (matches native CalSubs.idFor). */
+function calsubId(url: string): string {
+  return 'calsub' + javaHashCode(url);
 }
 
 function icsEventId(url: string, e: IcsEvent): string {
@@ -64,41 +74,110 @@ function icsEventId(url: string, e: IcsEvent): string {
 }
 
 class CalSubsState {
-  subs = $state<CalSub[]>(read().subs);
-  intervalHours = $state<number>(read().intervalHours);
-  lastRefreshAt = $state<string | null>(read().lastRefreshAt);
+  subs = $state<CalSub[]>([]);
+  intervalHours = $state<number>(readPrefs().intervalHours);
+  lastRefreshAt = $state<string | null>(readPrefs().lastRefreshAt);
   refreshing = $state(false);
 
-  private persist(): void {
+  constructor() {
+    if (browser) void this.load();
+  }
+
+  private persistPrefs(): void {
     if (!browser) return;
     try {
       localStorage.setItem(
-        STORAGE_KEY,
+        PREF_KEY,
         JSON.stringify({
-          subs: this.subs,
           intervalHours: this.intervalHours,
           lastRefreshAt: this.lastRefreshAt,
-        } satisfies Blob),
+        } satisfies Prefs),
       );
     } catch {
       /* private mode — ignore */
     }
   }
 
-  add(sub: CalSub): void {
-    if (this.subs.some((s) => s.url === sub.url)) return;
-    this.subs = [...this.subs, sub];
-    this.persist();
+  /** (Re)load the subscription list from the local (synced) records table. */
+  async load(): Promise<void> {
+    if (!browser) return;
+    const uid = authState.userId;
+    if (!uid) {
+      this.subs = [];
+      return;
+    }
+    const rows = await db.records.where({ user_id: uid }).toArray();
+    this.subs = rows
+      .filter((r) => r.type === 'calsub' && r.deleted_at === null)
+      .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
+      .map((r) => ({
+        name: ((r.metadata?.name as string | undefined) || r.body) ?? '',
+        url: r.body ?? '',
+      }));
   }
 
-  remove(url: string): void {
-    this.subs = this.subs.filter((s) => s.url !== url);
-    this.persist();
+  async add(sub: CalSub): Promise<void> {
+    const uid = authState.userId;
+    if (!uid) return;
+    const url = sub.url.trim();
+    if (!url || this.subs.some((s) => s.url === url)) return;
+    const name = sub.name.trim() || url;
+    const id = calsubId(url);
+    const now = new Date().toISOString();
+    const existing = await db.records.get(id);
+    if (existing) {
+      await sync.enqueue({
+        table: 'records',
+        op: 'update',
+        record_id: id,
+        payload: { body: url, metadata: { name }, deleted_at: null, updated_at: now },
+      });
+    } else {
+      const row: LocalRecord = {
+        id,
+        user_id: uid,
+        type: 'calsub',
+        posture: 'open',
+        body: url,
+        tags: [],
+        metadata: { name },
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        source: 'web',
+        device_id: null,
+        ai_status: null,
+        ai_response: null,
+        ai_model: null,
+        ai_tokens_in: null,
+        ai_tokens_out: null,
+        ai_error: null,
+      };
+      await sync.enqueue({
+        table: 'records',
+        op: 'insert',
+        record_id: id,
+        payload: row as unknown as Record<string, unknown>,
+      });
+    }
+    await this.load();
+  }
+
+  async remove(url: string): Promise<void> {
+    const id = calsubId(url);
+    const now = new Date().toISOString();
+    await sync.enqueue({
+      table: 'records',
+      op: 'update',
+      record_id: id,
+      payload: { deleted_at: now, updated_at: now },
+    });
+    await this.load();
   }
 
   setIntervalHours(h: number): void {
     this.intervalHours = h;
-    this.persist();
+    this.persistPrefs();
   }
 
   /** One-off import of a .ics document's VEVENTs as new events. */
@@ -189,6 +268,7 @@ class CalSubsState {
    *  fetch error if nothing succeeded. */
   async refresh(): Promise<number> {
     if (this.refreshing) return 0;
+    await this.load();
     if (this.subs.length === 0) return 0;
     this.refreshing = true;
     let changed = 0;
@@ -212,7 +292,7 @@ class CalSubsState {
         }
       }
       this.lastRefreshAt = new Date().toISOString();
-      this.persist();
+      this.persistPrefs();
     } finally {
       this.refreshing = false;
     }
@@ -220,12 +300,12 @@ class CalSubsState {
     return changed;
   }
 
-  /** Best-effort refresh on app open, throttled by intervalHours.
-   *  intervalHours === 0 → only refresh if never refreshed this session
-   *  source (i.e. once per load). */
+  /** Best-effort refresh on app open, throttled by intervalHours. */
   async autoRefresh(): Promise<void> {
-    if (!browser || !sync.online || this.subs.length === 0) return;
+    if (!browser || !sync.online) return;
     if (!authState.userId) return;
+    await this.load();
+    if (this.subs.length === 0) return;
     const last = this.lastRefreshAt ? new Date(this.lastRefreshAt).getTime() : 0;
     const ageH = (Date.now() - last) / 3_600_000;
     const minH = this.intervalHours > 0 ? this.intervalHours : 0;

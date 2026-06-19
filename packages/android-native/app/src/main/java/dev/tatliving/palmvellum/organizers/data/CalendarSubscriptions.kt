@@ -2,9 +2,13 @@ package dev.tatliving.palmvellum.organizers.data
 
 import android.content.Context
 import dev.tatliving.palmvellum.organizers.data.local.EventEntity
+import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
 import dev.tatliving.palmvellum.organizers.data.model.PalmJson
 import dev.tatliving.palmvellum.organizers.util.Ics
 import dev.tatliving.palmvellum.organizers.util.Net
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -15,25 +19,58 @@ import kotlin.math.abs
 @Serializable
 data class CalSub(val name: String, val url: String)
 
-/** Persists the user's calendar subscriptions in SharedPreferences (local only;
- *  the events they pull in do sync, but the subscription list itself is per-device). */
+/**
+ * The subscription LIST is a cloud-synced record (type='calsub') so it
+ * converges across devices and with the web app — body holds the URL,
+ * metadata holds the display name. A deterministic id ("calsub" + the URL's
+ * hash) means subscribing to the same feed on two devices de-dupes to one row.
+ * Java/Kotlin String.hashCode matches the web's javaHashCode, so both clients
+ * produce the same id for a given URL.
+ */
+object CalSubs {
+    private fun idFor(url: String): String = "calsub" + abs(url.hashCode())
+
+    private fun RecordEntity.toCalSub(): CalSub {
+        val name = runCatching {
+            PalmJson.decodeFromString<Map<String, String>>(metadataJson)["name"]
+        }.getOrNull()
+        return CalSub(name = name?.ifBlank { null } ?: (body ?: ""), url = body ?: "")
+    }
+
+    /** Live list of subscriptions, newest first. */
+    fun observe(): Flow<List<CalSub>> =
+        Graph.repo.observeRecords("calsub").map { recs -> recs.map { it.toCalSub() } }
+
+    /** One-shot snapshot (used by the refresher). */
+    suspend fun listOnce(): List<CalSub> =
+        Graph.repo.observeRecords("calsub").first().map { it.toCalSub() }
+
+    suspend fun add(name: String, url: String) {
+        val id = idFor(url)
+        val now = Clock.nowIso()
+        val existing = Graph.repo.getRecord(id)
+        val base = existing ?: RecordEntity(id = id, type = "calsub", createdAt = now, updatedAt = now)
+        Graph.repo.saveRecord(
+            base.copy(
+                type = "calsub",
+                body = url,
+                metadataJson = PalmJson.encodeToString(mapOf("name" to name)),
+                deletedAt = null,
+            ),
+        )
+        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
+    }
+
+    suspend fun remove(url: String) {
+        Graph.repo.deleteRecord(idFor(url))
+        if (Graph.sync.isSignedIn) Graph.sync.syncNow()
+    }
+}
+
+/** Device-local refresh cadence for the subscriptions (not synced — each
+ *  device decides how often to poll its feeds). */
 class CalSubStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("cal_subs", Context.MODE_PRIVATE)
-
-    fun list(): List<CalSub> = runCatching {
-        PalmJson.decodeFromString<List<CalSub>>(prefs.getString("list", "[]") ?: "[]")
-    }.getOrDefault(emptyList())
-
-    private fun save(list: List<CalSub>) {
-        prefs.edit().putString("list", PalmJson.encodeToString(list)).apply()
-    }
-
-    fun add(sub: CalSub) {
-        if (list().any { it.url == sub.url }) return
-        save(list() + sub)
-    }
-
-    fun remove(url: String) = save(list().filterNot { it.url == url })
 
     /** Auto-update interval in hours; 0 = off. */
     fun intervalHours(): Int = prefs.getInt("interval_h", 0)
@@ -69,8 +106,9 @@ object IcsImport {
  *  removed upstream are not deleted locally (a deliberate simplification). */
 object CalendarSync {
     /** Returns the number of events added/updated, or a failure with the message. */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun refresh(context: Context): Result<Int> {
-        val subs = CalSubStore(context).list()
+        val subs = CalSubs.listOnce()
         if (subs.isEmpty()) return Result.success(0)
         var changed = 0
         var lastError: String? = null

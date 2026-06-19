@@ -624,7 +624,7 @@ private fun DayEventsCard(dayEvents: List<EventEntity>, onEdit: (EventEntity) ->
             if (i > 0) PalmDivider()
             PalmRow(
                 title = ev.title,
-                meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt),
+                meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt) + (ev.endAt?.let { " – " + DT.timeLabel(it) } ?: ""),
                 body = ev.location,
                 metaColor = PalmRed,
                 onClick = { onEdit(ev) },

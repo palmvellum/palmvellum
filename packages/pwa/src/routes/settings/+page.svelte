@@ -260,115 +260,120 @@
     </div>
   </section>
 
-  <!-- BYOK section -->
+  <!-- AI provider: platform credits (default) vs BYOK -->
   <section class="card">
     <h2>{t('settings.apiKeys')}</h2>
-    <p class="sub">{t('settings.apiKeysSub')}</p>
+    <p class="sub">
+      Choose how AI is powered: top up <strong>platform credits</strong>
+      (pay-as-you-go), or bring your own API key.
+    </p>
 
-    <div class="status">
-      <div>
-        <span class="label">openai</span>
-        {#if authState.settings.openai_secret_id}
-          <span class="ok">{t('settings.stored')}</span>
-        {:else}
-          <span class="warn">{t('settings.notSet')}</span>
-        {/if}
-        <span class="muted">· {t('settings.model')}: {authState.settings.openai_model}</span>
-      </div>
-      <div>
-        <span class="label">anthropic</span>
-        {#if authState.settings.anthropic_secret_id}
-          <span class="ok">{t('settings.stored')}</span>
-        {:else}
-          <span class="warn">{t('settings.notSet')}</span>
-        {/if}
-        <span class="muted">· {t('settings.model')}: {authState.settings.anthropic_model}</span>
-      </div>
-      <div>
-        <span class="label">gemini</span>
-        {#if authState.settings.gemini_secret_id}
-          <span class="ok">{t('settings.stored')}</span>
-        {:else}
-          <span class="warn">{t('settings.notSet')}</span>
-        {/if}
-        <span class="muted">· {t('settings.model')}: {authState.settings.gemini_model}</span>
-      </div>
-      <div>
-        <span class="label">{t('settings.preferredProvider')}</span>
-        <select
-          value={authState.settings.preferred_provider}
-          onchange={(e) => updatePreferredProvider((e.currentTarget as HTMLSelectElement).value as Provider)}
-        >
-          <option value="openai">openai</option>
-          <option value="anthropic">anthropic</option>
-          <option value="gemini">gemini</option>
-        </select>
-      </div>
+    <div class="mode-choice">
+      <label class="inline-check">
+        <input
+          type="radio"
+          name="apimode"
+          checked={(authState.settings?.api_mode ?? 'platform') === 'platform'}
+          onchange={() => setApiMode('platform')}
+        />
+        <span>Use platform credits <em>(recommended)</em> — pay as you go, OpenAI cost + 50%.</span>
+      </label>
+      <label class="inline-check">
+        <input
+          type="radio"
+          name="apimode"
+          checked={authState.settings?.api_mode === 'byok'}
+          onchange={() => setApiMode('byok')}
+        />
+        <span>Bring your own API key — you pay the provider directly.</span>
+      </label>
     </div>
 
-    <form onsubmit={saveKey}>
-      <label>
-        {t('settings.providerLabel')}
-        <select bind:value={provider}>
-          <option value="openai">openai (sk-...)</option>
-          <option value="anthropic">anthropic (sk-ant-...)</option>
-          <option value="gemini">gemini (AIza...)</option>
-        </select>
+    {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
+      <!-- Platform credits: balance + top-up -->
+      <p class="balance">Balance: <strong>${balanceUsd()}</strong></p>
+      <label class="field">
+        Top up (USD, min ${MIN_TOPUP})
+        <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
       </label>
-      <label>
-        {t('settings.apiKeyLabel')}
-        <input
-          type="password"
-          bind:value={plaintext}
-          required
-          autocomplete="off"
-          spellcheck="false"
-          placeholder={t('settings.apiKeyPh')}
-        />
-      </label>
-      {#if saveError}
-        <p class="error">{saveError}</p>
-      {/if}
-      {#if saveOk}
-        <p class="ok">{t('settings.saveOk')}</p>
-      {/if}
-      <button type="submit" disabled={saving}>
-        {saving ? t('settings.storing') : t('settings.storeKey')}
+      {#if topupError}<p class="error">{topupError}</p>{/if}
+      <button type="button" onclick={buyCredits} disabled={topupBusy}>
+        {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
       </button>
-    </form>
-  </section>
+      <p class="hint">
+        Secure payment via Airwallex; minimum ${MIN_TOPUP}. We never store your
+        card. Credit is added once payment clears.
+      </p>
+    {:else}
+      <!-- BYOK: provider status + key paste -->
+      <div class="status">
+        <div>
+          <span class="label">openai</span>
+          {#if authState.settings.openai_secret_id}
+            <span class="ok">{t('settings.stored')}</span>
+          {:else}
+            <span class="warn">{t('settings.notSet')}</span>
+          {/if}
+          <span class="muted">· {t('settings.model')}: {authState.settings.openai_model}</span>
+        </div>
+        <div>
+          <span class="label">anthropic</span>
+          {#if authState.settings.anthropic_secret_id}
+            <span class="ok">{t('settings.stored')}</span>
+          {:else}
+            <span class="warn">{t('settings.notSet')}</span>
+          {/if}
+          <span class="muted">· {t('settings.model')}: {authState.settings.anthropic_model}</span>
+        </div>
+        <div>
+          <span class="label">gemini</span>
+          {#if authState.settings.gemini_secret_id}
+            <span class="ok">{t('settings.stored')}</span>
+          {:else}
+            <span class="warn">{t('settings.notSet')}</span>
+          {/if}
+          <span class="muted">· {t('settings.model')}: {authState.settings.gemini_model}</span>
+        </div>
+        <div>
+          <span class="label">{t('settings.preferredProvider')}</span>
+          <select
+            value={authState.settings.preferred_provider}
+            onchange={(e) => updatePreferredProvider((e.currentTarget as HTMLSelectElement).value as Provider)}
+          >
+            <option value="openai">openai</option>
+            <option value="anthropic">anthropic</option>
+            <option value="gemini">gemini</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- Platform credits (pay-as-you-go) -->
-  <section class="card">
-    <h2>Credits</h2>
-    <p class="sub">
-      Pay-as-you-go AI instead of your own key. Usage is charged at the OpenAI
-      cost <strong>+ 50%</strong>, drawn from your USD balance.
-    </p>
-    <p class="balance">Balance: <strong>${balanceUsd()}</strong></p>
-
-    <label class="inline-check">
-      <input
-        type="checkbox"
-        checked={authState.settings?.api_mode === 'platform'}
-        onchange={(e) =>
-          setApiMode((e.currentTarget as HTMLInputElement).checked ? 'platform' : 'byok')}
-      />
-      Use platform credits (uncheck to use your own API key)
-    </label>
-
-    <label class="field">
-      Top up (USD, min ${MIN_TOPUP})
-      <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
-    </label>
-    {#if topupError}<p class="error">{topupError}</p>{/if}
-    <button type="button" onclick={buyCredits} disabled={topupBusy}>
-      {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
-    </button>
-    <p class="hint">
-      Secure payment via Airwallex; minimum ${MIN_TOPUP}. We never store your
-      card. Credit is added once payment clears.
-    </p>
+      <form onsubmit={saveKey}>
+        <label>
+          {t('settings.providerLabel')}
+          <select bind:value={provider}>
+            <option value="openai">openai (sk-...)</option>
+            <option value="anthropic">anthropic (sk-ant-...)</option>
+            <option value="gemini">gemini (AIza...)</option>
+          </select>
+        </label>
+        <label>
+          {t('settings.apiKeyLabel')}
+          <input
+            type="password"
+            bind:value={plaintext}
+            required
+            autocomplete="off"
+            spellcheck="false"
+            placeholder={t('settings.apiKeyPh')}
+          />
+        </label>
+        {#if saveError}<p class="error">{saveError}</p>{/if}
+        {#if saveOk}<p class="ok">{t('settings.saveOk')}</p>{/if}
+        <button type="submit" disabled={saving}>
+          {saving ? t('settings.storing') : t('settings.storeKey')}
+        </button>
+      </form>
+    {/if}
   </section>
 
   <!-- iCal subscription feed -->

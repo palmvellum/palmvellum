@@ -60,6 +60,30 @@ func TestContactRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAppInfoIs638AndRebuildsShort(t *testing.T) {
+	// Default AppInfo must be the full 638-byte AddressDB layout with the
+	// field labels present (a memo-sized 280-byte block crashes restore).
+	ai := DefaultAppInfo()
+	if len(ai) != AppInfoLen {
+		t.Fatalf("DefaultAppInfo = %d bytes, want %d", len(ai), AppInfoLen)
+	}
+	if !bytes.Contains(ai, []byte("Mobile")) || !bytes.Contains(ai, []byte("Zip Code")) {
+		t.Fatalf("DefaultAppInfo missing stock field labels")
+	}
+	// A too-short (corrupted/memo-sized) AppInfo is rebuilt to 638.
+	db := NewAddressDB(make([]byte, 280))
+	if len(db.AppInfo) != AppInfoLen {
+		t.Fatalf("NewAddressDB(280B) AppInfo = %d, want %d", len(db.AppInfo), AppInfoLen)
+	}
+	// A valid 638-byte AppInfo is preserved verbatim.
+	custom := DefaultAppInfo()
+	custom[282] = 'Z' // tweak first label byte
+	db2 := NewAddressDB(custom)
+	if !bytes.Equal(db2.AppInfo, custom) {
+		t.Fatalf("valid AppInfo not preserved verbatim")
+	}
+}
+
 func TestEncodeStableAndCompanyOffset(t *testing.T) {
 	c := Contact{
 		Last: "Wong", First: "Ada", Company: "ACME",

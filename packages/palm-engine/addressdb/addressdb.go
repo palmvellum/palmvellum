@@ -247,12 +247,52 @@ func (c Contact) DisplayName() string {
 	}
 }
 
+// AppInfoLen is the AddressDB AppInfo size: a 278-byte category block +
+// 4-byte labelRenamed + 22×16 labels + 2-byte country + sortByCompany +
+// pad.
+const AppInfoLen = 638
+
+// stdLabels are the 22 stock AddressDB field labels.
+var stdLabels = [22]string{
+	"Last name", "First name", "Company", "Work", "Home", "Fax", "Other",
+	"E-mail", "Address", "City", "State", "Zip Code", "Country", "Title",
+	"Custom 1", "Custom 2", "Custom 3", "Custom 4", "Note", "Main", "Pager", "Mobile",
+}
+
+// DefaultAppInfo builds a valid 638-byte AddressDB AppInfo (stock
+// categories + the 22 stock field labels). Used only when no card AppInfo
+// is available; normally the card's own AppInfo is preserved verbatim so
+// any user-renamed labels/categories survive.
+func DefaultAppInfo() []byte {
+	buf := make([]byte, AppInfoLen)
+	// Category block (first 278 bytes) — reuse memodb's category encoder,
+	// which lays out the identical renamed/names/uids structure, and take
+	// its first 278 bytes (its bytes 278-279 are memo's sortByPriority,
+	// which AddressDB does not use — left zero here).
+	mem := memodb.DefaultAppInfo()
+	mem.Categories[1] = memodb.Category{Name: "Business", UniqID: 1, Renamed: true}
+	mem.Categories[2] = memodb.Category{Name: "Personal", UniqID: 2, Renamed: true}
+	mem.Categories[3] = memodb.Category{Name: "QuickList", UniqID: 3, Renamed: true}
+	copy(buf[0:278], mem.Encode())
+	// labelRenamed (bytes 278-281) left zero. Labels start at 282.
+	for i, l := range stdLabels {
+		off := 282 + i*16
+		copy(buf[off:off+15], []byte(l))
+	}
+	// country (634-635), sortByCompany (636), pad (637) left zero.
+	return buf
+}
+
 // NewAddressDB builds an empty AddressDB shell. appInfo (with the 22
-// labels + categories) is reused verbatim from the card; pass nil for a
-// bare DB (categories then come from memodb.DefaultAppInfo defaults).
+// labels + categories) is reused verbatim from the card; pass nil to get
+// a valid stock 638-byte AppInfo.
 func NewAddressDB(appInfo []byte) *pdb.DB {
-	if appInfo == nil {
-		appInfo = memodb.DefaultAppInfo().Encode()
+	// A valid AddressDB AppInfo is 638 bytes (categories + 22 field
+	// labels). Anything shorter — nil, or a block a previous bug shrank to
+	// the 280-byte memo layout — is rebuilt from stock defaults so the
+	// field labels are present and the Palm restore won't fault.
+	if len(appInfo) < AppInfoLen {
+		appInfo = DefaultAppInfo()
 	}
 	return &pdb.DB{
 		Name:    "AddressDB",

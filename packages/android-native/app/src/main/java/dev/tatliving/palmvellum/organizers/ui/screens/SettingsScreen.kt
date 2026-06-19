@@ -23,6 +23,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,8 +42,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.CalRefreshWorker
-import dev.tatliving.palmvellum.organizers.data.CalSub
 import dev.tatliving.palmvellum.organizers.data.CalSubStore
+import dev.tatliving.palmvellum.organizers.data.CalSubs
 import dev.tatliving.palmvellum.organizers.data.CalendarSync
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.IcsImport
@@ -325,7 +326,9 @@ private fun LanguageSection() {
 private fun CalendarSubscriptionsSection() {
     val context = LocalContext.current
     val store = remember { CalSubStore(context) }
-    var subs by remember { mutableStateOf(store.list()) }
+    // The subscription list is a synced record now, so it streams in (and
+    // reflects feeds added on the web or another device).
+    val subs by CalSubs.observe().collectAsState(initial = emptyList())
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -369,7 +372,7 @@ private fun CalendarSubscriptionsSection() {
             Text(
                 I18n.t("common.remove"),
                 color = PalmRed, fontSize = 13.sp,
-                modifier = Modifier.clickable { store.remove(sub.url); subs = store.list() }.padding(6.dp),
+                modifier = Modifier.clickable { scope.launch { CalSubs.remove(sub.url) } }.padding(6.dp),
             )
         }
     }
@@ -383,8 +386,9 @@ private fun CalendarSubscriptionsSection() {
         Button(
             onClick = {
                 if (url.isNotBlank()) {
-                    store.add(CalSub(name.trim(), url.trim()))
-                    subs = store.list(); name = ""; url = ""; msg = null
+                    val n = name.trim(); val u = url.trim()
+                    scope.launch { CalSubs.add(n.ifBlank { u }, u) }
+                    name = ""; url = ""; msg = null
                 }
             },
             enabled = url.isNotBlank(),

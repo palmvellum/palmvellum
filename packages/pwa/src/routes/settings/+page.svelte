@@ -154,13 +154,19 @@
   let subError = $state<string | null>(null);
   let icsFileInput = $state<HTMLInputElement | null>(null);
 
-  function addSub(e: Event) {
+  // The subscription list is a synced record now — reload it once auth is
+  // ready so feeds added on another device (or Android) show up here.
+  $effect(() => {
+    if (authState.userId) void calsubs.load();
+  });
+
+  async function addSub(e: Event) {
     e.preventDefault();
     subError = null;
     subMsg = null;
     const url = subUrl.trim();
     if (!url) return;
-    calsubs.add({ name: subName.trim() || url, url });
+    await calsubs.add({ name: subName.trim() || url, url });
     subName = '';
     subUrl = '';
     void refreshSubs();

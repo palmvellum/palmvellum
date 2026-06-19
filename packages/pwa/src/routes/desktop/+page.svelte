@@ -30,11 +30,14 @@
   <section class="card">
     <h2>1 · Install the app</h2>
     <p>
-      Download <strong>PalmVellum.app</strong> and drag it to Applications.
-      It lives in your menu bar (🌴) and starts automatically on login.
+      Download the <strong>.dmg</strong>, drag <strong>PalmVellum.app</strong>
+      to Applications, then open it. It's an unsigned build, so the first time
+      you must <strong>right‑click the app → Open</strong>.
     </p>
-    <a class="dl" href="https://tatliving.dev/palmvellum/download" rel="external">
-      Download for macOS
+    <a class="dl"
+       href="https://github.com/palmvellum/palmvellum/releases/latest"
+       rel="external">
+      Download for macOS (.dmg)
     </a>
   </section>
 

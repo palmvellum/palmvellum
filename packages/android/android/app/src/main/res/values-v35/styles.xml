@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Android 15 (API 35) enforces edge-to-edge for apps targeting
+      SDK 35: the system bars become transparent and the WebView is
+      laid out underneath them. Capacitor's StatusBar.setOverlaysWebView(false)
+      no longer reserves the status-bar gutter, so the Palm title bar
+      slides up behind the clock / battery and env(safe-area-inset-top)
+      reports 0 on devices without a display cutout (it only ever covers
+      cutouts on Android, never the ordinary status bar).
+
+      Opt out of the enforcement so the WebView is inset below the system
+      bars again — the behaviour the rest of the app already assumes.
+      Honoured for apps targeting up to SDK 35; revisit (proper inset
+      handling) before we bump targetSdk to 36+.
+
+      Scoped to values-v35 so it only takes effect on Android 15+ and
+      lint is happy that the attribute is API-gated.
+    -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+
+</resources>

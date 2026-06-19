@@ -87,6 +87,54 @@
     await authState.refreshSettings();
   }
 
+  // ── Platform credits (pay-as-you-go) ────────────────────
+  const MIN_TOPUP = 10;
+  let topupUsd = $state(10);
+  let topupBusy = $state(false);
+  let topupError = $state<string | null>(null);
+
+  function balanceUsd(): string {
+    return ((authState.settings?.balance_micro_usd ?? 0) / 1_000_000).toFixed(2);
+  }
+
+  async function buyCredits() {
+    topupError = null;
+    if (!Number.isFinite(topupUsd) || topupUsd < MIN_TOPUP) {
+      topupError = `Minimum top-up is $${MIN_TOPUP}.`;
+      return;
+    }
+    topupBusy = true;
+    const { data, error } = await supabase.functions.invoke('create-topup', {
+      body: { amount_usd: topupUsd },
+    });
+    if (error || !data?.client_secret) {
+      topupBusy = false;
+      topupError = error?.message ?? data?.error ?? 'Could not start top-up.';
+      return;
+    }
+    // Hand off to Airwallex hosted checkout. The balance is credited by the
+    // webhook on payment success — never client-side.
+    try {
+      const sdk: any = await import(/* @vite-ignore */ 'https://esm.sh/@airwallex/components-sdk@1');
+      await sdk.init({ env: data.env === 'live' ? 'prod' : 'demo', enabledElements: ['payments'] });
+      await sdk.payments.redirectToCheckout({
+        intent_id: data.intent_id,
+        client_secret: data.client_secret,
+        currency: 'USD',
+        successUrl: location.origin + base + '/settings?topup=ok',
+        failUrl: location.origin + base + '/settings?topup=fail',
+      });
+    } catch (e) {
+      topupBusy = false;
+      topupError = 'Payment failed to start: ' + String(e);
+    }
+  }
+
+  async function setApiMode(mode: 'byok' | 'platform') {
+    await supabase.from('user_settings').update({ api_mode: mode }).eq('user_id', authState.userId!);
+    await authState.refreshSettings();
+  }
+
   async function copyIcal() {
     const u = icalHttpsUrl();
     if (!u) return;
@@ -288,6 +336,39 @@
         {saving ? t('settings.storing') : t('settings.storeKey')}
       </button>
     </form>
+  </section>
+
+  <!-- Platform credits (pay-as-you-go) -->
+  <section class="card">
+    <h2>Credits</h2>
+    <p class="sub">
+      Pay-as-you-go AI instead of your own key. Usage is charged at the OpenAI
+      cost <strong>+ 50%</strong>, drawn from your USD balance.
+    </p>
+    <p class="balance">Balance: <strong>${balanceUsd()}</strong></p>
+
+    <label class="inline-check">
+      <input
+        type="checkbox"
+        checked={authState.settings?.api_mode === 'platform'}
+        onchange={(e) =>
+          setApiMode((e.currentTarget as HTMLInputElement).checked ? 'platform' : 'byok')}
+      />
+      Use platform credits (uncheck to use your own API key)
+    </label>
+
+    <label class="field">
+      Top up (USD, min ${MIN_TOPUP})
+      <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
+    </label>
+    {#if topupError}<p class="error">{topupError}</p>{/if}
+    <button type="button" onclick={buyCredits} disabled={topupBusy}>
+      {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
+    </button>
+    <p class="hint">
+      Secure payment via Airwallex; minimum ${MIN_TOPUP}. We never store your
+      card. Credit is added once payment clears.
+    </p>
   </section>
 
   <!-- iCal subscription feed -->

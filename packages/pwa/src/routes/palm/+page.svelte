@@ -15,7 +15,11 @@
   import { sync } from '$lib/sync.svelte';
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
-  const APPS = [
+  type Tile = {
+    key: string; href: string; glyph: string;
+    i18n?: string; subI18n?: string; labelText?: string; subText?: string;
+  };
+  const APPS: Tile[] = [
     { key: 'datebook', href: '/palm/datebook', i18n: 'tab.datebook', glyph: '◫', subI18n: 'palm.sub.datebook' },
     { key: 'todo',     href: '/palm/todo',     i18n: 'tab.todo',     glyph: '☑', subI18n: 'palm.sub.todo' },
     { key: 'address',  href: '/palm/address',  i18n: 'tab.address',  glyph: '✦', subI18n: 'palm.sub.address' },
@@ -24,6 +28,7 @@
     { key: 'mail',     href: '/palm/mail',     i18n: 'tab.mail',     glyph: '✉', subI18n: 'palm.sub.mail' },
     { key: 'expense',  href: '/palm/expense',  i18n: 'tab.expense',  glyph: '¤', subI18n: 'palm.sub.expense' },
     { key: 'settings', href: '/settings',      i18n: 'nav.setting',  glyph: '⚙', subI18n: 'palm.sub.settings' },
+    { key: 'apps',     href: '/palm/apps',     glyph: '⬇', labelText: 'Get the apps', subText: 'Mac sync + Android' },
   ];
 </script>
 
@@ -36,8 +41,8 @@
         {#each APPS as app (app.key)}
           <a class="tile" href={base + app.href}>
             <span class="glyph" aria-hidden="true">{app.glyph}</span>
-            <span class="label">{t(app.i18n)}</span>
-            <span class="sublbl">{t(app.subI18n)}</span>
+            <span class="label">{app.labelText ?? (app.i18n ? t(app.i18n) : '')}</span>
+            <span class="sublbl">{app.subText ?? (app.subI18n ? t(app.subI18n) : '')}</span>
           </a>
         {/each}
       </div>

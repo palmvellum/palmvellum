@@ -78,9 +78,10 @@
       working as usual.
     </p>
     <p class="note">
-      Today this syncs <strong>Memo Pad</strong> and <strong>To Do</strong>.
-      Date Book, Address, Mail and Expense are coming. Conflicting edits use
-      last-write-wins for now, so sync soon after you back up.
+      Syncs <strong>Memo Pad</strong>, <strong>To Do</strong>,
+      <strong>Date Book</strong>, <strong>Address</strong> and
+      <strong>Mail</strong> digests. Conflicting edits use last-write-wins for
+      now, so sync soon after you back up.
     </p>
   </section>
 </PalmAppShell>

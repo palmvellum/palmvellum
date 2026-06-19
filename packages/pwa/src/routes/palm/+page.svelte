@@ -28,7 +28,7 @@
     { key: 'mail',     href: '/palm/mail',     i18n: 'tab.mail',     glyph: '✉', subI18n: 'palm.sub.mail' },
     { key: 'expense',  href: '/palm/expense',  i18n: 'tab.expense',  glyph: '¤', subI18n: 'palm.sub.expense' },
     { key: 'settings', href: '/settings',      i18n: 'nav.setting',  glyph: '⚙', subI18n: 'palm.sub.settings' },
-    { key: 'apps',     href: '/palm/apps',     glyph: '⬇', labelText: 'Get the apps', subText: 'Mac sync + Android' },
+    { key: 'apps',     href: '/palm/apps',     i18n: 'tab.apps',     glyph: '⬇', subI18n: 'palm.sub.apps' },
   ];
 </script>
 

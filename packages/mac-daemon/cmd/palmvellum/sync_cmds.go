@@ -172,6 +172,9 @@ func printCardResult(r palmsync.CardResult) {
 		fmt.Printf("addr:  +%d ~%d skip %d  → pulled %d\n",
 			r.Address.Inserted, r.Address.Updated, r.Address.Skipped, pulled(r.AddressPull))
 	}
+	if r.MailPull != nil {
+		fmt.Printf("mail:  → %d digests written to Inbox\n", r.MailPull.Written)
+	}
 	if len(r.CleanedJunk) > 0 {
 		fmt.Printf("clean: removed %d macOS dropping(s): %s\n",
 			len(r.CleanedJunk), strings.Join(r.CleanedJunk, ", "))

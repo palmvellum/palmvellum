@@ -10,6 +10,7 @@ import (
 	"github.com/palmvellum/palmvellum/packages/palm-engine/cardio"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/cloud"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/datebookdb"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/maildb"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/memodb"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/pdb"
 )
@@ -358,6 +359,93 @@ func contactFromMetadata(r cloud.Record) addressdb.Contact {
 		}
 	}
 	return ct
+}
+
+// ─────────────────────────── Mail (cloud → card, one-way) ───────────────────────────
+
+// MailPull writes the cloud's "mail" digest records into the Palm Inbox
+// (category 0) so they can be read on-device. This is one-way: Palm Mail
+// is a read surface for digests, so there is no MailPush. appInfo (folder
+// categories) is reused verbatim from the card.
+func MailPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Location) (PullResult, error) {
+	res := PullResult{OutPath: outPath}
+	rows, err := c.ListByType(userID, "mail")
+	if err != nil {
+		return res, err
+	}
+
+	maxUID := maxDeviceUID(rows, "mail:")
+	type backfill struct{ id, dev string }
+	var backfills []backfill
+
+	mails := make([]maildb.Mail, 0, len(rows))
+	for _, r := range rows {
+		if r.DeviceID != nil && !strings.HasPrefix(*r.DeviceID, "mail:") {
+			continue
+		}
+		var uid uint32
+		if r.DeviceID != nil {
+			fmt.Sscanf(*r.DeviceID, "mail:%x", &uid)
+		} else {
+			maxUID++
+			uid = maxUID
+			backfills = append(backfills, backfill{r.ID, fmt.Sprintf("mail:%06x", uid)})
+		}
+		subject, source := mailMeta(r)
+		m := maildb.Mail{
+			UniqueID: uid, Category: 0, // Inbox
+			Subject: subject, From: source, Body: r.Body,
+		}
+		if r.CreatedAt != nil {
+			t := r.CreatedAt.In(tz)
+			m.Year, m.Month, m.Day = t.Year(), int(t.Month()), t.Day()
+			m.Hour, m.Min = uint8(t.Hour()), uint8(t.Minute())
+		}
+		mails = append(mails, m)
+	}
+
+	for _, b := range backfills {
+		if err := c.Update(b.id, map[string]any{"device_id": b.dev}); err != nil {
+			res.BackfillFailed++
+		} else {
+			res.Backfilled++
+		}
+	}
+
+	db := maildb.NewMailDB(appInfo)
+	db.Records = maildb.EncodeMails(mails)
+	db.UniqueSeed = maxUID
+	db.CreatedAt = time.Now().UTC()
+	db.ModifiedAt = db.CreatedAt
+	raw, err := db.Write()
+	if err != nil {
+		return res, err
+	}
+	if err := cardio.WriteFile(outPath, raw); err != nil {
+		return res, err
+	}
+	res.Written = len(mails)
+	return res, nil
+}
+
+func mailMeta(r cloud.Record) (subject, source string) {
+	if len(r.Metadata) == 0 {
+		return "(digest)", ""
+	}
+	var m map[string]any
+	if json.Unmarshal(r.Metadata, &m) != nil {
+		return "(digest)", ""
+	}
+	if v, ok := m["mail_subject"].(string); ok {
+		subject = v
+	}
+	if v, ok := m["mail_source_name"].(string); ok {
+		source = v
+	}
+	if subject == "" {
+		subject = "(digest)"
+	}
+	return subject, source
 }
 
 func clip(s string, n int) string {

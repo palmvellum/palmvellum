@@ -411,7 +411,8 @@ type CardResult struct {
 	DatebookPull *PullResult
 	Address      *PushResult
 	AddressPull  *PullResult
-	CleanedJunk  []string // macOS droppings removed before eject
+	MailPull     *PullResult // Mail is one-way (cloud → card)
+	CleanedJunk  []string    // macOS droppings removed before eject
 }
 
 // SyncCard runs the full round-trip with no progress logging and no AI
@@ -532,6 +533,21 @@ func SyncCardLog(c Cloud, userID, setDir string, aiWait time.Duration, tz *time.
 		log("  wrote %d contacts to card", pl.Written)
 	} else if os.IsNotExist(err) {
 		log("(no AddressDB.pdb on card)")
+	} else {
+		return out, err
+	}
+
+	mailPath := filepath.Join(setDir, "MailDB.pdb")
+	if data, err := os.ReadFile(mailPath); err == nil {
+		log("Mail ← cloud (digests)…")
+		pl, err := MailPull(c, userID, mailPath, appInfoOf(data), tz)
+		if err != nil {
+			return out, fmt.Errorf("mail pull: %w", err)
+		}
+		out.MailPull = &pl
+		log("  wrote %d digests to Inbox", pl.Written)
+	} else if os.IsNotExist(err) {
+		log("(no MailDB.pdb on card)")
 	} else {
 		return out, err
 	}

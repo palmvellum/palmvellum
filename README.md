@@ -91,16 +91,17 @@ on the Palm.
 - **Passwordless login** — sign in with your platform account via an emailed
   code; the session is kept in the macOS Keychain, so you stay logged in until
   you log out. Every sync is scoped to you by Postgres RLS (no keys to copy).
-- **Insert‑and‑go** — the app detects the card, syncs **Memo Pad** and
-  **To Do**, and ejects it for you. It can wait for any `(AI)` memo answers so
-  they come back to the card in the same sync.
+- **Insert‑and‑go** — the app detects the card, syncs **Memo Pad**, **To Do**,
+  **Date Book**, **Address** and **Mail**, and ejects it for you. It can wait
+  for any `(AI)` memo answers so they come back to the card in the same sync.
 - **Restore on the Palm** — put the card back and use MS Backup's *restore from
   card*. The CLIE may do a brief **soft reset** on restore — this is expected
   and harmless; your records load normally.
 
 Build it from [`packages/mac-daemon/`](packages/mac-daemon/) with
-`bash packaging/build-app.sh` → `dist/PalmVellum.app`. Today it syncs Memo Pad
-and To Do; Date Book, Address, Mail and Expense are on the way.
+`bash packaging/build-app.sh` → `dist/PalmVellum.app`. It syncs Memo Pad, To Do,
+Date Book, Address (contacts) and Mail digests. (Expense and Note Pad aren't
+present on the reference Sony CLIE, so they're out of scope.)
 
 ### Android app — Palm Organizers (native)
 

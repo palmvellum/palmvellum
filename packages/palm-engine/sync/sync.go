@@ -32,13 +32,22 @@ import (
 // engine applies before writing to a CJKOS Palm.
 const AISeparator = "\n-- AI --\n"
 
-// Cloud is the subset of the Supabase records client the engine needs.
+// Cloud is the subset of the Supabase client the engine needs.
 // *cloud.Client satisfies it; tests supply a fake.
 type Cloud interface {
 	FindByDevice(userID, deviceID string) (string, error)
 	Insert(r cloud.Record) error
 	Update(id string, patch map[string]any) error
 	ListForUser(userID string) ([]cloud.Record, error)
+	// ListByType returns active records of the given types (for the
+	// contact/mail conduits, which ListForUser's filter excludes).
+	ListByType(userID string, types ...string) ([]cloud.Record, error)
+
+	// Date Book → events table.
+	ListEventsForUser(userID string) ([]cloud.Event, error)
+	FindEventByDevice(userID, deviceID string) (string, error)
+	InsertEvent(e cloud.Event) error
+	UpdateEvent(id string, patch map[string]any) error
 }
 
 // PushResult counts the outcome of a push.
@@ -394,17 +403,22 @@ func TodoPull(c Cloud, userID, outPath string) (PullResult, error) {
 
 // CardResult is the outcome of a full-card sync.
 type CardResult struct {
-	Memo        *PushResult
-	MemoPull    *PullResult
-	Todo        *PushResult
-	TodoPull    *PullResult
-	CleanedJunk []string // macOS droppings removed before eject
+	Memo         *PushResult
+	MemoPull     *PullResult
+	Todo         *PushResult
+	TodoPull     *PullResult
+	Datebook     *PushResult
+	DatebookPull *PullResult
+	Address      *PushResult
+	AddressPull  *PullResult
+	MailPull     *PullResult // Mail is one-way (cloud → card)
+	CleanedJunk  []string    // macOS droppings removed before eject
 }
 
 // SyncCard runs the full round-trip with no progress logging and no AI
-// wait.
+// wait, using the local time zone for Date Book.
 func SyncCard(c Cloud, userID, setDir string) (CardResult, error) {
-	return SyncCardLog(c, userID, setDir, 0, nil)
+	return SyncCardLog(c, userID, setDir, 0, time.Local, nil)
 }
 
 // SyncCardLog runs the full round-trip for a Sony MS Backup set directory
@@ -420,8 +434,11 @@ func SyncCard(c Cloud, userID, setDir string) (CardResult, error) {
 // aiWait > 0 makes the memo phase wait (up to aiWait) for the cloud AI
 // worker to answer any newly-pushed "(AI)" memos before pulling, so the
 // answers come back to the card in the same sync. 0 = don't wait.
-func SyncCardLog(c Cloud, userID, setDir string, aiWait time.Duration, logf func(string)) (CardResult, error) {
+func SyncCardLog(c Cloud, userID, setDir string, aiWait time.Duration, tz *time.Location, logf func(string)) (CardResult, error) {
 	var out CardResult
+	if tz == nil {
+		tz = time.Local
+	}
 	log := func(format string, a ...any) {
 		if logf != nil {
 			logf(fmt.Sprintf(format, a...))
@@ -472,6 +489,65 @@ func SyncCardLog(c Cloud, userID, setDir string, aiWait time.Duration, logf func
 		log("  wrote %d todos to card", pl.Written)
 	} else if os.IsNotExist(err) {
 		log("(no ToDoDB.pdb on card)")
+	} else {
+		return out, err
+	}
+
+	datePath := filepath.Join(setDir, "DatebookDB.pdb")
+	if data, err := os.ReadFile(datePath); err == nil {
+		log("Date Book → cloud…")
+		pr, err := DatebookPush(c, userID, data, tz)
+		if err != nil {
+			return out, fmt.Errorf("datebook push: %w", err)
+		}
+		out.Datebook = &pr
+		log("  +%d new, ~%d updated, %d skipped", pr.Inserted, pr.Updated, pr.Skipped)
+		log("Date Book ← cloud…")
+		pl, err := DatebookPull(c, userID, datePath, appInfoOf(data), tz)
+		if err != nil {
+			return out, fmt.Errorf("datebook pull: %w", err)
+		}
+		out.DatebookPull = &pl
+		log("  wrote %d appointments to card", pl.Written)
+	} else if os.IsNotExist(err) {
+		log("(no DatebookDB.pdb on card)")
+	} else {
+		return out, err
+	}
+
+	addrPath := filepath.Join(setDir, "AddressDB.pdb")
+	if data, err := os.ReadFile(addrPath); err == nil {
+		log("Address → cloud…")
+		pr, err := AddressPush(c, userID, data)
+		if err != nil {
+			return out, fmt.Errorf("address push: %w", err)
+		}
+		out.Address = &pr
+		log("  +%d new, ~%d updated, %d skipped", pr.Inserted, pr.Updated, pr.Skipped)
+		log("Address ← cloud…")
+		pl, err := AddressPull(c, userID, addrPath, appInfoOf(data))
+		if err != nil {
+			return out, fmt.Errorf("address pull: %w", err)
+		}
+		out.AddressPull = &pl
+		log("  wrote %d contacts to card", pl.Written)
+	} else if os.IsNotExist(err) {
+		log("(no AddressDB.pdb on card)")
+	} else {
+		return out, err
+	}
+
+	mailPath := filepath.Join(setDir, "MailDB.pdb")
+	if data, err := os.ReadFile(mailPath); err == nil {
+		log("Mail ← cloud (digests)…")
+		pl, err := MailPull(c, userID, mailPath, appInfoOf(data), tz)
+		if err != nil {
+			return out, fmt.Errorf("mail pull: %w", err)
+		}
+		out.MailPull = &pl
+		log("  wrote %d digests to Inbox", pl.Written)
+	} else if os.IsNotExist(err) {
+		log("(no MailDB.pdb on card)")
 	} else {
 		return out, err
 	}
@@ -535,6 +611,16 @@ func WaitForAI(c Cloud, userID string, pending []string, budget, interval time.D
 		}
 		time.Sleep(interval)
 	}
+}
+
+// appInfoOf returns the AppInfo block of a .pdb so the pull side can
+// reuse the card's existing categories / field labels verbatim.
+func appInfoOf(data []byte) []byte {
+	db, err := pdb.Read(data)
+	if err != nil {
+		return nil
+	}
+	return db.AppInfo
 }
 
 func metaCategory(r cloud.Record) string {

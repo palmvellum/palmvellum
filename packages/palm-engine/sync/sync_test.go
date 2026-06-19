@@ -6,17 +6,72 @@ import (
 	"testing"
 	"time"
 
+	"github.com/palmvellum/palmvellum/packages/palm-engine/addressdb"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/cloud"
+	"github.com/palmvellum/palmvellum/packages/palm-engine/datebookdb"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/memodb"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/pdb"
 )
 
 // fakeCloud is an in-memory Cloud for tests.
 type fakeCloud struct {
-	rows map[string]*cloud.Record // keyed by id
+	rows   map[string]*cloud.Record // keyed by id
+	events map[string]*cloud.Event  // keyed by id
 }
 
-func newFake() *fakeCloud { return &fakeCloud{rows: map[string]*cloud.Record{}} }
+func newFake() *fakeCloud {
+	return &fakeCloud{rows: map[string]*cloud.Record{}, events: map[string]*cloud.Event{}}
+}
+
+func (f *fakeCloud) ListByType(userID string, types ...string) ([]cloud.Record, error) {
+	want := map[string]bool{}
+	for _, t := range types {
+		want[t] = true
+	}
+	var out []cloud.Record
+	for _, r := range f.rows {
+		if r.UserID == userID && want[r.Type] {
+			out = append(out, *r)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeCloud) ListEventsForUser(userID string) ([]cloud.Event, error) {
+	var out []cloud.Event
+	for _, e := range f.events {
+		if e.UserID == userID {
+			out = append(out, *e)
+		}
+	}
+	return out, nil
+}
+func (f *fakeCloud) FindEventByDevice(userID, deviceID string) (string, error) {
+	for id, e := range f.events {
+		if e.UserID == userID && e.DeviceID != nil && *e.DeviceID == deviceID {
+			return id, nil
+		}
+	}
+	return "", nil
+}
+func (f *fakeCloud) InsertEvent(e cloud.Event) error {
+	cp := e
+	f.events[e.ID] = &cp
+	return nil
+}
+func (f *fakeCloud) UpdateEvent(id string, patch map[string]any) error {
+	e, ok := f.events[id]
+	if !ok {
+		return nil
+	}
+	if v, ok := patch["device_id"].(string); ok {
+		e.DeviceID = &v
+	}
+	if v, ok := patch["title"].(string); ok {
+		e.Title = v
+	}
+	return nil
+}
 
 func (f *fakeCloud) FindByDevice(userID, deviceID string) (string, error) {
 	for id, r := range f.rows {
@@ -104,6 +159,59 @@ func TestMemoPushPullRoundTrip(t *testing.T) {
 	got := memodb.DecodeMemos(parsed)
 	if len(got) != 1 || got[0].Text != "買電池" {
 		t.Fatalf("round-trip memos = %+v, want [買電池]", got)
+	}
+}
+
+func TestSyncCardDatebookAndAddress(t *testing.T) {
+	const uid = "u-pim"
+	f := newFake()
+	dir := t.TempDir()
+
+	// Date Book card with one timed appointment.
+	ddb := datebookdb.NewDatebookDB(nil)
+	ddb.Records = datebookdb.EncodeAppointments([]datebookdb.Appointment{
+		{UniqueID: 0x30, StartHour: 9, StartMin: 0, EndHour: 10, EndMin: 0,
+			Year: 2026, Month: 6, Day: 19, Description: "標準會議"},
+	})
+	draw, _ := ddb.Write()
+	if err := os.WriteFile(filepath.Join(dir, "DatebookDB.pdb"), draw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Address card with one contact.
+	adb := addressdb.NewAddressDB(nil)
+	adb.Records = addressdb.EncodeContacts([]addressdb.Contact{
+		{UniqueID: 0x40, First: "Ada", Last: "黃", Company: "ACME",
+			Phones: []addressdb.Phone{{Label: "Mobile", Value: "555"}}},
+	})
+	araw, _ := adb.Write()
+	if err := os.WriteFile(filepath.Join(dir, "AddressDB.pdb"), araw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncCard(f, uid, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Datebook == nil || res.Datebook.Inserted != 1 {
+		t.Fatalf("datebook push: %+v", res.Datebook)
+	}
+	if res.Address == nil || res.Address.Inserted != 1 {
+		t.Fatalf("address push: %+v", res.Address)
+	}
+	if len(f.events) != 1 {
+		t.Fatalf("events in cloud: %d", len(f.events))
+	}
+
+	// Pull regenerated the card; decode back and check the contact name.
+	araw2, _ := os.ReadFile(filepath.Join(dir, "AddressDB.pdb"))
+	pdb2, _ := pdb.Read(araw2)
+	cs := addressdb.DecodeContacts(pdb2)
+	if len(cs) != 1 || cs[0].Last != "黃" || cs[0].Company != "ACME" {
+		t.Fatalf("pulled contacts: %+v", cs)
+	}
+	if len(cs[0].Phones) != 1 || cs[0].Phones[0].Label != "Mobile" {
+		t.Fatalf("pulled phones: %+v", cs[0].Phones)
 	}
 }
 

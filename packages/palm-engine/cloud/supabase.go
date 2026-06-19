@@ -156,6 +156,32 @@ func (c *Client) ListForUser(userID string) ([]Record, error) {
 	return rows, nil
 }
 
+// ListByType returns active records of the given types for the user.
+func (c *Client) ListByType(userID string, types ...string) ([]Record, error) {
+	list := strings.Join(types, ",")
+	u := fmt.Sprintf(
+		"%s/rest/v1/records"+
+			"?select=id,type,posture,body,source,device_id,ai_status,ai_response,metadata,created_at"+
+			"&user_id=eq.%s&deleted_at=is.null&type=in.(%s)&order=created_at.asc",
+		c.Endpoint, userID, list)
+	req, _ := http.NewRequest("GET", u, nil)
+	c.auth(req)
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("listByType: HTTP %d %s", resp.StatusCode, b)
+	}
+	var rows []Record
+	if err := json.NewDecoder(resp.Body).Decode(&rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func (c *Client) auth(req *http.Request) {
 	req.Header.Set("apikey", c.APIKey)
 	req.Header.Set("Authorization", "Bearer "+c.Token)

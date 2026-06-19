@@ -203,6 +203,29 @@ still does a brief **soft reset** when restoring from card — confirmed by the
 owner to be **expected and harmless**: records load normally and the device
 keeps working. So it is accepted behaviour, not an outstanding bug.
 
+**All applicable conduits landed (2026-06-19)**
+
+Beyond Memo + To Do, the remaining conduits now exist in `palm-engine` and
+are wired into `SyncCard`, each verified against the real CLIE card + live
+Supabase:
+
+- **Date Book** ⇄ `events` table (`datebookdb` + `DatebookPush/Pull`). Real
+  Palm appointments decoded + pushed; 24 cloud events pulled back. Repeat
+  rules are preserved byte-exact on round-trip but not yet translated to/from
+  iCalendar RRULE (single-occurrence semantics on the cloud side).
+- **Address** ⇄ `records.type='contact'` (`addressdb` + `AddressPush/Pull`).
+  Phone-label packing, 19-field bitmap, 22 AppInfo labels; Big5 names verified
+  (`Siu Ming 張`).
+- **Mail** → Palm Inbox, one-way (`maildb` + `MailPull`): cloud digest records
+  (`metadata.mail_subject` / `mail_source_name`) written as Inbox messages.
+  12 digests verified.
+- **Expense** and **Note Pad** are **not present on the Sony CLIE**, so they
+  are out of scope (no DB on the device, nothing to sync).
+
+Formats were taken from pilot-link (libpisock) rather than guessed. Codecs are
+byte-stable on round-trip; the cloud→card encoders still want a final on-device
+restore check by the owner.
+
 **Left to the owner (hardware / identity gated)**
 
 - Real login from the app (needs the account password — not available to CI).

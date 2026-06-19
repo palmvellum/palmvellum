@@ -1,4 +1,24 @@
 export default {
+  // ── /palm/apps download hub ──
+  "tab.apps": "Get the apps",
+  "palm.sub.apps": "Mac sync + Android",
+  "apps.heading": "Companion apps",
+  "apps.lede": "Use PalmVellum beyond this browser: sync a real Palm card from your Mac, or run the organizers natively on Android.",
+  "apps.mac.title": "PalmVellum desktop sync · macOS",
+  "apps.mac.desc": "Syncs a Sony Clié's Memo Pad, To Do, Date Book, Address and Mail with this cloud — using the Memory Stick and the Palm's built-in MS Backup. The Palm itself never changes.",
+  "apps.mac.dl": "Download .dmg",
+  "apps.mac.steps": "<li>Drag <strong>PalmVellum.app</strong> to Applications. Unsigned — first launch: <strong>right-click → Open</strong>.</li><li>On the Clié, <strong>MS Backup → back up</strong> to the Memory Stick.</li><li>Put the card in a Mac reader; the app logs in, syncs, and ejects it.</li><li>Put the card back and <strong>restore from card</strong> in MS Backup.</li>",
+  "apps.mac.note": "Tested on Sony Clié + Memory Stick + MS Backup. Palm devices with an SD card are not yet tested. The Clié may do a brief, harmless soft reset on restore.",
+  "apps.mac.guide": "Full guide ↗",
+  "apps.android.title": "Palm Organizers · Android",
+  "apps.android.desc": "A native, local-first build of the organizers with optional cloud sync + AI. Two flavors install side by side:",
+  "apps.android.std": "Standard APK",
+  "apps.android.cosmo": "Cosmo edition APK",
+  "apps.android.flavors": "<li><strong>Standard</strong> — portrait, any Android phone.</li><li><strong>Cosmo edition</strong> — for the Planet Cosmo Communicator (landscape + physical QWERTY).</li>",
+  "apps.android.steps": "<li>Tap the APK for your device.</li><li>Allow <strong>「Install unknown apps」</strong> when Android prompts.</li><li>Open the downloaded APK to install.</li>",
+  "apps.android.note": "Sideload (debug-signed) APKs — not on the Play Store, not Play-reviewed.",
+  "apps.risk": "All companion apps are free and open-source with no warranty of any kind — use entirely at your own risk. Always keep a separate backup before restoring to a device.",
+
   // ── Nav ─────────────────────────────────────────────────
   'nav.organizers': 'Organizers',
   'nav.setting': 'Setting',

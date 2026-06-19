@@ -59,6 +59,7 @@ export interface UserSettings {
   subscription_status: string;
   credits_remaining: number;
   credits_used_month: number;
+  balance_micro_usd: number;
   palm_enrolled: boolean;
   hotsync_token_issued_at: string | null;
   palm_serial: string | null;

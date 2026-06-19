@@ -146,6 +146,27 @@
     </p>
   </section>
 
+  <section class="card center desktop-card">
+    <h2>Sync your Palm card</h2>
+    <p class="lede">
+      A small macOS app syncs your Sony Clié's Memo Pad, To Do, Date Book,
+      Address and Mail with the cloud — using the Memory Stick + the Palm's
+      built‑in MS Backup. The Palm itself never changes.
+    </p>
+    <a class="dlbtn" href="https://github.com/palmvellum/palmvellum/releases/latest" rel="external">
+      Download for macOS (.dmg)
+    </a>
+    <p class="muted">
+      <a href="{base}/desktop">How it works ↗</a> ·
+      <a href="https://github.com/palmvellum/palmvellum" rel="external">source ↗</a>
+    </p>
+    <p class="risk">
+      Unsigned — first launch: right‑click → Open. No warranty; use at your own
+      risk. Tested on Sony Clié + Memory Stick + MS Backup; SD‑card Palms not
+      yet tested.
+    </p>
+  </section>
+
 {:else if authState.phase === 'uninvited'}
   <section class="card center">
     <h2>You're signed in.</h2>
@@ -288,5 +309,27 @@
   .error {
     color: #ff6b6b;
     font-size: 0.85rem;
+  }
+  .desktop-card {
+    margin-top: 1rem;
+  }
+  .dlbtn {
+    display: inline-block;
+    margin: 0.4rem 0 0.2rem;
+    padding: 0.55rem 1rem;
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .dlbtn:hover {
+    background: var(--accent-dim);
+  }
+  .risk {
+    color: var(--ink-mute);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin-top: 0.6rem;
   }
 </style>

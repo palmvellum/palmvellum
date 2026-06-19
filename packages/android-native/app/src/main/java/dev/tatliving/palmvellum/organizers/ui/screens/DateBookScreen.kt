@@ -424,7 +424,7 @@ private fun DayBlock(
                 if (i > 0) PalmDivider()
                 PalmRow(
                     title = ev.title,
-                    meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt),
+                    meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt) + (ev.endAt?.let { " – " + DT.timeLabel(it) } ?: ""),
                     body = ev.location,
                     metaColor = PalmRed,
                     onClick = { onEdit(ev) },
@@ -746,6 +746,9 @@ private fun EventEditor(
     var title by remember { mutableStateOf(initial.title) }
     var date by remember { mutableStateOf(DT.dateOf(initial.startAt)) }
     var time by remember { mutableStateOf(DT.timeOf(initial.startAt)) }
+    var endTime by remember {
+        mutableStateOf(initial.endAt?.let { DT.timeOf(it) } ?: DT.timeOf(initial.startAt).plusHours(1))
+    }
     var allDay by remember { mutableStateOf(initial.allDay) }
     var location by remember { mutableStateOf(initial.location ?: "") }
     var notes by remember { mutableStateOf(initial.notes ?: "") }
@@ -761,6 +764,10 @@ private fun EventEditor(
                     id = initial.id.ifEmpty { Ulid.new() },
                     title = title.trim(),
                     startAt = DT.toIso(date, time),
+                    // Only keep an end time for timed events, and never one
+                    // before the start (the cloud's events table enforces
+                    // end_at >= start_at).
+                    endAt = if (!allDay && !endTime.isBefore(time)) DT.toIso(date, endTime) else null,
                     allDay = allDay,
                     location = location.trim().ifEmpty { null },
                     notes = notes.trim().ifEmpty { null },
@@ -778,9 +785,14 @@ private fun EventEditor(
             )
             if (!allDay) {
                 DateTimeRow(
-                    label = "Time",
+                    label = "Start time",
                     value = DT.fmtTime(time),
                     onClick = { pickTime(context, time) { time = it } },
+                )
+                DateTimeRow(
+                    label = "End time",
+                    value = DT.fmtTime(endTime),
+                    onClick = { pickTime(context, endTime) { endTime = it } },
                 )
             }
             Row(

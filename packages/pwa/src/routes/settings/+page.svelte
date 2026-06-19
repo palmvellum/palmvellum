@@ -88,8 +88,8 @@
   }
 
   // ── Platform credits (pay-as-you-go) ────────────────────
-  const MIN_TOPUP = 10;
-  let topupUsd = $state(10);
+  const MIN_TOPUP = 1; // TEMP: $1 for testing
+  let topupUsd = $state(1);
   let topupBusy = $state(false);
   let topupError = $state<string | null>(null);
 

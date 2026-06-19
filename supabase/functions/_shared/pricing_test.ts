@@ -31,5 +31,5 @@ Deno.test("zero usage costs zero", () => {
 Deno.test("USD <-> micro conversions + minimum", () => {
   assertEquals(usdToMicro(10), 10_000_000);
   assertEquals(microToUsd(10_000_000), 10);
-  assertEquals(MIN_TOPUP_USD, 10);
+  assertEquals(MIN_TOPUP_USD, 1);
 });

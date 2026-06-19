@@ -235,7 +235,7 @@ func (g *gui) doSync() {
 	if g.waitAI {
 		aiWait = 120 * time.Second
 	}
-	_, err = palmsync.SyncCardLog(cl, sess.UserID, card.SetDir, aiWait, g.appendLog)
+	_, err = palmsync.SyncCardLog(cl, sess.UserID, card.SetDir, aiWait, time.Local, g.appendLog)
 	if err != nil {
 		g.appendLog("❌ " + err.Error() + " (card left mounted — fix and retry)")
 		return

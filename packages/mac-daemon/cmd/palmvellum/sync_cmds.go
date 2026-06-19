@@ -136,7 +136,7 @@ func cardSyncCmd() *cobra.Command {
 			}
 			c := cloud.New(cfg.SupabaseURL, cfg.SupabasePublishableKey, s.AccessToken)
 
-			res, err := palmsync.SyncCardLog(c, s.UserID, args[0], wait, func(line string) {
+			res, err := palmsync.SyncCardLog(c, s.UserID, args[0], wait, time.Local, func(line string) {
 				fmt.Println(line)
 			})
 			if err != nil {
@@ -163,6 +163,14 @@ func printCardResult(r palmsync.CardResult) {
 			r.Todo.Inserted, r.Todo.Updated, r.Todo.Skipped, pulled(r.TodoPull))
 	} else {
 		fmt.Println("todo:  (no ToDoDB.pdb on card)")
+	}
+	if r.Datebook != nil {
+		fmt.Printf("date:  +%d ~%d skip %d  → pulled %d\n",
+			r.Datebook.Inserted, r.Datebook.Updated, r.Datebook.Skipped, pulled(r.DatebookPull))
+	}
+	if r.Address != nil {
+		fmt.Printf("addr:  +%d ~%d skip %d  → pulled %d\n",
+			r.Address.Inserted, r.Address.Updated, r.Address.Skipped, pulled(r.AddressPull))
 	}
 	if len(r.CleanedJunk) > 0 {
 		fmt.Printf("clean: removed %d macOS dropping(s): %s\n",

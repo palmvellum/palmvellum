@@ -69,6 +69,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
 import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmDarkRed
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
@@ -171,12 +172,12 @@ fun DateBookScreen(navController: NavHostController) {
     // visible window (the month grid + the next week for the agenda).
     val byDay = remember(events, anchor) { expandByDay(events, anchor) }
 
-    val modeOptions = listOf("agenda" to "agenda", "month" to "month")
+    val modeOptions = listOf("agenda" to I18n.t("datebook.modeAgenda"), "month" to I18n.t("datebook.modeMonth"))
     PalmScaffold(
-        title = "Date Book",
+        title = I18n.t("datebook.title"),
         navController = navController,
         currentRoute = Routes.DATEBOOK,
-        titleAction = { TitleAction("+ new") { editing = newEvent(selectedDay) } },
+        titleAction = { TitleAction(I18n.t("common.new")) { editing = newEvent(selectedDay) } },
         // Cosmo: the agenda/week/month switcher rides in the title bar, with the
         // "plan with AI" input filling the grey space beside it.
         titleCenter = if (BuildConfig.COSMO) {
@@ -190,7 +191,7 @@ fun DateBookScreen(navController: NavHostController) {
                         TitleSearch(
                             value = aiText,
                             onValueChange = { aiText = it },
-                            placeholder = "plan with AI",
+                            placeholder = I18n.t("datebook.planWithAiPlaceholder"),
                             modifier = Modifier.weight(1f),
                             onSubmit = {
                                 if (aiText.isNotBlank()) { vm.planWithAi(aiText); aiText = "" }
@@ -362,7 +363,7 @@ private fun AgendaView(
         if (events.isEmpty()) {
             item(key = "empty") {
                 Text(
-                    "No events yet. Tap + new, or plan with AI above.",
+                    I18n.t("datebook.noEvents"),
                     color = PalmInkMute, fontSize = 14.sp,
                     modifier = Modifier.padding(8.dp),
                 )
@@ -415,7 +416,7 @@ private fun DayBlock(
         val sorted = events.sortedBy { it.startAt }
         if (sorted.isEmpty()) {
             Text(
-                "No events.",
+                I18n.t("datebook.noEventsShort"),
                 color = PalmInkMute, fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             )
@@ -424,7 +425,7 @@ private fun DayBlock(
                 if (i > 0) PalmDivider()
                 PalmRow(
                     title = ev.title,
-                    meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt) + (ev.endAt?.let { " – " + DT.timeLabel(it) } ?: ""),
+                    meta = if (ev.allDay) I18n.t("common.allDay") else DT.timeLabel(ev.startAt) + (ev.endAt?.let { " – " + DT.timeLabel(it) } ?: ""),
                     body = ev.location,
                     metaColor = PalmRed,
                     onClick = { onEdit(ev) },
@@ -451,7 +452,7 @@ private fun DayBlockHeader(day: LocalDate, onAdd: (LocalDate) -> Unit) {
             Text(DT.fmtDate(day), color = PalmOnDark, fontSize = 11.sp)
         }
         Text(
-            "+ add",
+            I18n.t("datebook.add"),
             color = PalmOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.clickable { onAdd(day) }.padding(4.dp),
         )
@@ -555,13 +556,13 @@ private fun MonthDayDetail(args: MonthViewArgs) {
             modifier = Modifier.weight(1f).padding(start = 2.dp, bottom = 4.dp),
         )
         Text(
-            "+ add",
+            I18n.t("datebook.add"),
             color = PalmTitleBar, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.clickable { args.onAdd(args.selectedDay) }.padding(6.dp),
         )
     }
     if (dayEvents.isEmpty()) {
-        Text("No events this day.", color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(8.dp))
+        Text(I18n.t("datebook.noEventsThisDay"), color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(8.dp))
     } else {
         DayEventsCard(dayEvents, args.onEdit)
     }
@@ -624,7 +625,7 @@ private fun DayEventsCard(dayEvents: List<EventEntity>, onEdit: (EventEntity) ->
             if (i > 0) PalmDivider()
             PalmRow(
                 title = ev.title,
-                meta = if (ev.allDay) "all day" else DT.timeLabel(ev.startAt) + (ev.endAt?.let { " – " + DT.timeLabel(it) } ?: ""),
+                meta = if (ev.allDay) I18n.t("common.allDay") else DT.timeLabel(ev.startAt) + (ev.endAt?.let { " – " + DT.timeLabel(it) } ?: ""),
                 body = ev.location,
                 metaColor = PalmRed,
                 onClick = { onEdit(ev) },
@@ -645,7 +646,7 @@ private fun PeriodNav(title: String, onPrev: () -> Unit, onNext: () -> Unit, onT
             modifier = Modifier.weight(1f),
         )
         Text(
-            "today",
+            I18n.t("datebook.today"),
             color = PalmTitleBar, fontSize = 13.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.clickable(onClick = onToday).padding(horizontal = 8.dp, vertical = 6.dp),
         )
@@ -678,18 +679,18 @@ private fun AiPlanCard(
         Column(Modifier.padding(4.dp)) {
             if (!signedIn) {
                 Text(
-                    "Sign in (Settings) to plan events with AI.",
+                    I18n.t("datebook.signInToPlan"),
                     color = PalmInkMute, fontSize = 13.sp,
                     modifier = Modifier.padding(12.dp),
                 )
             } else {
-                PalmField("Plan with AI", text, onText, singleLine = false, minLines = 2)
+                PalmField(I18n.t("datebook.planWithAi"), text, onText, singleLine = false, minLines = 2)
                 Button(
                     onClick = onSubmit,
                     enabled = text.isNotBlank(),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                ) { Text("Plan with AI") }
+                ) { Text(I18n.t("datebook.planWithAi")) }
             }
         }
     }
@@ -707,15 +708,15 @@ private fun DraftCard(
             Text("\"${draft.rawInput}\"", color = PalmInk, fontSize = 14.sp)
             Spacer(Modifier.height(6.dp))
             when (draft.status) {
-                "pending", "parsing" -> Text("AI thinking...", color = PalmInkMute, fontSize = 13.sp)
-                "error" -> Text("AI error: ${draft.aiError ?: ""}", color = PalmRed, fontSize = 13.sp)
+                "pending", "parsing" -> Text(I18n.t("datebook.aiThinking"), color = PalmInkMute, fontSize = 13.sp)
+                "error" -> Text(I18n.t("datebook.aiError", draft.aiError ?: ""), color = PalmRed, fontSize = 13.sp)
                 "parsed" -> {
                     parsed.forEach { p ->
                         val time = p.start_at?.let { "${DT.dayLabel(it)} ${DT.timeLabel(it)}" } ?: ""
                         Text("- ${p.title}  $time", color = PalmInk, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text("added to Date Book", color = PalmInkMute, fontSize = 12.sp)
+                    Text(I18n.t("datebook.addedToDateBook"), color = PalmInkMute, fontSize = 12.sp)
                 }
                 else -> Text(draft.status, color = PalmInkMute, fontSize = 13.sp)
             }
@@ -755,7 +756,7 @@ private fun EventEditor(
     var repeat by remember { mutableStateOf(repeatToken(initial.repeatRule)) }
 
     EditorScaffold(
-        title = if (isNew) "New Event" else "Edit Event",
+        title = if (isNew) I18n.t("datebook.newEvent") else I18n.t("datebook.editEvent"),
         onCancel = onCancel,
         saveEnabled = title.isNotBlank(),
         onSave = {
@@ -777,20 +778,20 @@ private fun EventEditor(
         },
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            PalmField("Title", title, { title = it })
+            PalmField(I18n.t("datebook.fieldTitle"), title, { title = it })
             DateTimeRow(
-                label = "Date",
+                label = I18n.t("datebook.date"),
                 value = DT.fmtDate(date),
                 onClick = { pickDate(context, date) { date = it } },
             )
             if (!allDay) {
                 DateTimeRow(
-                    label = "Start time",
+                    label = I18n.t("datebook.startTime"),
                     value = DT.fmtTime(time),
                     onClick = { pickTime(context, time) { time = it } },
                 )
                 DateTimeRow(
-                    label = "End time",
+                    label = I18n.t("datebook.endTime"),
                     value = DT.fmtTime(endTime),
                     onClick = { pickTime(context, endTime) { endTime = it } },
                 )
@@ -799,20 +800,20 @@ private fun EventEditor(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("All day", color = PalmInk, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(I18n.t("datebook.allDay"), color = PalmInk, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Switch(checked = allDay, onCheckedChange = { allDay = it })
             }
-            PalmField("Location", location, { location = it })
-            Text("Repeats", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
+            PalmField(I18n.t("datebook.location"), location, { location = it })
+            Text(I18n.t("datebook.repeats"), color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
             PalmCategoryStrip(
                 options = listOf(
-                    "none" to "none", "daily" to "daily", "weekly" to "weekly",
-                    "monthly" to "monthly", "yearly" to "yearly",
+                    "none" to I18n.t("datebook.repeatNone"), "daily" to I18n.t("datebook.repeatDaily"), "weekly" to I18n.t("datebook.repeatWeekly"),
+                    "monthly" to I18n.t("datebook.repeatMonthly"), "yearly" to I18n.t("datebook.repeatYearly"),
                 ),
                 selected = repeat,
                 onSelect = { repeat = it },
             )
-            PalmField("Notes", notes, { notes = it }, singleLine = false, minLines = 3)
+            PalmField(I18n.t("datebook.notes"), notes, { notes = it }, singleLine = false, minLines = 3)
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
                 DeleteButton(onDelete)
@@ -841,6 +842,6 @@ internal fun DeleteButton(onDelete: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = PalmRed),
             border = BorderStroke(1.dp, PalmRed),
-        ) { Text("delete", color = PalmRed) }
+        ) { Text(I18n.t("common.delete"), color = PalmRed) }
     }
 }

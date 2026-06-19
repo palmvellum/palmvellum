@@ -43,6 +43,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -62,7 +63,7 @@ class AddressViewModel : ViewModel() {
 private fun displayName(f: ContactFields): String {
     val name = listOfNotNull(f.palm_first_name, f.palm_last_name)
         .filter { it.isNotBlank() }.joinToString(" ")
-    return name.ifBlank { f.palm_company ?: "(no name)" }
+    return name.ifBlank { f.palm_company ?: I18n.t("address.noName") }
 }
 
 @Composable
@@ -76,22 +77,22 @@ fun AddressScreen(navController: NavHostController) {
     var editMode by remember { mutableStateOf(false) }
 
     MasterDetailScaffold(
-        title = "Address",
+        title = I18n.t("address.title"),
         navController = navController,
         currentRoute = Routes.ADDRESS,
         detail = editing,
-        titleAction = { TitleAction("+ new") { editing = newContact(); editMode = true } },
+        titleAction = { TitleAction(I18n.t("common.new")) { editing = newContact(); editMode = true } },
         // Cosmo: the search box rides in the title bar so the list keeps its height.
         titleCenter = if (BuildConfig.COSMO) {
-            { TitleSearch(query, { query = it }, placeholder = "search contacts") }
+            { TitleSearch(query, { query = it }, placeholder = I18n.t("address.searchContacts")) }
         } else {
             null
         },
-        placeholder = "Pick a contact from the list, or tap + new.",
+        placeholder = I18n.t("address.placeholder"),
         master = {
             Column(Modifier.fillMaxSize()) {
                 if (!BuildConfig.COSMO) {
-                    PalmField("Search", query, { query = it })
+                    PalmField(I18n.t("common.search"), query, { query = it })
                 }
                 // Memoised so selecting a contact (which recomposes the screen)
                 // doesn't re-map/filter/sort the whole list every tap.
@@ -107,7 +108,7 @@ fun AddressScreen(navController: NavHostController) {
                         .sortedBy { (_, f) -> displayName(f).lowercase() }
                 }
                 if (visible.isEmpty()) {
-                    PalmEmptyState("No contacts.")
+                    PalmEmptyState(I18n.t("address.empty"))
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
                         item {
@@ -170,11 +171,11 @@ private fun ContactCard(
 ) {
     val f = contactFieldsFrom(contact.metadataJson)
     EditorScaffold(
-        title = "Contact",
+        title = I18n.t("address.contact"),
         onCancel = onBack,
         onSave = onEdit,
-        cancelLabel = "back",
-        saveLabel = "edit",
+        cancelLabel = I18n.t("common.back"),
+        saveLabel = I18n.t("common.edit"),
         embedded = embedded,
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -190,11 +191,11 @@ private fun ContactCard(
             PalmListCard {
                 Column(Modifier.padding(12.dp)) {
                     if (hasDetails) {
-                        CardRow("Phone", f.palm_phone)
-                        CardRow("E-mail", f.palm_email)
-                        CardRow("Notes", f.palm_notes)
+                        CardRow(I18n.t("address.phone"), f.palm_phone)
+                        CardRow(I18n.t("address.email"), f.palm_email)
+                        CardRow(I18n.t("address.notes"), f.palm_notes)
                     } else {
-                        Text("No contact details.", color = PalmInkMute, fontSize = 14.sp)
+                        Text(I18n.t("address.noDetails"), color = PalmInkMute, fontSize = 14.sp)
                     }
                 }
             }
@@ -240,7 +241,7 @@ private fun ContactEditor(
     var notes by remember { mutableStateOf(f0.palm_notes ?: "") }
 
     EditorScaffold(
-        title = if (isNew) "New Contact" else "Edit Contact",
+        title = if (isNew) I18n.t("address.newContact") else I18n.t("address.editContact"),
         onCancel = onCancel,
         embedded = embedded,
         saveEnabled = first.isNotBlank() || last.isNotBlank() || company.isNotBlank(),
@@ -264,13 +265,13 @@ private fun ContactEditor(
         },
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            PalmField("First name", first, { first = it })
-            PalmField("Last name", last, { last = it })
-            PalmField("Company", company, { company = it })
-            PalmField("Title", titleField, { titleField = it })
-            PalmField("Phone", phone, { phone = it }, keyboardType = KeyboardType.Phone)
-            PalmField("E-mail", email, { email = it }, keyboardType = KeyboardType.Email)
-            PalmField("Notes", notes, { notes = it }, singleLine = false, minLines = 3)
+            PalmField(I18n.t("address.firstName"), first, { first = it })
+            PalmField(I18n.t("address.lastName"), last, { last = it })
+            PalmField(I18n.t("address.company"), company, { company = it })
+            PalmField(I18n.t("address.titleField"), titleField, { titleField = it })
+            PalmField(I18n.t("address.phone"), phone, { phone = it }, keyboardType = KeyboardType.Phone)
+            PalmField(I18n.t("address.email"), email, { email = it }, keyboardType = KeyboardType.Email)
+            PalmField(I18n.t("address.notes"), notes, { notes = it }, singleLine = false, minLines = 3)
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
                 DeleteButton(onDelete)

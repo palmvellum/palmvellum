@@ -64,6 +64,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmEmptyState
 import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -98,7 +99,7 @@ private fun sketchUrl(metadataJson: String): String? {
 }
 
 private fun sketchTitle(r: RecordEntity): String =
-    metaString(r.metadataJson, "palm_title")?.ifBlank { null } ?: "untitled"
+    metaString(r.metadataJson, "palm_title")?.ifBlank { null } ?: I18n.t("notepad.untitled")
 
 class NotePadViewModel : ViewModel() {
     private val repo = Graph.repo
@@ -140,10 +141,10 @@ class NotePadViewModel : ViewModel() {
     ) = viewModelScope.launch {
         val uid = Graph.session.userId
         if (uid.isNullOrBlank()) {
-            onResult("Sign in (Settings) to save sketches for AI."); return@launch
+            onResult(I18n.t("notepad.signInToSave")); return@launch
         }
         if (width <= 0 || height <= 0 || strokes.isEmpty()) {
-            onResult("Draw something first."); return@launch
+            onResult(I18n.t("notepad.drawFirst")); return@launch
         }
         try {
             val recordId = Ulid.new()
@@ -151,7 +152,7 @@ class NotePadViewModel : ViewModel() {
             val path = "$uid/$recordId.png"
             val up = Graph.sync.uploadObject("notepad", path, png, "image/png")
             if (up.isFailure) {
-                onResult("Upload failed: ${up.exceptionOrNull()?.message ?: "unknown error"}"); return@launch
+                onResult(I18n.t("notepad.uploadFailed", up.exceptionOrNull()?.message ?: I18n.t("notepad.unknownError"))); return@launch
             }
             val now = Clock.nowIso()
             val metadata = buildJsonObject {
@@ -173,7 +174,7 @@ class NotePadViewModel : ViewModel() {
             if (Graph.sync.isSignedIn) Graph.sync.syncNow()
             onResult(null)
         } catch (e: Exception) {
-            onResult(e.message ?: "Save error")
+            onResult(e.message ?: I18n.t("notepad.saveError"))
         }
     }
 }
@@ -253,20 +254,20 @@ fun NotePadScreen(navController: NavHostController) {
     }
 
     PalmScaffold(
-        title = "Note Pad",
+        title = I18n.t("notepad.title"),
         navController = navController,
         currentRoute = Routes.NOTEPAD,
         titleAction = {
-            TitleAction("+ draw") {
+            TitleAction(I18n.t("notepad.draw")) {
                 if (vm.signedIn) { drawing = true; error = null }
-                else error = "Sign in (Settings) to draw + AI-transcribe sketches."
+                else error = I18n.t("notepad.signInToDraw")
             }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (!vm.signedIn) {
                 Text(
-                    "Sign in (Settings) to draw sketches and have AI read your handwriting.",
+                    I18n.t("notepad.signInHint"),
                     color = PalmInkMute, fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 )
@@ -279,7 +280,7 @@ fun NotePadScreen(navController: NavHostController) {
                 )
             }
             if (sketches.isEmpty()) {
-                PalmEmptyState("No sketches yet. Tap + draw to scribble a note — AI reads your handwriting.")
+                PalmEmptyState(I18n.t("notepad.empty"))
             } else {
                 LazyVerticalGrid(
                     // Cosmo's wide display made the 2-up tiles huge; halve them to
@@ -320,7 +321,7 @@ private fun SketchCard(s: RecordEntity, onClick: () -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                Text("no image", color = PalmInkMute, fontSize = 12.sp)
+                Text(I18n.t("notepad.noImage"), color = PalmInkMute, fontSize = 12.sp)
             }
         }
         Column(Modifier.padding(8.dp)) {
@@ -339,13 +340,13 @@ private fun SketchCard(s: RecordEntity, onClick: () -> Unit) {
 private fun SketchStatusLine(s: RecordEntity, compact: Boolean) {
     when (s.aiStatus) {
         "pending", "processing", "queued" ->
-            Text("[...] analyzing", color = Color(0xFFB8730A), fontSize = 12.sp)
+            Text("[...] " + I18n.t("notepad.analyzing"), color = Color(0xFFB8730A), fontSize = 12.sp)
         "error" ->
-            Text("[err] AI could not read it", color = PalmRed, fontSize = 12.sp)
+            Text("[err] " + I18n.t("notepad.couldNotRead"), color = PalmRed, fontSize = 12.sp)
         else -> {
             val body = s.body.orEmpty().trim()
             if (body.isBlank()) {
-                Text(if (compact) "tap to open" else "(blank)", color = PalmInkMute, fontSize = 12.sp)
+                Text(if (compact) I18n.t("notepad.tapToOpen") else I18n.t("notepad.blank"), color = PalmInkMute, fontSize = 12.sp)
             } else {
                 Text(
                     body,
@@ -373,10 +374,10 @@ private fun SketchDetail(
     // Use the Palm frame (not the full-screen editor) so the four core buttons
     // stay visible while viewing a sketch.
     PalmScaffold(
-        title = "Note Pad",
+        title = I18n.t("notepad.title"),
         navController = navController,
         currentRoute = Routes.NOTEPAD,
-        titleAction = { TitleAction("done") { onBack() } },
+        titleAction = { TitleAction(I18n.t("common.done")) { onBack() } },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(12.dp)) {
             // Title + rename (only once AI is done, so we never clobber the body)
@@ -395,7 +396,7 @@ private fun SketchDetail(
                     )
                     if (sketch.aiStatus == "done" || sketch.aiStatus == null) {
                         Text(
-                            "rename",
+                            I18n.t("notepad.rename"),
                             color = PalmTitleBar, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable { renaming = true }.padding(6.dp),
                         )
@@ -403,16 +404,16 @@ private fun SketchDetail(
                 }
             }
             if (renaming) {
-                PalmField("Title", titleDraft, { titleDraft = it })
+                PalmField(I18n.t("notepad.titleLabel"), titleDraft, { titleDraft = it })
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                     Text(
-                        "save",
+                        I18n.t("common.save"),
                         color = PalmTitleBar, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { onRename(titleDraft); renaming = false }.padding(6.dp),
                     )
                     Spacer(Modifier.width(16.dp))
                     Text(
-                        "cancel",
+                        I18n.t("common.cancel"),
                         color = PalmInkMute, fontSize = 14.sp,
                         modifier = Modifier.clickable { renaming = false; titleDraft = sketchTitle(sketch) }.padding(6.dp),
                     )
@@ -432,13 +433,13 @@ private fun SketchDetail(
                         modifier = Modifier.fillMaxSize().padding(4.dp),
                     )
                 } else {
-                    Text("no image", color = PalmInkMute, fontSize = 13.sp)
+                    Text(I18n.t("notepad.noImage"), color = PalmInkMute, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.height(12.dp))
             // AI transcription
             Text(
-                "AI TRANSCRIPTION",
+                I18n.t("notepad.aiTranscription"),
                 color = PalmTitleBar, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(4.dp))
@@ -446,11 +447,11 @@ private fun SketchDetail(
                 Column(Modifier.padding(12.dp)) {
                     when (sketch.aiStatus) {
                         "pending", "processing", "queued" ->
-                            Text("[...] vision model is reading your sketch", color = Color(0xFFB8730A), fontSize = 14.sp)
+                            Text("[...] " + I18n.t("notepad.visionReading"), color = Color(0xFFB8730A), fontSize = 14.sp)
                         "error" ->
-                            Text("[err] AI could not read this sketch.", color = PalmRed, fontSize = 14.sp)
+                            Text("[err] " + I18n.t("notepad.couldNotReadSketch"), color = PalmRed, fontSize = 14.sp)
                         else -> Text(
-                            sketch.body?.takeIf { it.isNotBlank() } ?: "(blank)",
+                            sketch.body?.takeIf { it.isNotBlank() } ?: I18n.t("notepad.blank"),
                             color = PalmInk, fontSize = 15.sp,
                         )
                     }
@@ -489,14 +490,14 @@ private fun DrawSketch(
     // Use the Palm frame (not the full-screen editor) so the four core buttons
     // stay visible while drawing. Cancel / save live in the title bar.
     PalmScaffold(
-        title = "New Note",
+        title = I18n.t("notepad.newNote"),
         navController = navController,
         currentRoute = Routes.NOTEPAD,
         wide = true,
         titleAction = {
-            TitleAction("cancel") { onCancel() }
+            TitleAction(I18n.t("common.cancel")) { onCancel() }
             Text(
-                "save",
+                I18n.t("common.save"),
                 color = if (canSave) PalmOnDark else Color(0x66FFFFFF),
                 fontSize = 15.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier
@@ -522,12 +523,12 @@ private fun DrawSketch(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     )
                 }
-                PalmField("Title (optional)", title, { title = it })
+                PalmField(I18n.t("notepad.titleOptional"), title, { title = it })
                 Spacer(Modifier.height(8.dp))
                 // Toolbar
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "undo",
+                        I18n.t("notepad.undo"),
                         color = if (hasInk) PalmTitleBar else PalmInkMute,
                         fontSize = 14.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier
@@ -539,7 +540,7 @@ private fun DrawSketch(
                     )
                     Spacer(Modifier.width(20.dp))
                     Text(
-                        "clear",
+                        I18n.t("notepad.clear"),
                         color = if (hasInk) PalmRed else PalmInkMute,
                         fontSize = 14.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier
@@ -549,7 +550,7 @@ private fun DrawSketch(
                 }
                 if (saving) {
                     Spacer(Modifier.height(8.dp))
-                    Text("saving...", color = PalmInkMute, fontSize = 13.sp)
+                    Text(I18n.t("notepad.saving"), color = PalmInkMute, fontSize = 13.sp)
                 }
             }
             // Right column — square graph-paper drawing surface.

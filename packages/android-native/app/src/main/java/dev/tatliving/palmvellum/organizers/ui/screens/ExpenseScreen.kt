@@ -45,6 +45,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import dev.tatliving.palmvellum.organizers.util.DT
@@ -67,6 +68,14 @@ private val PAYMENT_TYPES = listOf(
     "MasterCard", "Prepaid", "VISA", "Unfiled",
 )
 
+/** Stable key suffix for a stored English value, e.g. "Business Meals" -> "businessmeals". */
+private fun typeSuffix(value: String): String =
+    value.lowercase().replace(" ", "")
+
+private fun expenseTypeLabel(value: String): String = I18n.t("expense.type." + typeSuffix(value))
+
+private fun paymentTypeLabel(value: String): String = I18n.t("expense.pay." + typeSuffix(value))
+
 class ExpenseViewModel : ViewModel() {
     private val repo = Graph.repo
     val expenses = repo.observeRecords("expense")
@@ -83,7 +92,7 @@ class ExpenseViewModel : ViewModel() {
 }
 
 private fun expenseVendor(r: RecordEntity, f: ExpenseFields): String =
-    f.palm_vendor?.ifBlank { null } ?: r.body?.ifBlank { null } ?: "(no vendor)"
+    f.palm_vendor?.ifBlank { null } ?: r.body?.ifBlank { null } ?: I18n.t("expense.noVendor")
 
 /** "USD 12.50" — currency + amount, blank when no amount. */
 private fun amountLabel(f: ExpenseFields): String? {
@@ -102,21 +111,21 @@ fun ExpenseScreen(navController: NavHostController) {
     var editing by remember { mutableStateOf<RecordEntity?>(null) }
 
     MasterDetailScaffold(
-        title = "Expense",
+        title = I18n.t("expense.title"),
         navController = navController,
         currentRoute = Routes.EXPENSE,
         detail = editing,
-        titleAction = { TitleAction("+ new") { editing = newExpense() } },
+        titleAction = { TitleAction(I18n.t("common.new")) { editing = newExpense() } },
         titleCenter = if (BuildConfig.COSMO) {
-            { TitleSearch(query, { query = it }, placeholder = "search expenses") }
+            { TitleSearch(query, { query = it }, placeholder = I18n.t("expense.searchHint")) }
         } else {
             null
         },
-        placeholder = "Pick an expense from the list, or tap + new.",
+        placeholder = I18n.t("expense.pickPlaceholder"),
         master = {
             Column(Modifier.fillMaxSize()) {
                 if (!BuildConfig.COSMO) {
-                    PalmField("Search", query, { query = it })
+                    PalmField(I18n.t("common.search"), query, { query = it })
                 }
                 // Memoised so selecting an expense doesn't re-map/filter every tap.
                 val visible = remember(expenses, query) {
@@ -131,7 +140,7 @@ fun ExpenseScreen(navController: NavHostController) {
                         .sortedByDescending { (rec, _) -> rec.createdAt }
                 }
                 if (visible.isEmpty()) {
-                    PalmEmptyState("No expenses. Tap + new to log one.")
+                    PalmEmptyState(I18n.t("expense.empty"))
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
                         item {
@@ -142,7 +151,9 @@ fun ExpenseScreen(navController: NavHostController) {
                                         title = expenseVendor(rec, f),
                                         meta = amountLabel(f),
                                         body = listOfNotNull(
-                                            f.palm_expense_type, f.palm_payment, f.palm_expense_date,
+                                            f.palm_expense_type?.takeIf { it.isNotBlank() }?.let { expenseTypeLabel(it) },
+                                            f.palm_payment?.takeIf { it.isNotBlank() }?.let { paymentTypeLabel(it) },
+                                            f.palm_expense_date,
                                         ).filter { it.isNotBlank() }.joinToString("  ·  ").ifEmpty { null },
                                         onClick = { editing = rec },
                                     )
@@ -198,7 +209,7 @@ private fun ExpenseEditor(
     val amountBad = amount.isNotBlank() && amountValue == null
 
     EditorScaffold(
-        title = if (isNew) "New Expense" else "Edit Expense",
+        title = if (isNew) I18n.t("expense.newTitle") else I18n.t("expense.editTitle"),
         onCancel = onCancel,
         embedded = embedded,
         saveEnabled = (vendor.isNotBlank() || amount.isNotBlank()) && !amountBad,
@@ -226,27 +237,27 @@ private fun ExpenseEditor(
         },
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            PalmField("Vendor", vendor, { vendor = it })
+            PalmField(I18n.t("expense.vendor"), vendor, { vendor = it })
             DateTimeRow(
-                label = "Date",
-                value = date.ifBlank { "set date" },
+                label = I18n.t("expense.date"),
+                value = date.ifBlank { I18n.t("expense.setDate") },
                 onClick = {
                     val initialDate = runCatching { java.time.LocalDate.parse(date) }.getOrDefault(DT.nowDate())
                     pickDate(context, initialDate) { date = DT.fmtDate(it) }
                 },
             )
             PalmField(
-                "Amount" + if (amountBad) "  (not a number)" else "",
+                I18n.t("expense.amount") + if (amountBad) "  " + I18n.t("expense.notANumber") else "",
                 amount, { amount = it }, keyboardType = KeyboardType.Decimal,
             )
-            PalmField("Currency", currency, { currency = it })
-            Text("Type", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
-            PalmCategoryStrip(EXPENSE_TYPES.map { it to it }, type) { type = it }
-            Text("Payment", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
-            PalmCategoryStrip(PAYMENT_TYPES.map { it to it }, payment) { payment = it }
-            PalmField("City", city, { city = it })
-            PalmField("Attendees", attendees, { attendees = it })
-            PalmField("Notes", notes, { notes = it }, singleLine = false, minLines = 2)
+            PalmField(I18n.t("expense.currency"), currency, { currency = it })
+            Text(I18n.t("expense.type"), color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
+            PalmCategoryStrip(EXPENSE_TYPES.map { it to expenseTypeLabel(it) }, type) { type = it }
+            Text(I18n.t("expense.payment"), color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 6.dp))
+            PalmCategoryStrip(PAYMENT_TYPES.map { it to paymentTypeLabel(it) }, payment) { payment = it }
+            PalmField(I18n.t("expense.city"), city, { city = it })
+            PalmField(I18n.t("expense.attendees"), attendees, { attendees = it })
+            PalmField(I18n.t("expense.notes"), notes, { notes = it }, singleLine = false, minLines = 2)
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
                 DeleteButton(onDelete)

@@ -51,6 +51,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -104,10 +105,10 @@ fun MailScreen(navController: NavHostController) {
     // Sources management is its own full screen, reachable via the title action.
     if (tab == "sources") {
         PalmScaffold(
-            title = "Mail",
+            title = I18n.t("mail.title"),
             navController = navController,
             currentRoute = Routes.MAIL,
-            titleAction = { TitleAction("inbox") { tab = "inbox" } },
+            titleAction = { TitleAction(I18n.t("mail.inbox")) { tab = "inbox" } },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) { MailSources(vm) }
         }
@@ -118,12 +119,12 @@ fun MailScreen(navController: NavHostController) {
     // full-screen swap on standard — like the other list+detail screens.
     val open = openId?.let { id -> mails.firstOrNull { it.id == id } }
     MasterDetailScaffold(
-        title = "Mail",
+        title = I18n.t("mail.title"),
         navController = navController,
         currentRoute = Routes.MAIL,
         detail = open,
-        titleAction = { TitleAction("sources") { tab = "sources" } },
-        placeholder = "Pick a message from the inbox, or add a source.",
+        titleAction = { TitleAction(I18n.t("mail.sources")) { tab = "sources" } },
+        placeholder = I18n.t("mail.placeholder"),
         master = { MailInbox(mails, signedIn = vm.signedIn, onOpen = { openId = it }) },
         detailContent = { rec, embedded ->
             MailRead(
@@ -141,13 +142,13 @@ private fun MailInbox(mails: List<RecordEntity>, signedIn: Boolean, onOpen: (Str
     Column(Modifier.fillMaxSize()) {
         if (!signedIn) {
             Text(
-                "Sign in (Settings) to subscribe to sources and receive your AI morning paper.",
+                I18n.t("mail.signInHint"),
                 color = PalmInkMute, fontSize = 13.sp,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
         if (mails.isEmpty()) {
-            PalmEmptyState("No mail yet. Add a subscription under 'sources' — your AI digest arrives at the time you set.")
+            PalmEmptyState(I18n.t("mail.empty"))
         } else {
             val sorted = remember(mails) { mails.sortedByDescending { it.createdAt } }
             LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
@@ -158,7 +159,7 @@ private fun MailInbox(mails: List<RecordEntity>, signedIn: Boolean, onOpen: (Str
                             val f = mailFieldsFrom(rec.metadataJson)
                             val unread = rec.aiStatus in listOf("pending", "processing", "queued")
                             PalmRow(
-                                title = f.mail_subject ?: "(no subject)",
+                                title = f.mail_subject ?: I18n.t("mail.noSubject"),
                                 meta = f.mail_date_local ?: rec.createdAt.take(10),
                                 body = listOfNotNull(f.mail_from ?: f.mail_source_name).joinToString().ifBlank { null },
                                 dim = false,
@@ -176,22 +177,22 @@ private fun MailInbox(mails: List<RecordEntity>, signedIn: Boolean, onOpen: (Str
 @Composable
 private fun MailRead(rec: RecordEntity, embedded: Boolean = false, onBack: () -> Unit, onDelete: () -> Unit) {
     val f = mailFieldsFrom(rec.metadataJson)
-    EditorScaffold(title = "Mail", onCancel = onBack, saveEnabled = false, embedded = embedded, onSave = {}) {
+    EditorScaffold(title = I18n.t("mail.title"), onCancel = onBack, saveEnabled = false, embedded = embedded, onSave = {}) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)) {
-            Text(f.mail_subject ?: "(no subject)", color = PalmInk, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(f.mail_subject ?: I18n.t("mail.noSubject"), color = PalmInk, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             val from = listOfNotNull(f.mail_from ?: f.mail_source_name, f.mail_date_local).joinToString(" · ")
             if (from.isNotBlank()) Text(from, color = PalmInkMute, fontSize = 12.sp)
             if (f.mail_source_type == "topic" && !f.mail_topic.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text("Researched: ${f.mail_topic}", color = PalmInkMute, fontSize = 12.sp)
+                Text(I18n.t("mail.researched", f.mail_topic), color = PalmInkMute, fontSize = 12.sp)
             }
             Spacer(Modifier.height(12.dp))
             Text(rec.body.orEmpty(), color = PalmInk, fontSize = 15.sp)
             val refs = f.mail_references.orEmpty()
             if (refs.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
-                Text("REFERENCES", color = PalmTitleBar, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(I18n.t("mail.references"), color = PalmTitleBar, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 refs.forEach { ref ->
                     Text("· $ref", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(vertical = 1.dp))
@@ -233,21 +234,21 @@ private fun MailSources(vm: MailViewModel) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
         Text(
-            "Subscriptions",
+            I18n.t("mail.subscriptions"),
             color = PalmInk, fontSize = 16.sp,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
         )
         Text(
-            "A URL is fetched and summarised; a topic is researched. Your AI digest is delivered as mail at the fetch time, in your timezone.",
+            I18n.t("mail.subscriptionsHint"),
             color = PalmInkMute, fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 14.dp),
         )
         Spacer(Modifier.height(8.dp))
 
         when {
-            loading -> Text("Loading...", color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
-            error != null -> Text("Error: $error", color = PalmRed, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
-            sources.isEmpty() -> Text("No subscriptions yet.", color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
+            loading -> Text(I18n.t("mail.loading"), color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
+            error != null -> Text(I18n.t("mail.error", error), color = PalmRed, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
+            sources.isEmpty() -> Text(I18n.t("mail.noSubscriptions"), color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp))
             else -> sources.forEach { src ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
@@ -267,7 +268,7 @@ private fun MailSources(vm: MailViewModel) {
                         },
                     )
                     Text(
-                        "remove",
+                        I18n.t("common.remove"),
                         color = PalmRed, fontSize = 13.sp,
                         modifier = Modifier.clickable {
                             scope.launch { vm.deleteSource(src.id); reload() }
@@ -280,17 +281,17 @@ private fun MailSources(vm: MailViewModel) {
         Spacer(Modifier.height(12.dp))
         PalmDivider()
         Spacer(Modifier.height(8.dp))
-        Text("Add a subscription", color = PalmInk, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
-        PalmField("Name", name, { name = it })
-        Text("Type", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 4.dp))
-        PalmCategoryStrip(listOf("url" to "url", "topic" to "topic"), type) { type = it }
+        Text(I18n.t("mail.addSubscription"), color = PalmInk, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+        PalmField(I18n.t("mail.name"), name, { name = it })
+        Text(I18n.t("mail.type"), color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(start = 12.dp, top = 4.dp))
+        PalmCategoryStrip(listOf("url" to I18n.t("mail.typeUrl"), "topic" to I18n.t("mail.typeTopic")), type) { type = it }
         if (type == "url") {
-            PalmField("URL", url, { url = it })
+            PalmField(I18n.t("mail.url"), url, { url = it })
         } else {
-            PalmField("Topic", topic, { topic = it })
+            PalmField(I18n.t("mail.topic"), topic, { topic = it })
         }
-        PalmField("Fetch time (HH:mm)", time, { time = it })
-        Text("Timezone: $tz", color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+        PalmField(I18n.t("mail.fetchTime"), time, { time = it })
+        Text(I18n.t("mail.timezone", tz), color = PalmInkMute, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
         Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
             val valid = name.isNotBlank() && (if (type == "url") url.isNotBlank() else topic.isNotBlank())
             Button(
@@ -319,7 +320,7 @@ private fun MailSources(vm: MailViewModel) {
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-            ) { Text(if (busy) "Adding..." else "Add") }
+            ) { Text(if (busy) I18n.t("mail.adding") else I18n.t("common.add")) }
         }
         Spacer(Modifier.height(24.dp))
     }

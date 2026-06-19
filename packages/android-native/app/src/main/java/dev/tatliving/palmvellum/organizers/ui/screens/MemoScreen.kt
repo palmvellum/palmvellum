@@ -43,6 +43,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmField
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmRed
 import kotlinx.coroutines.Dispatchers
@@ -93,23 +94,23 @@ class MemoViewModel : ViewModel() {
     fun uploadFile(resolver: ContentResolver, uri: Uri, onResult: (String?) -> Unit) = viewModelScope.launch {
         val uid = Graph.session.userId
         if (uid.isNullOrBlank()) {
-            onResult("Sign in (Settings) to let AI read files."); return@launch
+            onResult(I18n.t("memo.signInToRead")); return@launch
         }
         try {
             val meta = withContext(Dispatchers.IO) { readUpload(resolver, uri) }
-            if (meta.bytes.isEmpty()) { onResult("Couldn't read that file."); return@launch }
+            if (meta.bytes.isEmpty()) { onResult(I18n.t("memo.couldntRead")); return@launch }
             if (meta.bytes.size > MAX_UPLOAD_BYTES) {
-                onResult("${meta.filename} is too large (max 20 MB)."); return@launch
+                onResult(I18n.t("memo.tooLarge", meta.filename)); return@launch
             }
             val ext = extFor(meta.filename, meta.mime)
             if (!isAcceptedUpload(meta.mime, ext)) {
-                onResult("${meta.filename} — only PDF / DOCX / image accepted."); return@launch
+                onResult(I18n.t("memo.onlyAccepted", meta.filename)); return@launch
             }
             val recordId = Ulid.new()
             val path = "$uid/$recordId.$ext"
             val up = Graph.sync.uploadObject("memo-uploads", path, meta.bytes, meta.mime)
             if (up.isFailure) {
-                onResult("Upload failed: ${up.exceptionOrNull()?.message ?: "unknown error"}"); return@launch
+                onResult(I18n.t("memo.uploadFailed", up.exceptionOrNull()?.message ?: I18n.t("memo.unknownError"))); return@launch
             }
             val now = Clock.nowIso()
             val metadata = buildJsonObject {
@@ -123,7 +124,7 @@ class MemoViewModel : ViewModel() {
                 RecordEntity(
                     id = recordId,
                     type = "thought",
-                    body = "(FILE) ${meta.filename}\n\nAI is reading the file. This memo will fill in shortly.",
+                    body = I18n.t("memo.fileBody", meta.filename),
                     metadataJson = metadata,
                     aiStatus = "pending",
                     createdAt = now,
@@ -133,7 +134,7 @@ class MemoViewModel : ViewModel() {
             if (Graph.sync.isSignedIn) Graph.sync.syncNow()
             onResult(null)
         } catch (e: Exception) {
-            onResult(e.message ?: "Upload error")
+            onResult(e.message ?: I18n.t("memo.uploadError"))
         }
     }
 }
@@ -189,17 +190,17 @@ fun MemoScreen(navController: NavHostController) {
     }
 
     MasterDetailScaffold(
-        title = "Memo Pad",
+        title = I18n.t("memo.title"),
         navController = navController,
         currentRoute = Routes.MEMO,
         detail = editing,
         titleAction = {
-            TitleAction(if (uploading) "uploading..." else "+ file") {
+            TitleAction(if (uploading) I18n.t("memo.uploading") else I18n.t("memo.addFile")) {
                 if (!uploading) picker.launch(UPLOAD_MIME_FILTER)
             }
-            TitleAction("+ new") { editing = newMemo() }
+            TitleAction(I18n.t("common.new")) { editing = newMemo() }
         },
-        placeholder = "Pick a memo from the list, or tap + new.",
+        placeholder = I18n.t("memo.placeholder"),
         master = {
             Column(modifier = Modifier.fillMaxSize()) {
                 uploadError?.let { err ->
@@ -211,7 +212,7 @@ fun MemoScreen(navController: NavHostController) {
                     )
                 }
                 if (memos.isEmpty()) {
-                    PalmEmptyState("No memos. Tap + new to jot one down, or + file to have AI read a PDF / DOCX / image.")
+                    PalmEmptyState(I18n.t("memo.empty"))
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(10.dp)) {
                         item {
@@ -222,11 +223,11 @@ fun MemoScreen(navController: NavHostController) {
                                     val firstLine = text.lineSequence().firstOrNull().orEmpty()
                                     val rest = text.removePrefix(firstLine).trim()
                                     val aiMeta = when (rec.aiStatus) {
-                                        "pending", "processing", "queued" -> "AI thinking..."
+                                        "pending", "processing", "queued" -> I18n.t("memo.aiThinking")
                                         else -> null
                                     }
                                     PalmRow(
-                                        title = firstLine.ifBlank { "(empty memo)" },
+                                        title = firstLine.ifBlank { I18n.t("memo.emptyMemo") },
                                         meta = aiMeta,
                                         body = rest.ifBlank { null },
                                         onClick = { editing = rec },
@@ -271,7 +272,7 @@ private fun MemoEditor(
     var text by remember { mutableStateOf(initial.body ?: "") }
 
     EditorScaffold(
-        title = if (isNew) "New Memo" else "Edit Memo",
+        title = if (isNew) I18n.t("memo.newMemo") else I18n.t("memo.editMemo"),
         onCancel = onCancel,
         embedded = embedded,
         saveEnabled = text.isNotBlank(),
@@ -280,7 +281,7 @@ private fun MemoEditor(
         },
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            PalmField("Memo  (start with \"(ai)\" to ask the agent)", text, { text = it }, singleLine = false, minLines = 8)
+            PalmField(I18n.t("memo.fieldLabel"), text, { text = it }, singleLine = false, minLines = 8)
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
                 DeleteButton(onDelete)

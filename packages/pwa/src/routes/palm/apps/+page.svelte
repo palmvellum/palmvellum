@@ -3,81 +3,49 @@
    * /palm/apps — download hub for the companion apps:
    *   • PalmVellum desktop sync (macOS .dmg)
    *   • Palm Organizers (Android) — Standard + Cosmo edition APKs
-   * with short usage notes and the at-your-own-risk disclaimer.
+   * Fully localised via t(); steps/flavor lists use {@html} since the
+   * translated strings carry <li> markup.
    */
+  import { t } from '$lib/i18n.svelte';
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   const REL = 'https://github.com/palmvellum/palmvellum/releases';
   const MAC_DMG = `${REL}/latest`;
   const APK_STD = `${REL}/download/android-v0.1.0/PalmOrganizers-0.1.0-standard.apk`;
   const APK_COSMO = `${REL}/download/android-v0.1.0/PalmOrganizers-0.1.0-cosmo.apk`;
+  const GUIDE = 'https://github.com/palmvellum/palmvellum/blob/main/docs/USAGE.md';
 </script>
 
-<PalmAppShell title="Get the apps" backHref="/palm">
-  <h1 class="pg-heading">Companion apps</h1>
-  <p class="lede">
-    Use PalmVellum beyond this browser: sync a real Palm card from your Mac, or
-    run the organizers natively on an Android phone.
-  </p>
+<PalmAppShell title={t('apps.heading')} backHref="/palm">
+  <h1 class="pg-heading">{t('apps.heading')}</h1>
+  <p class="lede">{t('apps.lede')}</p>
 
   <!-- ── macOS desktop sync ───────────────────────────── -->
   <section class="card">
-    <h2>PalmVellum desktop sync · macOS</h2>
-    <p>
-      A small Mac app syncs your Sony Clié's <strong>Memo Pad, To Do, Date
-      Book, Address and Mail</strong> with this cloud — using the Memory Stick
-      and the Palm's built-in MS Backup. The Palm itself never changes.
-    </p>
-    <a class="dl" href={MAC_DMG} rel="external">Download .dmg</a>
-    <ol>
-      <li>Drag <strong>PalmVellum.app</strong> to Applications. Unsigned build —
-        first launch: <strong>right-click → Open</strong>.</li>
-      <li>On the Clié, <strong>MS Backup → back up</strong> to the Memory Stick.</li>
-      <li>Put the card in a Mac reader; the app logs in with your account,
-        syncs, and ejects the card.</li>
-      <li>Put the card back and <strong>restore from card</strong> in MS Backup.</li>
-    </ol>
+    <h2>{t('apps.mac.title')}</h2>
+    <p>{t('apps.mac.desc')}</p>
+    <a class="dl" href={MAC_DMG} rel="external">{t('apps.mac.dl')}</a>
+    <ol>{@html t('apps.mac.steps')}</ol>
     <p class="note">
-      Tested on <strong>Sony Clié + Memory Stick + MS Backup</strong>. Palm
-      devices with an <strong>SD card are not yet tested</strong>. The Clié may
-      do a brief, harmless soft reset on restore.
-      <a href="https://github.com/palmvellum/palmvellum/blob/main/docs/USAGE.md" rel="external">Full guide ↗</a>
+      {t('apps.mac.note')}
+      <a href={GUIDE} rel="external">{t('apps.mac.guide')}</a>
     </p>
   </section>
 
   <!-- ── Android — Palm Organizers ─────────────────────── -->
   <section class="card">
-    <h2>Palm Organizers · Android</h2>
-    <p>
-      A native, local-first build of the organizers (Date Book, Address, To Do,
-      Memo, Note Pad, Expense, Mail) with optional cloud sync + AI. Two flavors
-      install side by side:
-    </p>
+    <h2>{t('apps.android.title')}</h2>
+    <p>{t('apps.android.desc')}</p>
     <div class="dlrow">
-      <a class="dl" href={APK_STD} rel="external">Standard APK</a>
-      <a class="dl" href={APK_COSMO} rel="external">Cosmo edition APK</a>
+      <a class="dl" href={APK_STD} rel="external">{t('apps.android.std')}</a>
+      <a class="dl" href={APK_COSMO} rel="external">{t('apps.android.cosmo')}</a>
     </div>
-    <ul class="flavors">
-      <li><strong>Standard</strong> — portrait, any Android phone.</li>
-      <li><strong>Cosmo edition</strong> — built for the Planet Cosmo
-        Communicator (landscape clamshell + physical QWERTY).</li>
-    </ul>
-    <ol>
-      <li>Tap the APK for your device.</li>
-      <li>Allow <strong>"Install unknown apps"</strong> when Android prompts.</li>
-      <li>Open the downloaded APK to install.</li>
-    </ol>
-    <p class="note">
-      Sideload (debug-signed) APKs — <strong>not on the Play Store</strong>, not
-      Play-reviewed.
-    </p>
+    <ul class="flavors">{@html t('apps.android.flavors')}</ul>
+    <ol>{@html t('apps.android.steps')}</ol>
+    <p class="note">{t('apps.android.note')}</p>
   </section>
 
-  <p class="risk">
-    ⚠️ All companion apps are free and open-source with <strong>no warranty of
-    any kind — use entirely at your own risk</strong>. Always keep a separate
-    backup before restoring to a device.
-  </p>
+  <p class="risk">{t('apps.risk')}</p>
 </PalmAppShell>
 
 <style>
@@ -104,7 +72,7 @@
     color: var(--ink);
   }
   .card p,
-  .card li {
+  .card :global(li) {
     color: var(--ink-dim);
     line-height: 1.5;
   }
@@ -113,12 +81,12 @@
     margin: 0.5rem 0 0;
     padding-left: 1.25rem;
   }
-  li {
-    margin-bottom: 0.3rem;
-  }
-  .flavors {
+  :global(.flavors) {
     list-style: none;
     padding-left: 0;
+  }
+  :global(.card li) {
+    margin-bottom: 0.3rem;
   }
   .dl {
     display: inline-block;

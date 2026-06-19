@@ -39,7 +39,7 @@ export function costMicroUsd(model: string, tokensIn: number, tokensOut: number)
 
 /** Helpers for the $-facing UI / minimums. */
 export const USD = 1_000_000; // micro-USD per USD
-export const MIN_TOPUP_USD = 10;
+export const MIN_TOPUP_USD = 1; // TEMP: $1 for testing (restore to 10 for production)
 export function usdToMicro(usd: number): number {
   return Math.round(usd * USD);
 }

@@ -643,7 +643,7 @@
                   ? t('datebook.todoTag')
                   : e.all_day
                     ? t('datebook.allDay')
-                    : hhmm(e.start_at)}
+                    : (e.end_at ? hhmm(e.start_at) + '–' + hhmm(e.end_at) : hhmm(e.start_at))}
                 metaAccent
                 onclick={() => openRow(e)}
               >
@@ -689,7 +689,7 @@
                         ? t('datebook.todoTag')
                         : e.all_day
                           ? t('datebook.allDay')
-                          : hhmm(e.start_at)}
+                          : (e.end_at ? hhmm(e.start_at) + '–' + hhmm(e.end_at) : hhmm(e.start_at))}
                     </span>
                     <span class="ti">{e.title}</span>
                   </button>
@@ -754,7 +754,7 @@
               ? t('datebook.todoTag')
               : e.all_day
                 ? t('datebook.allDay')
-                : hhmm(e.start_at)}
+                : (e.end_at ? hhmm(e.start_at) + '–' + hhmm(e.end_at) : hhmm(e.start_at))}
             metaAccent
             onclick={() => openRow(e)}
           >

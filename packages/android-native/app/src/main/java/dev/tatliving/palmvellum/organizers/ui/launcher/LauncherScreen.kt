@@ -28,6 +28,7 @@ import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -37,33 +38,33 @@ import dev.tatliving.palmvellum.organizers.ui.theme.PalmSurfaceLo
 private data class LauncherApp(
     val route: String,
     val glyph: String,
-    val label: String,
-    val sub: String,
+    val labelKey: String,
+    val subKey: String,
 )
 
-// The classic Palm core apps.
+// The classic Palm core apps. Labels resolve through I18n at render time.
 private val APPS = listOf(
-    LauncherApp(Routes.DATEBOOK, "◫", "Date Book", "calendar"),
-    LauncherApp(Routes.TODO, "☑", "To Do List", "tasks + due dates"),
-    LauncherApp(Routes.ADDRESS, "✦", "Address", "contacts"),
-    LauncherApp(Routes.MEMO, "▤", "Memo Pad", "notes"),
-    LauncherApp(Routes.NOTEPAD, "✎", "Note Pad", "sketches + AI"),
-    LauncherApp(Routes.EXPENSE, "¤", "Expense", "spending log"),
-    LauncherApp(Routes.MAIL, "✉", "Mail", "AI morning paper"),
+    LauncherApp(Routes.DATEBOOK, "◫", "app.datebook.label", "app.datebook.sub"),
+    LauncherApp(Routes.TODO, "☑", "app.todo.label", "app.todo.sub"),
+    LauncherApp(Routes.ADDRESS, "✦", "app.address.label", "app.address.sub"),
+    LauncherApp(Routes.MEMO, "▤", "app.memo.label", "app.memo.sub"),
+    LauncherApp(Routes.NOTEPAD, "✎", "app.notepad.label", "app.notepad.sub"),
+    LauncherApp(Routes.EXPENSE, "¤", "app.expense.label", "app.expense.sub"),
+    LauncherApp(Routes.MAIL, "✉", "app.mail.label", "app.mail.sub"),
 )
 
 @Composable
 fun LauncherScreen(navController: NavHostController) {
     val conflictCount by Graph.sync.observeConflictCount().collectAsState(0)
     PalmScaffold(
-        title = "Applications",
+        title = I18n.t("launcher.title"),
         navController = navController,
         currentRoute = Routes.LAUNCHER,
         titleAction = {
             if (conflictCount > 0) {
-                TitleAction("conflicts ($conflictCount)") { navController.navigate(Routes.CONFLICTS) }
+                TitleAction(I18n.t("launcher.conflicts", conflictCount)) { navController.navigate(Routes.CONFLICTS) }
             }
-            TitleAction("settings") { navController.navigate(Routes.SETTINGS) }
+            TitleAction(I18n.t("launcher.settings")) { navController.navigate(Routes.SETTINGS) }
         },
     ) { padding ->
         // Standard phones keep the classic two-up grid. The Cosmo Communicator's
@@ -100,7 +101,7 @@ fun LauncherScreen(navController: NavHostController) {
                     Text(app.glyph, fontSize = 34.sp, color = PalmInk)
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        app.label,
+                        I18n.t(app.labelKey),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = PalmInk,
@@ -108,7 +109,7 @@ fun LauncherScreen(navController: NavHostController) {
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        app.sub,
+                        I18n.t(app.subKey),
                         fontSize = 12.sp,
                         color = PalmInkMute,
                         textAlign = TextAlign.Center,

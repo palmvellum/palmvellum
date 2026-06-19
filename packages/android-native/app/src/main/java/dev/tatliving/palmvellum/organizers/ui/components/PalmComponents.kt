@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.tatliving.palmvellum.organizers.BuildConfig
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmLine
@@ -203,7 +204,7 @@ fun TitleCategory(
 fun TitleSearch(
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String = "search",
+    placeholder: String = I18n.t("common.search"),
     modifier: Modifier = Modifier,
     // When set, the keyboard shows a "Go" action that fires this (used by the
     // Date Book "plan with AI" field; the contact search leaves it null).
@@ -298,8 +299,8 @@ fun EditorScaffold(
     saveEnabled: Boolean = true,
     // Header button labels — overridable so a read-only card can reuse this
     // frame as e.g. "back" / "edit" instead of "Cancel" / "Save".
-    cancelLabel: String = "Cancel",
-    saveLabel: String = "Save",
+    cancelLabel: String = I18n.t("common.cancel"),
+    saveLabel: String = I18n.t("common.save"),
     // When embedded in a two-pane detail pane (Cosmo), the header sits below the
     // Palm title bar, so it must NOT add the status-bar inset a second time.
     embedded: Boolean = false,

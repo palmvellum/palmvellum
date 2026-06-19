@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import dev.tatliving.palmvellum.organizers.BuildConfig
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmBg
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -47,14 +48,14 @@ import dev.tatliving.palmvellum.organizers.ui.theme.PalmOnDark
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 
 /** One of the four classic Palm Pilot silkscreen hardware buttons. */
-private data class HardwareButton(val route: String, val glyph: String, val label: String)
+private data class HardwareButton(val route: String, val glyph: String, val labelKey: String)
 
 // Left-to-right order on the original Palm Pilot hardware.
 private val HARDWARE_BUTTONS = listOf(
-    HardwareButton(Routes.DATEBOOK, "◫", "Date Book"),
-    HardwareButton(Routes.ADDRESS, "✦", "Address"),
-    HardwareButton(Routes.TODO, "☑", "To Do"),
-    HardwareButton(Routes.MEMO, "▤", "Memo"),
+    HardwareButton(Routes.DATEBOOK, "◫", "nav.datebook"),
+    HardwareButton(Routes.ADDRESS, "✦", "nav.address"),
+    HardwareButton(Routes.TODO, "☑", "nav.todo"),
+    HardwareButton(Routes.MEMO, "▤", "nav.memo"),
 )
 
 /**
@@ -138,7 +139,7 @@ fun <T> MasterDetailScaffold(
     detail: T?,
     titleAction: (@Composable RowScope.() -> Unit)? = null,
     titleCenter: (@Composable () -> Unit)? = null,
-    placeholder: String = "Pick an item from the list, or tap + new.",
+    placeholder: String = I18n.t("scaffold.placeholder"),
     master: @Composable () -> Unit,
     detailContent: @Composable (item: T, embedded: Boolean) -> Unit,
 ) {
@@ -310,7 +311,7 @@ private fun PalmButtonRow(navController: NavHostController, currentRoute: String
                 ) {
                     Text(text = btn.glyph, color = PalmOnDark, fontSize = 20.sp)
                     Spacer(Modifier.height(2.dp))
-                    Text(text = btn.label, color = PalmOnDark, fontSize = 11.sp, maxLines = 1)
+                    Text(text = I18n.t(btn.labelKey), color = PalmOnDark, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }

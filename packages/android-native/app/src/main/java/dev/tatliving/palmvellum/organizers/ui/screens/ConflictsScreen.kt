@@ -42,6 +42,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmEmptyState
 import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmBg
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
@@ -81,23 +82,23 @@ fun ConflictsScreen(navController: NavHostController) {
     }
 
     PalmScaffold(
-        title = "Conflicts",
+        title = I18n.t("conflicts.title"),
         navController = navController,
         currentRoute = Routes.CONFLICTS,
         titleAction = {
-            TitleAction("home") {
+            TitleAction(I18n.t("common.home")) {
                 navController.navigate(Routes.LAUNCHER) { popUpTo(Routes.LAUNCHER) { inclusive = true } }
             }
         },
     ) { padding ->
         if (conflicts.isEmpty()) {
-            PalmEmptyState("No conflicts. Everything is in sync.")
+            PalmEmptyState(I18n.t("conflicts.empty"))
             return@PalmScaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(10.dp)) {
             item {
                 Text(
-                    "These items changed both here and in the cloud. Pick which version to keep.",
+                    I18n.t("conflicts.explain"),
                     color = PalmInkMute, fontSize = 13.sp,
                     modifier = Modifier.padding(bottom = 8.dp, start = 2.dp),
                 )
@@ -105,9 +106,9 @@ fun ConflictsScreen(navController: NavHostController) {
                     conflicts.forEachIndexed { i, c ->
                         if (i > 0) PalmDivider()
                         PalmRow(
-                            title = c.titleHint.ifBlank { "(item)" },
+                            title = c.titleHint.ifBlank { I18n.t("conflicts.itemFallback") },
                             meta = c.entityType,
-                            body = "edited on device + in cloud",
+                            body = I18n.t("conflicts.editedBoth"),
                             onClick = { selected = c },
                         )
                     }
@@ -135,9 +136,9 @@ private fun ConflictDetail(
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Back", color = PalmOnDark, fontSize = 15.sp, modifier = Modifier.clickable(onClick = onBack))
+                    Text(I18n.t("common.back"), color = PalmOnDark, fontSize = 15.sp, modifier = Modifier.clickable(onClick = onBack))
                     Text(
-                        "Resolve conflict",
+                        I18n.t("conflicts.resolveTitle"),
                         color = PalmOnDark,
                         fontSize = 16.sp,
                         modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
@@ -147,21 +148,21 @@ private fun ConflictDetail(
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
                 Text(conflict.titleHint, color = PalmInk, fontSize = 16.sp)
                 Spacer(Modifier.height(12.dp))
-                SnapshotBlock("This device", conflict.localUpdatedAt, conflict.localJson)
+                SnapshotBlock(I18n.t("conflicts.thisDevice"), conflict.localUpdatedAt, conflict.localJson)
                 Spacer(Modifier.height(10.dp))
-                SnapshotBlock("Cloud", conflict.remoteUpdatedAt, conflict.remoteJson)
+                SnapshotBlock(I18n.t("conflicts.cloud"), conflict.remoteUpdatedAt, conflict.remoteJson)
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = onKeepLocal,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                ) { Text("Keep this device") }
+                ) { Text(I18n.t("conflicts.keepThisDevice")) }
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onKeepRemote,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-                ) { Text("Keep cloud") }
+                ) { Text(I18n.t("conflicts.keepCloud")) }
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -178,7 +179,7 @@ private fun SnapshotBlock(label: String, updatedAt: String, json: String) {
             .padding(10.dp),
     ) {
         Text(label, color = PalmInk, fontSize = 14.sp)
-        Text("updated $updatedAt", color = PalmInkMute, fontSize = 11.sp)
+        Text(I18n.t("conflicts.updated", updatedAt), color = PalmInkMute, fontSize = 11.sp)
         Spacer(Modifier.height(6.dp))
         Text(json, color = PalmInk, fontSize = 12.sp)
     }

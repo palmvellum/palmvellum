@@ -50,6 +50,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
+import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInk
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmInkMute
@@ -82,21 +83,25 @@ fun TodoScreen(navController: NavHostController) {
     LaunchedEffect(Unit) { vm.refresh() }
     var filter by remember { mutableStateOf("open") } // open | done | all
     var editing by remember { mutableStateOf<RecordEntity?>(null) }
-    val filterOptions = listOf("open" to "open", "done" to "done", "all" to "all")
+    val filterOptions = listOf(
+        "open" to I18n.t("todo.filterOpen"),
+        "done" to I18n.t("todo.filterDone"),
+        "all" to I18n.t("todo.filterAll"),
+    )
 
     MasterDetailScaffold(
-        title = "To Do List",
+        title = I18n.t("todo.title"),
         navController = navController,
         currentRoute = Routes.TODO,
         detail = editing,
-        titleAction = { TitleAction("+ new") { editing = newTodo() } },
+        titleAction = { TitleAction(I18n.t("common.new")) { editing = newTodo() } },
         // Cosmo: the open/done/all filter rides in the title bar to save height.
         titleCenter = if (BuildConfig.COSMO) {
             { TitleCategory(filterOptions, filter) { filter = it } }
         } else {
             null
         },
-        placeholder = "Pick a task from the list, or tap + new.",
+        placeholder = I18n.t("todo.placeholder"),
         master = {
             Column(Modifier.fillMaxSize()) {
                 if (!BuildConfig.COSMO) {
@@ -118,7 +123,7 @@ fun TodoScreen(navController: NavHostController) {
                     }
                 }
                 if (visible.isEmpty()) {
-                    PalmEmptyState("No tasks.")
+                    PalmEmptyState(I18n.t("todo.noTasks"))
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(10.dp),
@@ -129,10 +134,10 @@ fun TodoScreen(navController: NavHostController) {
                                     if (i > 0) PalmDivider()
                                     val f = todoFieldsFrom(rec.metadataJson)
                                     PalmRow(
-                                        title = rec.body ?: "(untitled)",
+                                        title = rec.body ?: I18n.t("todo.untitled"),
                                         meta = buildList {
-                                            if (rec.aiStatus in listOf("pending", "processing", "queued")) add("AI...")
-                                            f.palm_priority?.let { add("P$it") }
+                                            if (rec.aiStatus in listOf("pending", "processing", "queued")) add(I18n.t("todo.aiBusy"))
+                                            f.palm_priority?.let { add(I18n.t("todo.priorityShort", it)) }
                                             f.palm_due_date?.let { add(it) }
                                         }.joinToString("  ").ifEmpty { null },
                                         dim = f.palm_completed,
@@ -191,7 +196,7 @@ private fun TodoEditor(
     var notes by remember { mutableStateOf(f0.palm_notes ?: "") }
 
     EditorScaffold(
-        title = if (isNew) "New Task" else "Edit Task",
+        title = if (isNew) I18n.t("todo.newTask") else I18n.t("todo.editTask"),
         onCancel = onCancel,
         embedded = embedded,
         saveEnabled = desc.isNotBlank(),
@@ -213,16 +218,16 @@ private fun TodoEditor(
         },
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            PalmField("Description  (start with \"(ai)\" to ask the agent)", desc, { desc = it }, singleLine = false, minLines = 2)
+            PalmField(I18n.t("todo.descriptionHint"), desc, { desc = it }, singleLine = false, minLines = 2)
             // Priority 1..5
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
-                Text("Priority", color = PalmInkMute, fontSize = 12.sp)
+                Text(I18n.t("todo.priority"), color = PalmInkMute, fontSize = 12.sp)
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (1..5).forEach { p ->
                         val active = priority == p
                         Text(
-                            "P$p",
+                            I18n.t("todo.priorityShort", p),
                             color = if (active) PalmInk else PalmInkMute,
                             fontSize = 15.sp,
                             modifier = Modifier
@@ -233,19 +238,19 @@ private fun TodoEditor(
                 }
             }
             DateTimeRow(
-                label = "Due date" + if (due == null) " (none)" else "",
-                value = due ?: "set due date",
+                label = if (due == null) I18n.t("todo.dueDateNone") else I18n.t("todo.dueDate"),
+                value = due ?: I18n.t("todo.setDueDate"),
                 onClick = { pickDate(context, DT.nowDate()) { due = DT.fmtDate(it) } },
             )
             if (due != null) {
                 Text(
-                    "clear due date",
+                    I18n.t("todo.clearDueDate"),
                     color = PalmInkMute,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(horizontal = 14.dp).clickable { due = null },
                 )
             }
-            PalmField("Notes", notes, { notes = it }, singleLine = false, minLines = 3)
+            PalmField(I18n.t("todo.notes"), notes, { notes = it }, singleLine = false, minLines = 3)
             if (!isNew) {
                 Spacer(Modifier.height(12.dp))
                 DeleteButton(onDelete)

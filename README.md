@@ -3,7 +3,7 @@
 > *Slow tools for fast lives.*  
 > *老器具，新雲端。* / *老器具，新云端。*
 
-[繁體中文](#palmvellum-繁體中文) · [简体中文](#palmvellum-简体中文) · [English](#english)
+[繁體中文](#palmvellum-繁體中文) · [简体中文](#palmvellum-简体中文) · [日本語](#palmvellum-日本語) · [English](#english)
 
 <table>
   <tr>
@@ -259,6 +259,70 @@ _喺真 Cosmo Communicator（2160×1080）影：應用程式啟動器、Date Boo
 | ![通讯录](docs/screenshots/cosmo-address.png) | ![备忘编辑](docs/screenshots/cosmo-editor.png) |
 
 _在真 Cosmo Communicator（2160×1080）拍摄：应用程序启动器、Date Book 月历、通讯录联系人、Memo Pad AI 编辑器。_
+
+---
+
+## PalmVellum 日本語
+
+**PalmVellum は、1996〜2003 年の Palm Pilot のネイティブアプリに AI 補助とクラウド同期を加えるオープンソースのプラットフォームです — Palm 本体には一切手を加えません。**
+
+Palm を選ぶのは、それが静かだから。単 4 電池 2 本。160×160 のモノクロ画面。常時通信なし。カメラなし。無限スクロールなし。手に取って書き留め、書いたら置く。プラットフォームは背後でクラウドの控えを見守り、AI が必要なときだけ手を貸します。
+
+### 「retro computing（レトロコンピューティング）」とは
+
+品質が低いという意味ではありません。懐古のための懐古でもありません。**レトロコンピューティング ＝ あえて古い機械、あえて制限。** ピクセルは少なく、通知は少なく、端末を手に取る口実も少なく。プラットフォームは AI とクラウドが本当に役立つところ — 自然言語入力の解析、手書きの認識、毎日のニュース要約、タスク／予定の自動実行 — だけに介入し、そこで止まります。閲覧傾向を追跡せず、広告を出さず、プロフィールを見られたからと通知も送りません。そもそもプロフィールがありません。
+
+### プラットフォームが実際にすること
+
+| Palm ネイティブアプリ | プラットフォーム側 | AI 補助 |
+|---|---|---|
+| Date Book | カレンダー + 自由文の AI 解析 | 書いた文 → 構造化された予定 |
+| To Do List | タスク一覧（優先度・期日） | `(AI) ...` で始まるタスクをエージェントが実行し、結果を Memo に書き出し |
+| Memo Pad | メモ閲覧 + ファイルアップロード（PDF / DOCX / 画像） | `(AI) ...` でエージェントが予定／タスクを自動作成し要約をメモに追記。アップロードしたファイルを AI が要約してメモ化 |
+| Address | 連絡先 | — |
+| Note Pad | 手書きギャラリー（Web では閲覧のみ） | Vision モデルが手書きを認識し図を説明 |
+| Mail | 毎日のダイジェスト受信箱 | 指定 URL を要約、または「トピック」モードで AI が Web 検索し 10〜20 分の記事 + 出典を作成 |
+| Expense | 多通貨の支出表 | — |
+
+Palm とプラットフォームの両方で、**ユーザーごとに 1 つのデータセットを共有**します。同じ家庭の複数の Palm が同じレコードを読み書きします。
+
+### 目標
+
+予定・連絡先・メモ・手書き・調査ダイジェスト・支出といった、意図的で穏やかな個人の記録を少しずつ積み上げる — しかも自分の道具に絶えず邪魔されることなく。Palm は単 4 電池で支えるコールドストレージ、プラットフォームはクラウドの控えを保ち AI 補助を担います。
+
+### 私たちの約束
+
+- **Apache 2.0**。コードはこの GitHub に。
+- **BYOK**（自分の API キー）対応の AI プロバイダ — OpenAI、Anthropic、Google Gemini。利用料は自分の管理下に。プラットフォームのクレジット（Airwallex 決済）はオプトイン。
+- **ソーシャルなし、アナリティクスなし、メールマーケティングなし。** レコードはあなたが書き、あなたが所有します。
+- **単 4 電池の Palm（1996〜2003）が私たちの基準であり設計の中心です** — 私たちが信じ、自ら検証する機種です。プラットフォーム自体は HotSync を話すだけなので、対象外の他の Palm OS 機でも利用できます — ただし検証はしません。
+- **Palm は Palm のまま。** カスタムファームウェアは押し付けません。プラットフォームは既存の HotSync で既存の PalmOS アプリと話します。ある機種で conduit が動かなければ conduit を直します — Palm のアプリは変えません。
+
+### デスクトップ同期アプリ — PalmVellum.app（macOS）
+
+小さな Mac アプリが、メモリースティック + Palm 内蔵の MS Backup を使って、Sony Clié の Memo Pad・To Do・Date Book・Address・Mail をクラウドと同期します。Palm 本体は変わりません。**[Releases → 最新の .dmg](https://github.com/palmvellum/palmvellum/releases/latest)**（未署名 — 初回は右クリック →「開く」）。詳しくは [`docs/USAGE.md`](docs/USAGE.md)。
+
+> ⚠️ **無保証 — 自己責任でご利用ください。** 動作確認は Sony Clié + メモリースティック + MS Backup のみ。**SD カードの Palm は未検証**です。復元前に必ずカードのバックアップを別途お取りください。
+
+### Android アプリ — Palm Organizers（ネイティブ）
+
+**Palm Organizers** は、ネイティブでローカルファーストな Android 版（Date Book / Address / To Do / Memo / Note Pad / Expense / Mail）。Kotlin + Jetpack Compose、端末上の Room、クラウド同期と AI はオプトイン（BYOK）。ソースは [`packages/android-native/`](packages/android-native/)。共存できる 2 つのビルド：
+
+- **Standard** — 縦向き、どの端末でも。
+- **Cosmo 版** — **Planet Cosmo Communicator**（横向きクラムシェル + 物理 QWERTY）向け：横向き固定（2160×1080）、左のアイコンレール、2 ペインのマスター/詳細、タイトルバーのインライン絞り込み/検索。UI 仕様は [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。Cosmo がファームウェア V19 のまま？ [**Cosmo V19→V23 アップグレード＋待機電力対策ガイド**](https://github.com/tathome2025/cosmo-standby-battery-fix) も参照。
+
+**ダウンロード：**[Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0)。
+
+> ⚠️ **Play ストアにはありません。** これらはサイドロード（debug 署名）の APK で、Play の審査を受けていません。「提供元不明のアプリ」を許可してからインストールしてください。**いかなる保証もなく、自己責任でご利用ください。**
+
+#### スクリーンショット — Cosmo 版
+
+| | |
+|---|---|
+| ![ランチャー](docs/screenshots/cosmo-launcher.png) | ![Date Book](docs/screenshots/cosmo-datebook.png) |
+| ![連絡先](docs/screenshots/cosmo-address.png) | ![メモ編集](docs/screenshots/cosmo-editor.png) |
+
+_実機の Cosmo Communicator（2160×1080）で撮影：アプリランチャー、Date Book の月表示、連絡先、Memo Pad の AI エディタ。_
 
 ---
 

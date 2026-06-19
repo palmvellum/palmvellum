@@ -98,10 +98,19 @@ on the Palm.
   card*. The CLIE may do a brief **soft reset** on restore — this is expected
   and harmless; your records load normally.
 
-Build it from [`packages/mac-daemon/`](packages/mac-daemon/) with
-`bash packaging/build-app.sh` → `dist/PalmVellum.app`. It syncs Memo Pad, To Do,
-Date Book, Address (contacts) and Mail digests. (Expense and Note Pad aren't
-present on the reference Sony CLIE, so they're out of scope.)
+**Download:** [Releases → latest `.dmg`](https://github.com/palmvellum/palmvellum/releases/latest)
+— unsigned, so on first launch **right‑click the app → Open**. Or build it
+yourself from [`packages/mac-daemon/`](packages/mac-daemon/) with
+`bash packaging/build-app.sh` → `dist/PalmVellum-<version>.dmg`.
+
+It syncs Memo Pad, To Do, Date Book, Address (contacts) and Mail digests.
+(Expense and Note Pad aren't present on the reference Sony CLIE, so they're out
+of scope.) See [`docs/USAGE.md`](docs/USAGE.md) for the full guide.
+
+> ⚠️ **No warranty — use at your own risk.** Tested only on a Sony Clié with a
+> Memory Stick + the built-in MS Backup app. Palm devices using an **SD card
+> are not yet tested**. Always keep a separate backup of your card before
+> restoring.
 
 ### Android app — Palm Organizers (native)
 

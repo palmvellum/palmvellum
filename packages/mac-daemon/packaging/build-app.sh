@@ -44,20 +44,35 @@ if [ -n "${DEVELOPER_ID:-}" ]; then
   codesign --force --deep --options runtime --timestamp \
     --sign "$DEVELOPER_ID" "$APP"
   codesign --verify --strict --verbose=2 "$APP"
-
-  if [ -n "${AC_KEYCHAIN_PROFILE:-}" ]; then
-    echo "→ notarizing"
-    DMG="dist/PalmVellum-$VERSION.dmg"
-    hdiutil create -volname PalmVellum -srcfolder "$APP" -ov -format UDZO "$DMG"
-    xcrun notarytool submit "$DMG" --keychain-profile "$AC_KEYCHAIN_PROFILE" --wait
-    xcrun stapler staple "$APP"
-    xcrun stapler staple "$DMG"
-    echo "✅ signed + notarized: $DMG"
-  else
-    echo "⚠️  AC_KEYCHAIN_PROFILE unset — signed but NOT notarized"
-  fi
 else
   echo "⚠️  DEVELOPER_ID unset — building UNSIGNED (right-click → Open to run)"
 fi
 
+# ── Build the distributable .dmg ────────────────────────────────────
+# A drag-to-Applications layout plus the usage guide. Always produced so
+# the app can be shared; signing/notarization is layered on when creds
+# are present.
+echo "→ building dmg"
+DMG="dist/PalmVellum-$VERSION.dmg"
+STAGE="dist/dmg"
+rm -rf "$STAGE" "$DMG"
+mkdir -p "$STAGE"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+# Usage guide alongside the app (Markdown reads fine as plain text).
+[ -f ../../docs/USAGE.md ] && cp ../../docs/USAGE.md "$STAGE/Usage & Read Me.txt"
+hdiutil create -volname "PalmVellum" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+rm -rf "$STAGE"
+
+if [ -n "${DEVELOPER_ID:-}" ] && [ -n "${AC_KEYCHAIN_PROFILE:-}" ]; then
+  echo "→ notarizing dmg"
+  xcrun notarytool submit "$DMG" --keychain-profile "$AC_KEYCHAIN_PROFILE" --wait
+  xcrun stapler staple "$APP"
+  xcrun stapler staple "$DMG"
+  echo "✅ signed + notarized"
+elif [ -n "${DEVELOPER_ID:-}" ]; then
+  echo "⚠️  AC_KEYCHAIN_PROFILE unset — signed but NOT notarized"
+fi
+
 echo "✅ built $APP"
+echo "✅ built $DMG"

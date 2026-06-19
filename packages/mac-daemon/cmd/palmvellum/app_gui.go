@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"fyne.io/fyne/v2"
 	fyneapp "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/spf13/cobra"
 
@@ -144,6 +146,8 @@ func (g *gui) showLogin() {
 		),
 		container.NewGridWithColumns(2, sendBtn, verifyBtn),
 		msg,
+		widget.NewSeparator(),
+		widget.NewButton("About / Help", g.showAbout),
 	)
 	g.win.SetContent(container.NewPadded(form))
 }
@@ -186,13 +190,14 @@ func (g *gui) showMain() {
 		_ = auth.Clear()
 		g.showLogin()
 	})
+	aboutBtn := widget.NewButton("About / Help", g.showAbout)
 
 	top := container.NewVBox(
 		statusLbl,
 		cardLbl,
 		autoChk,
 		waitChk,
-		container.NewGridWithColumns(2, syncBtn, logoutBtn),
+		container.NewGridWithColumns(3, syncBtn, logoutBtn, aboutBtn),
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
@@ -249,6 +254,58 @@ func (g *gui) doSync() {
 	g.lastCard = nil
 	_ = g.cardLbl.Set("Card ejected — remove it and restore on the Palm")
 	g.appendLog("⏏️ Ejected " + card.Volume + " — safe to remove")
+}
+
+// ─────────────────────────── about / help ───────────────────────────
+
+func mustURL(s string) *url.URL { u, _ := url.Parse(s); return u }
+
+// showAbout opens the project intro, links, usage, compatibility and the
+// at-your-own-risk disclaimer.
+func (g *gui) showAbout() {
+	intro := widget.NewLabel(
+		"PalmVellum — slow tools for fast lives.\n\n" +
+			"Cloud sync + AI for the native apps on a 1996–2003 Palm. " +
+			"Back up on the device, sync the card here, restore on the Palm. " +
+			"The Palm itself never changes.")
+	intro.Wrapping = fyne.TextWrapWord
+
+	how := widget.NewLabel(
+		"How to use:\n" +
+			"1. On the Palm, use the built-in MS Backup to back up to the card.\n" +
+			"2. Put the Memory Stick in a reader on your Mac.\n" +
+			"3. Log in here; the app syncs Memo, To Do, Date Book, Address and\n" +
+			"   Mail, then ejects the card.\n" +
+			"4. Put the card back and restore from card in MS Backup.")
+	how.Wrapping = fyne.TextWrapWord
+
+	compat := widget.NewLabel(
+		"Compatibility:\n" +
+			"• Sony Clié + Memory Stick + the built-in MS Backup app — tested.\n" +
+			"• Palm devices with an SD card: NOT yet tested — may not work.\n" +
+			"• On restore the Clié may do a brief, harmless soft reset.")
+	compat.Wrapping = fyne.TextWrapWord
+
+	disclaimer := widget.NewLabelWithStyle(
+		"⚠️ No warranty of any kind. Use entirely at your own risk. "+
+			"Always keep a separate backup of your card before restoring.",
+		fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	disclaimer.Wrapping = fyne.TextWrapWord
+
+	body := container.NewVBox(
+		intro,
+		widget.NewHyperlink("Website — tatliving.dev/palmvellum", mustURL("https://tatliving.dev/palmvellum")),
+		widget.NewHyperlink("Source — github.com/palmvellum/palmvellum", mustURL("https://github.com/palmvellum/palmvellum")),
+		widget.NewSeparator(),
+		how,
+		widget.NewSeparator(),
+		compat,
+		widget.NewSeparator(),
+		disclaimer,
+	)
+	scroll := container.NewScroll(body)
+	scroll.SetMinSize(fyne.NewSize(440, 420))
+	dialog.ShowCustom("About PalmVellum", "Close", scroll, g.win)
 }
 
 // appendLog prepends a timestamped line so the newest entry sits at the

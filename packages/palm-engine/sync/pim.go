@@ -271,12 +271,13 @@ func AddressPull(c Cloud, userID, outPath string, appInfo []byte) (PullResult, e
 	if err != nil {
 		return res, err
 	}
+	// Parse categories for name→index lookup only. The AppInfo itself is
+	// preserved verbatim (below) — re-encoding via memodb would drop the
+	// AddressDB field-label tail and shrink it from 638 to 280 bytes,
+	// which crashes the Palm restore (DmWrite: DmWriteCheck failed).
 	var ai *memodb.AppInfo
 	if len(appInfo) > 0 {
 		ai, _ = memodb.ParseAppInfo(appInfo)
-	}
-	if ai == nil {
-		ai = memodb.DefaultAppInfo()
 	}
 
 	maxUID := maxDeviceUID(rows, "addr:")
@@ -298,8 +299,14 @@ func AddressPull(c Cloud, userID, outPath string, appInfo []byte) (PullResult, e
 		}
 		ct := contactFromMetadata(r)
 		ct.UniqueID = uid
-		if md := metaCategory(r); md != "" {
-			ct.Category = ai.EnsureCategory(md)
+		// Map to an existing category only; unknown names fall to Unfiled
+		// (0) so we never have to mutate the verbatim AppInfo.
+		if ai != nil {
+			if md := metaCategory(r); md != "" {
+				if idx, ok := ai.FindCategoryByName(md); ok {
+					ct.Category = idx
+				}
+			}
 		}
 		contacts = append(contacts, ct)
 	}
@@ -312,7 +319,7 @@ func AddressPull(c Cloud, userID, outPath string, appInfo []byte) (PullResult, e
 		}
 	}
 
-	db := addressdb.NewAddressDB(ai.Encode())
+	db := addressdb.NewAddressDB(appInfo) // verbatim 638-byte AppInfo
 	db.Records = addressdb.EncodeContacts(contacts)
 	db.UniqueSeed = maxUID
 	db.CreatedAt = time.Now().UTC()

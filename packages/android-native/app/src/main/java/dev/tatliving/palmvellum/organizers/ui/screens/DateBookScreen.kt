@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -155,6 +156,9 @@ fun DateBookScreen(navController: NavHostController) {
     // anchor day the week/month views revolve around; selectedDay = tapped cell
     var anchor by remember { mutableStateOf(DT.nowDate()) }
     var selectedDay by remember { mutableStateOf(DT.nowDate()) }
+    // Bumped to ask the agenda list to (re)scroll to today; also fires the
+    // initial scroll once events have loaded.
+    var jumpToToday by remember { mutableStateOf(0) }
 
     val target = editing
     if (target != null) {
@@ -177,7 +181,14 @@ fun DateBookScreen(navController: NavHostController) {
         title = I18n.t("datebook.title"),
         navController = navController,
         currentRoute = Routes.DATEBOOK,
-        titleAction = { TitleAction(I18n.t("common.new")) { editing = newEvent(selectedDay) } },
+        titleAction = {
+            // Standard agenda lists every day from the past forward, so give it a
+            // Today shortcut (Cosmo's agenda already starts from today).
+            if (!BuildConfig.COSMO && mode == "agenda") {
+                TitleAction(I18n.t("datebook.today")) { jumpToToday++ }
+            }
+            TitleAction(I18n.t("common.new")) { editing = newEvent(selectedDay) }
+        },
         // Cosmo: the agenda/week/month switcher rides in the title bar, with the
         // "plan with AI" input filling the grey space beside it.
         titleCenter = if (BuildConfig.COSMO) {
@@ -265,6 +276,7 @@ fun DateBookScreen(navController: NavHostController) {
                             aiText = aiText,
                             onAiText = { aiText = it },
                             onEdit = { editing = it },
+                            jumpToToday = jumpToToday,
                         )
                     }
                 }
@@ -338,9 +350,29 @@ private fun AgendaView(
     aiText: String,
     onAiText: (String) -> Unit,
     onEdit: (EventEntity) -> Unit,
+    jumpToToday: Int,
 ) {
     val grouped = events.groupBy { DT.dateOf(it.startAt) }.toSortedMap()
+    val listState = rememberLazyListState()
+
+    // The list starts at the ai card, then one item per draft, then one item
+    // per day (oldest first). Find today's row — or the next upcoming day if
+    // today has no events — and scroll there on load and whenever Today is tapped.
+    val dayKeys = grouped.keys.toList()
+    val headerOffset = 1 + drafts.size
+    val today = DT.nowDate()
+    val targetIndex = if (dayKeys.isEmpty()) {
+        0
+    } else {
+        val i = dayKeys.indexOfFirst { !it.isBefore(today) }
+        headerOffset + (if (i >= 0) i else dayKeys.size - 1)
+    }
+    LaunchedEffect(jumpToToday, dayKeys.size) {
+        if (dayKeys.isNotEmpty()) listState.scrollToItem(targetIndex.coerceAtLeast(0))
+    }
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize().padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

@@ -268,26 +268,27 @@
       (pay-as-you-go), or bring your own API key.
     </p>
 
-    <div class="mode-choice">
-      <label class="inline-check">
-        <input
-          type="radio"
-          name="apimode"
-          checked={(authState.settings?.api_mode ?? 'platform') === 'platform'}
-          onchange={() => setApiMode('platform')}
-        />
-        <span>Use platform credits <em>(recommended)</em> — pay as you go, OpenAI cost + 50%.</span>
-      </label>
-      <label class="inline-check">
-        <input
-          type="radio"
-          name="apimode"
-          checked={authState.settings?.api_mode === 'byok'}
-          onchange={() => setApiMode('byok')}
-        />
-        <span>Bring your own API key — you pay the provider directly.</span>
-      </label>
+    <div class="mode-switch" role="group" aria-label="AI provider mode">
+      <button
+        type="button"
+        class="seg"
+        class:active={(authState.settings?.api_mode ?? 'platform') === 'platform'}
+        onclick={() => setApiMode('platform')}
+      >Platform credits</button>
+      <button
+        type="button"
+        class="seg"
+        class:active={authState.settings?.api_mode === 'byok'}
+        onclick={() => setApiMode('byok')}
+      >Your own key</button>
     </div>
+    <p class="sub mode-note">
+      {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
+        Pay as you go — OpenAI cost + 50%, drawn from your balance.
+      {:else}
+        You pay the provider directly with your own API key.
+      {/if}
+    </p>
 
     {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
       <!-- Platform credits: balance + top-up -->
@@ -297,7 +298,7 @@
         <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
       </label>
       {#if topupError}<p class="error">{topupError}</p>{/if}
-      <button type="button" onclick={buyCredits} disabled={topupBusy}>
+      <button type="button" class="buy-btn" onclick={buyCredits} disabled={topupBusy}>
         {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
       </button>
       <p class="hint">
@@ -752,5 +753,40 @@
   button.secondary:hover:not(:disabled) {
     background: var(--surface-hi);
     color: var(--ink);
+  }
+
+  /* Platform / BYOK left-right segmented switch */
+  .mode-switch {
+    display: flex;
+    width: 100%;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 0.25rem 0 0.5rem;
+  }
+  .mode-switch .seg {
+    flex: 1;
+    padding: 0.55rem 0.5rem;
+    background: var(--surface-lo);
+    color: var(--ink-dim);
+    border: none;
+    border-radius: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .mode-switch .seg + .seg {
+    border-left: 1px solid var(--accent);
+  }
+  .mode-switch .seg.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .mode-note {
+    margin-top: 0;
+  }
+  .buy-btn {
+    margin-bottom: 1.25rem;
   }
 </style>

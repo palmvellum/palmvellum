@@ -921,9 +921,9 @@
     color: var(--ink);
     font: inherit;
     padding: 0.2rem 0.1rem 0.15rem;
-    /* Shorter than square so the month grid is compact. */
-    aspect-ratio: 1 / 0.66;
-    min-height: 0;
+    /* Compact fixed height (instead of a square aspect-ratio) so the
+       month grid stays small but readable. */
+    min-height: 42px;
     cursor: pointer;
   }
   .cell.out { color: var(--ink-mute); background: var(--surface-hi); }
@@ -1135,7 +1135,7 @@
   .sheet form { display: flex; flex-direction: column; gap: 0.6rem; }
 
   /* Compact, centred month calendar */
-  .dow, .grid { max-width: 460px; margin-left: auto; margin-right: auto; }
+  .dow, .grid { width: 100%; max-width: 440px; margin-left: auto; margin-right: auto; }
   .cal-hint { text-align: center; color: var(--ink-mute); font-size: 0.72rem; margin: 0.4rem 0 0; }
 
   /* Day lightbox (month mode) */

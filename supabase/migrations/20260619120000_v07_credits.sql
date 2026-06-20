@@ -2,8 +2,9 @@
 --
 -- Money model: balances are stored as INTEGER **micro-USD** (1 USD =
 -- 1,000,000) to avoid floating-point drift. A top-up adds micro-USD; an
--- AI call deducts (token cost × N). Every change is an immutable
--- credit_ledger row; the running balance lives on user_settings.
+-- AI call deducts the token cost plus a configured retail markup (the
+-- multiplier lives in the PRICE_MARKUP function secret, not the repo). Every
+-- change is an immutable credit_ledger row; the balance lives on user_settings.
 --
 -- Idempotency is the spine of a billing system:
 --   * apply_topup keys on the Airwallex payment-intent id (a webhook may

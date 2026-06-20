@@ -94,12 +94,10 @@
   let topupBusy = $state(false);
   let topupError = $state<string | null>(null);
 
-  // Credits are a display unit over the real micro-USD balance. The
-  // server charges exact micro-USD per call (raw OpenAI cost × N retail
-  // markup, see _shared/pricing.ts); we show it as credits.
+  // Credits are a display unit over the real micro-USD balance. The server
+  // charges exact micro-USD per call (token cost plus a retail markup that is
+  // configured server-side, not in the client); we show it as credits.
   //   1 credit = 10,000 micro-USD  →  US$1 = 100 credits, US$10 = 1,000.
-  // Calibrated so US$10 (1,000 credits) ≈ ~3,000 typical AI Date Book
-  // records (~a few micro-USD each on gpt-4o-mini at the N× markup).
   const MICRO_PER_CREDIT = 10_000;
   const CREDITS_PER_USD = 1_000_000 / MICRO_PER_CREDIT; // 100
 

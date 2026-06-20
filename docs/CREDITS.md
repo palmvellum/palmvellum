@@ -1,11 +1,12 @@
 # Platform credits (pay-as-you-go AI)
 
 Users top up a USD balance via Airwallex and spend it on platform AI calls.
-Each call is billed at the underlying **OpenAI cost × N** (retail markup — the
-raw token cost is tiny, so credits are priced as a product, not retail-priced).
+Each call is billed at the underlying token cost plus a fixed retail markup.
+The markup multiplier is a commercial value kept out of the repo — it is read
+from the `PRICE_MARKUP` function secret at runtime (see Secrets below).
 Balances are integer **micro-USD** (1 USD = 1,000,000) — no floats. The UI
 shows the balance as **credits** where **1 credit = US$0.01** (US$10 = 1,000
-credits ≈ ~3,000 typical AI Date Book records).
+credits).
 
 - BYOK users are unaffected (`api_mode='byok'`, `cost_micro_usd=0`).
 - Platform users (`api_mode='platform'`) need `balance_micro_usd > 0`; the AI
@@ -18,7 +19,7 @@ credits ≈ ~3,000 typical AI Date Book records).
 | Piece | Where |
 |---|---|
 | Balance, ledger, RPCs (`apply_topup`, `charge_usage`) | `supabase/migrations/20260619120000_v07_credits.sql` |
-| Pricing table + markup | `supabase/functions/_shared/pricing.ts` (unit-tested) |
+| Pricing table + markup (markup from `PRICE_MARKUP` secret) | `supabase/functions/_shared/pricing.ts` (unit-tested) |
 | Per-call metering | `supabase/functions/_shared/billing.ts` → wired in `ai-agent` |
 | Start a top-up | `supabase/functions/create-topup` (auth'd; creates Airwallex intent) |
 | Credit on payment | `supabase/functions/airwallex-webhook` (verifies signature, idempotent) |
@@ -30,6 +31,7 @@ Set these as **Supabase Function secrets** (and rotate any key ever exposed):
 
 ```sh
 supabase secrets set \
+  PRICE_MARKUP=...                          # retail markup multiplier (commercial — keep out of git) \
   PLATFORM_OPENAI_API_KEY=sk-...           # the platform's OpenAI key (rotated) \
   AIRWALLEX_API_KEY=...                     # Airwallex DEMO key first \
   AIRWALLEX_CLIENT_ID=... \
@@ -61,7 +63,7 @@ subscribe to `payment_intent.succeeded`, and copy the signing secret into
 3. Confirm: the webhook fires → `credit_ledger` gets a `topup` row →
    `user_settings.balance_micro_usd` increases by 10,000,000.
 4. Trigger an `(AI)` memo. Confirm `ai_usage.cost_micro_usd > 0`, a `usage`
-   ledger row appears, and the balance drops by ≈ OpenAI cost × N.
+   ledger row appears, and the balance drops by the configured markup.
 5. Spend to zero → the next `(AI)` call is refused with "insufficient credit".
 
 ## Go live

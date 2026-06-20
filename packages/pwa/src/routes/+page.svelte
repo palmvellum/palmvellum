@@ -27,7 +27,8 @@
     const { error } = await supabase.auth.signInWithOtp({
       email: signinEmail.trim().toLowerCase(),
       options: {
-        shouldCreateUser: false,
+        // Open registration: create the account on first sign-in.
+        shouldCreateUser: true,
       },
     });
     submitting = false;

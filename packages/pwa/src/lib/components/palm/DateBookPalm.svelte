@@ -550,6 +550,7 @@
   }
   async function removeEvent(e: CalendarEvent) {
     if (!(await palmConfirm(t('datebook.confirmDelete', { title: e.title }), { danger: true }))) return;
+    closeSheet();
     await deleteEvent(e.id);
     await load();
   }

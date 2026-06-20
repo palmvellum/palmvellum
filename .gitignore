@@ -67,3 +67,5 @@ packages/mac-daemon/bin/
 # (deployed to tatliving.dev/palmvellum). Do not re-commit it here.
 website/
 /packages/mac-daemon/palmvellum
+
+deno.lock

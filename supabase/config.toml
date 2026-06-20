@@ -8,3 +8,15 @@ project_id = "palmvellum"
 
 [db]
 major_version = 17
+
+# Webhook-triggered Edge Functions. They are invoked server-to-server by
+# pg_net triggers (event drafts) and the cron sweeper (mail digests),
+# which do NOT send an Authorization header — so JWT verification must be
+# off or the call 401s and the work silently never runs. Pinned here so a
+# future `supabase functions deploy` cannot quietly reset it to the
+# default (verify_jwt = true) and reintroduce the outage.
+[functions.process-event-draft]
+verify_jwt = false
+
+[functions.fetch-mail-source]
+verify_jwt = false

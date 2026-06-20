@@ -3,7 +3,7 @@
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { base } from '$app/paths';
-  import { goto } from '$app/navigation';
+  import { goto, replaceState } from '$app/navigation';
   import { t, currentLang, setLang, SUPPORTED_LANGUAGES, type Lang } from '$lib/i18n.svelte';
   import { prefs } from '$lib/prefs.svelte';
   import { calsubs } from '$lib/stores/calsubs.svelte';
@@ -122,19 +122,33 @@
     balanceUpdating = false;
   }
 
+  function dismissTopupSuccess() {
+    topupSuccess = false;
+    try { sessionStorage.removeItem('pv_topup'); } catch { /* ignore */ }
+  }
+
+  // The Airwallex success redirect is a full page load, after which auth
+  // re-init / routing can remount this component and wipe local $state.
+  // Persist the "show success" signal in sessionStorage so it survives a
+  // remount (onMount re-reads it); only Done clears it.
   onMount(() => {
     const topup = new URLSearchParams(location.search).get('topup');
-    if (!topup) return;
-    // Strip the query so a manual page refresh won't re-open the modal.
-    history.replaceState(null, '', base + '/settings');
-    if (topup === 'ok') {
+    if (topup === 'ok' || topup === 'fail') {
+      try { sessionStorage.setItem('pv_topup', topup); } catch { /* ignore */ }
+      // Strip the query (shallow — no remount) so refresh won't reprocess it.
+      replaceState(base + '/settings', {});
+    }
+    let flag: string | null = null;
+    try { flag = sessionStorage.getItem('pv_topup'); } catch { /* ignore */ }
+    if (flag === 'ok') {
       topupBusy = false;
       topupError = null;
       topupSuccess = true;
       void pollBalance(authState.settings?.balance_micro_usd ?? 0);
-    } else if (topup === 'fail') {
+    } else if (flag === 'fail') {
       topupBusy = false;
       topupError = 'Payment was not completed — you have not been charged.';
+      try { sessionStorage.removeItem('pv_topup'); } catch { /* ignore */ }
     }
   });
 
@@ -266,7 +280,7 @@
 </svelte:head>
 
 {#if topupSuccess}
-  <div class="lb-bk" onclick={() => (topupSuccess = false)} role="presentation"></div>
+  <div class="lb-bk" onclick={dismissTopupSuccess} role="presentation"></div>
   <div class="lb-dlg" role="dialog" aria-modal="true" aria-label="Top-up successful">
     <h2 class="lb-title">Top-up successful</h2>
     <p class="lb-msg">Thank you — your payment cleared. Credits have been added to your balance.</p>
@@ -279,7 +293,7 @@
       <button type="button" class="lb-btn refresh" onclick={refreshBalance} disabled={balanceUpdating}>
         {balanceUpdating ? 'Refreshing…' : 'Refresh balance'}
       </button>
-      <button type="button" class="lb-btn done" onclick={() => (topupSuccess = false)}>Done</button>
+      <button type="button" class="lb-btn done" onclick={dismissTopupSuccess}>Done</button>
     </div>
   </div>
 {/if}

@@ -88,14 +88,29 @@
     await authState.refreshSettings();
   }
 
-  // ── Platform credits (pay-as-you-go) ────────────────────
+  // ── PalmVellum Credits (pay-as-you-go) ──────────────────
   const MIN_TOPUP = 1; // TEMP: $1 for testing
   let topupUsd = $state(1);
   let topupBusy = $state(false);
   let topupError = $state<string | null>(null);
 
-  function balanceUsd(): string {
-    return ((authState.settings?.balance_micro_usd ?? 0) / 1_000_000).toFixed(2);
+  // Credits are a display unit over the real micro-USD balance. The
+  // server still charges exact micro-USD per call (token cost × N);
+  // we just show it as credits so usage reads in round numbers.
+  //   1 credit = 100 micro-USD  →  US$1 = 10,000 credits.
+  // Calibrated so ~300 AI-created Date Book records (~333 micro-USD each
+  // on gpt-4o-mini) ≈ 1,000 credits.
+  const MICRO_PER_CREDIT = 100;
+  const CREDITS_PER_USD = 1_000_000 / MICRO_PER_CREDIT; // 10,000
+
+  function balanceCredits(): number {
+    return Math.round((authState.settings?.balance_micro_usd ?? 0) / MICRO_PER_CREDIT);
+  }
+  function microToCredits(micro: number): number {
+    return Math.round(micro / MICRO_PER_CREDIT);
+  }
+  function fmtCredits(n: number): string {
+    return n.toLocaleString('en-US');
   }
 
   // ── Post-checkout success lightbox ──────────────────────
@@ -109,6 +124,7 @@
   async function refreshBalance() {
     balanceUpdating = true;
     await authState.refreshSettings();
+    await loadReceipts();
     balanceUpdating = false;
   }
 
@@ -119,7 +135,112 @@
       if ((authState.settings?.balance_micro_usd ?? 0) > prevMicro) break;
       await new Promise((r) => setTimeout(r, 2000));
     }
+    // The webhook also writes the credit_ledger row this receipt reads.
+    await loadReceipts();
     balanceUpdating = false;
+  }
+
+  // ── Top-up receipts (downloadable PDF) ──────────────────
+  // Each successful top-up is an immutable credit_ledger row (kind=topup);
+  // RLS lets the owner read their own. We render each as a PDF receipt.
+  type Receipt = {
+    id: string;
+    created_at: string;
+    amount_micro_usd: number;
+    balance_after: number;
+    ref: string | null;
+  };
+  let receipts = $state<Receipt[]>([]);
+
+  async function loadReceipts() {
+    if (!authState.userId) return;
+    const { data } = await supabase
+      .from('credit_ledger')
+      .select('id, created_at, amount_micro_usd, balance_after, ref')
+      .eq('kind', 'topup')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    receipts = (data as Receipt[]) ?? [];
+  }
+
+  // Load the receipt history once the user id is available (auth boots
+  // asynchronously, so onMount alone can be too early).
+  let receiptsLoaded = false;
+  $effect(() => {
+    if (authState.userId && !receiptsLoaded) {
+      receiptsLoaded = true;
+      void loadReceipts();
+    }
+  });
+
+  function receiptDate(iso: string): string {
+    try {
+      return new Date(iso).toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      });
+    } catch { return iso; }
+  }
+
+  async function downloadReceipt(r: Receipt) {
+    // jsPDF via esm.sh (same dynamic-import pattern as the Airwallex SDK)
+    // so we don't carry it in the bundle.
+    const mod: any = await import(/* @vite-ignore */ 'https://esm.sh/jspdf@2.5.2');
+    const JsPDF = mod.jsPDF ?? mod.default;
+    const doc = new JsPDF({ unit: 'pt', format: 'a4' });
+
+    const usd = (r.amount_micro_usd / 1_000_000).toFixed(2);
+    const credits = fmtCredits(microToCredits(r.amount_micro_usd));
+    const balCredits = fmtCredits(microToCredits(r.balance_after));
+    const left = 56;
+    let y = 72;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('PalmVellum', left, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text('Credit top-up receipt', left, (y += 20));
+
+    doc.setDrawColor(180);
+    doc.line(left, (y += 14), 539, y);
+    y += 26;
+
+    const row = (label: string, value: string, bold = false) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(110);
+      doc.text(label, left, y);
+      doc.setTextColor(20);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.text(value, 539, y, { align: 'right' });
+      y += 24;
+    };
+
+    row('Receipt no.', r.id);
+    row('Date', receiptDate(r.created_at));
+    row('Billed to', authState.email ?? '—');
+    row('Payment method', 'Card via Airwallex');
+    if (r.ref) row('Payment reference', r.ref);
+    y += 8;
+    doc.setDrawColor(220);
+    doc.line(left, y, 539, y);
+    y += 26;
+    row('Amount paid', `US$${usd}`, true);
+    row('Credits added', `${credits} credits`, true);
+    row('Balance after', `${balCredits} credits`);
+
+    y += 18;
+    doc.setDrawColor(180);
+    doc.line(left, y, 539, y);
+    y += 24;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(120);
+    doc.text('Thank you for supporting PalmVellum.', left, y);
+    doc.text('Credits power on-device AI features. 1 credit = US$0.0001.', left, (y += 16));
+
+    doc.save(`palmvellum-receipt-${r.id}.pdf`);
   }
 
   function dismissTopupSuccess() {
@@ -291,11 +412,16 @@
     <h2 class="lb-title">Top-up successful</h2>
     <p class="lb-msg">Thank you — your payment cleared. Credits have been added to your balance.</p>
     <p class="lb-balance">
-      Balance: <strong>${balanceUsd()}</strong>
+      Balance: <strong>{fmtCredits(balanceCredits())} credits</strong>
       {#if balanceUpdating}<span class="lb-sync">updating…</span>{/if}
     </p>
     <p class="lb-hint">If the balance hasn't updated yet, tap Refresh — crediting can take a moment.</p>
     <div class="lb-actions">
+      {#if receipts.length}
+        <button type="button" class="lb-btn refresh" onclick={() => downloadReceipt(receipts[0])}>
+          Download receipt
+        </button>
+      {/if}
       <button type="button" class="lb-btn refresh" onclick={refreshBalance} disabled={balanceUpdating}>
         {balanceUpdating ? 'Refreshing…' : 'Refresh balance'}
       </button>
@@ -357,7 +483,7 @@
   <section class="card">
     <h2>{t('settings.apiKeys')}</h2>
     <p class="sub">
-      Choose how AI is powered: top up <strong>platform credits</strong>
+      Choose how AI is powered: top up <strong>PalmVellum Credits</strong>
       (pay-as-you-go), or bring your own API key.
     </p>
 
@@ -367,7 +493,7 @@
         class="seg"
         class:active={(authState.settings?.api_mode ?? 'platform') === 'platform'}
         onclick={() => setApiMode('platform')}
-      >Platform credits</button>
+      >PalmVellum Credits</button>
       <button
         type="button"
         class="seg"
@@ -375,31 +501,45 @@
         onclick={() => setApiMode('byok')}
       >Your own key</button>
     </div>
-    <p class="sub mode-note">
-      {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
-        Pay as you go — OpenAI cost + 50%, drawn from your balance.
-      {:else}
-        You pay the provider directly with your own API key.
-      {/if}
-    </p>
+    {#if authState.settings?.api_mode === 'byok'}
+      <p class="sub mode-note">You pay the provider directly with your own API key.</p>
+    {/if}
 
     {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
-      <!-- Platform credits: balance + top-up -->
-      <p class="balance">Balance: <strong>${balanceUsd()}</strong></p>
+      <!-- PalmVellum Credits: balance + top-up -->
+      <p class="balance">Balance: <strong>{fmtCredits(balanceCredits())} credits</strong></p>
       <div class="topup-row">
         <label class="field">
           Top up (USD, min ${MIN_TOPUP})
           <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
         </label>
         <button type="button" class="buy-btn" onclick={buyCredits} disabled={topupBusy}>
-          {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
+          {topupBusy ? 'Starting…' : `Buy ${fmtCredits(Math.round((Number(topupUsd) || 0) * CREDITS_PER_USD))} credits`}
         </button>
       </div>
+      {#if Number.isFinite(Number(topupUsd)) && Number(topupUsd) > 0}
+        <p class="hint credits-eq">${Number(topupUsd)} = {fmtCredits(Math.round(Number(topupUsd) * CREDITS_PER_USD))} credits</p>
+      {/if}
       {#if topupError}<p class="error">{topupError}</p>{/if}
       <p class="hint">
         Secure payment via Airwallex; minimum ${MIN_TOPUP}. We never store your
-        card. Credit is added once payment clears.
+        card. Credits are added once payment clears.
       </p>
+
+      {#if receipts.length}
+        <div class="receipts">
+          <h3>Receipts</h3>
+          <ul>
+            {#each receipts as r (r.id)}
+              <li class="receipt-row">
+                <span class="r-date">{receiptDate(r.created_at)}</span>
+                <span class="r-amt">${(r.amount_micro_usd / 1_000_000).toFixed(2)} · {fmtCredits(microToCredits(r.amount_micro_usd))} credits</span>
+                <button type="button" class="r-dl" onclick={() => downloadReceipt(r)}>Download PDF</button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
     {:else}
       <!-- BYOK: provider status + key paste -->
       <div class="status">
@@ -971,4 +1111,53 @@
     margin-bottom: 0;
     white-space: nowrap;
   }
+  .credits-eq {
+    margin-top: 0.35rem;
+    color: var(--ink-mute);
+  }
+  .receipts {
+    margin-top: 1.1rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.8rem;
+  }
+  .receipts h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .receipts ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .receipt-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .receipt-row .r-date {
+    flex: 1 1 9rem;
+    min-width: 0;
+    font-size: 0.82rem;
+    color: var(--ink-mute);
+  }
+  .receipt-row .r-amt {
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .receipt-row .r-dl {
+    background: var(--surface-hi, #f4f4ee);
+    color: var(--ink, #000);
+    border: 1px solid var(--line);
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .receipt-row .r-dl:hover { border-color: var(--accent); color: var(--accent); }
 </style>

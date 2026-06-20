@@ -271,7 +271,7 @@
       void pollBalance(authState.settings?.balance_micro_usd ?? 0);
     } else if (flag === 'fail') {
       topupBusy = false;
-      topupError = 'Payment was not completed — you have not been charged.';
+      topupError = t('settings.payNotCompleted');
       try { sessionStorage.removeItem('pv_topup'); } catch { /* ignore */ }
     }
   });
@@ -279,7 +279,7 @@
   async function buyCredits() {
     topupError = null;
     if (!Number.isFinite(topupUsd) || topupUsd < MIN_TOPUP) {
-      topupError = `Minimum top-up is $${MIN_TOPUP}.`;
+      topupError = t('settings.errMin', { min: MIN_TOPUP });
       return;
     }
     topupBusy = true;
@@ -288,7 +288,7 @@
     });
     if (error || !data?.client_secret) {
       topupBusy = false;
-      topupError = error?.message ?? data?.error ?? 'Could not start top-up.';
+      topupError = error?.message ?? data?.error ?? t('settings.errStart');
       return;
     }
     // Hand off to Airwallex's Hosted Payment Page (full-page redirect). The
@@ -301,7 +301,7 @@
       // init()/redirectToCheckout() are no-ops until this resolves — skipping
       // it leaves the button stuck on "starting" with no error.
       const loaded = await awx.loadAirwallex({ env, origin: location.origin });
-      if (!loaded) throw new Error('Could not load the Airwallex checkout SDK.');
+      if (!loaded) throw new Error(t('settings.errSdk'));
       awx.redirectToCheckout({
         env,
         intent_id: data.intent_id,
@@ -315,7 +315,7 @@
       });
     } catch (e) {
       topupBusy = false;
-      topupError = 'Payment failed to start: ' + String(e);
+      topupError = t('settings.errPayStart', { detail: String(e) });
     }
   }
 
@@ -367,7 +367,7 @@
     subBusy = true;
     try {
       const n = await calsubs.refresh();
-      subMsg = `refreshed — ${n} event${n === 1 ? '' : 's'} added/updated`;
+      subMsg = t('settings.subRefreshed', { n });
     } catch (err) {
       subError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -408,24 +408,24 @@
 
 {#if topupSuccess}
   <div class="lb-bk" onclick={dismissTopupSuccess} role="presentation"></div>
-  <div class="lb-dlg" role="dialog" aria-modal="true" aria-label="Top-up successful">
-    <h2 class="lb-title">Top-up successful</h2>
-    <p class="lb-msg">Thank you — your payment cleared. Credits have been added to your balance.</p>
+  <div class="lb-dlg" role="dialog" aria-modal="true" aria-label={t('settings.topupOkTitle')}>
+    <h2 class="lb-title">{t('settings.topupOkTitle')}</h2>
+    <p class="lb-msg">{t('settings.topupOkBody')}</p>
     <p class="lb-balance">
-      Balance: <strong>{fmtCredits(balanceCredits())} credits</strong>
-      {#if balanceUpdating}<span class="lb-sync">updating…</span>{/if}
+      <strong>{t('settings.balanceLine', { credits: fmtCredits(balanceCredits()) })}</strong>
+      {#if balanceUpdating}<span class="lb-sync">{t('settings.updating')}</span>{/if}
     </p>
-    <p class="lb-hint">If the balance hasn't updated yet, tap Refresh — crediting can take a moment.</p>
+    <p class="lb-hint">{t('settings.topupOkHint')}</p>
     <div class="lb-actions">
       {#if receipts.length}
         <button type="button" class="lb-btn refresh" onclick={() => downloadReceipt(receipts[0])}>
-          Download receipt
+          {t('settings.downloadReceipt')}
         </button>
       {/if}
       <button type="button" class="lb-btn refresh" onclick={refreshBalance} disabled={balanceUpdating}>
-        {balanceUpdating ? 'Refreshing…' : 'Refresh balance'}
+        {balanceUpdating ? t('settings.refreshing') : t('settings.refreshBalance')}
       </button>
-      <button type="button" class="lb-btn done" onclick={dismissTopupSuccess}>Done</button>
+      <button type="button" class="lb-btn done" onclick={dismissTopupSuccess}>{t('settings.done')}</button>
     </div>
   </div>
 {/if}
@@ -435,7 +435,7 @@
 {:else if authState.phase === 'unauthenticated'}
   <p>{t('common.loading')}</p>
 {:else if !authState.settings}
-  <p>your settings row hasn't been created yet — try signing out and in again.</p>
+  <p>{t('settings.noRow')}</p>
 {:else}
   <PalmAppShell title={t('settings.heading')}>
     <h1 class="pg-heading">{t('settings.heading')}</h1>
@@ -482,10 +482,7 @@
   <!-- AI provider: platform credits (default) vs BYOK -->
   <section class="card">
     <h2>{t('settings.apiKeys')}</h2>
-    <p class="sub">
-      Choose how AI is powered: top up <strong>PalmVellum Credits</strong>
-      (pay-as-you-go), or bring your own API key.
-    </p>
+    <p class="sub">{t('settings.aiHow')}</p>
 
     <div class="mode-switch" role="group" aria-label="AI provider mode">
       <button
@@ -493,50 +490,47 @@
         class="seg"
         class:active={(authState.settings?.api_mode ?? 'platform') === 'platform'}
         onclick={() => setApiMode('platform')}
-      >PalmVellum Credits</button>
+      >{t('settings.modePlatform')}</button>
       <button
         type="button"
         class="seg"
         class:active={authState.settings?.api_mode === 'byok'}
         onclick={() => setApiMode('byok')}
-      >Your own key</button>
+      >{t('settings.modeByok')}</button>
     </div>
     {#if authState.settings?.api_mode === 'byok'}
-      <p class="sub mode-note">You pay the provider directly with your own API key.</p>
+      <p class="sub mode-note">{t('settings.byokNote')}</p>
     {/if}
 
     {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
       <!-- PalmVellum Credits: balance + top-up -->
-      <p class="balance">Balance: <strong>{fmtCredits(balanceCredits())} credits</strong></p>
-      <p class="hint rate-note">US$10 = 1,000 credits ≈ 3,000 AI actions</p>
+      <p class="balance"><strong>{t('settings.balanceLine', { credits: fmtCredits(balanceCredits()) })}</strong></p>
+      <p class="hint rate-note">{t('settings.rateNote')}</p>
       <div class="topup-row">
         <label class="field">
-          Top up (USD, min ${MIN_TOPUP})
+          {t('settings.topupLabel', { min: MIN_TOPUP })}
           <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
         </label>
         <button type="button" class="buy-btn" onclick={buyCredits} disabled={topupBusy}>
-          {topupBusy ? 'Starting…' : `Buy ${fmtCredits(Math.round((Number(topupUsd) || 0) * CREDITS_PER_USD))} credits`}
+          {topupBusy ? t('settings.starting') : t('settings.buyCredits', { credits: fmtCredits(Math.round((Number(topupUsd) || 0) * CREDITS_PER_USD)) })}
         </button>
       </div>
       {#if Number.isFinite(Number(topupUsd)) && Number(topupUsd) > 0}
-        <p class="hint credits-eq">${Number(topupUsd)} = {fmtCredits(Math.round(Number(topupUsd) * CREDITS_PER_USD))} credits</p>
+        <p class="hint credits-eq">{t('settings.creditsEq', { usd: Number(topupUsd), credits: fmtCredits(Math.round(Number(topupUsd) * CREDITS_PER_USD)) })}</p>
       {/if}
       {#if topupError}<p class="error">{topupError}</p>{/if}
-      <p class="hint">
-        Secure payment via Airwallex; minimum ${MIN_TOPUP}. We never store your
-        card. Credits are added once payment clears.
-      </p>
+      <p class="hint">{t('settings.payHint', { min: MIN_TOPUP })}</p>
 
       {#if receipts.length}
         <div class="receipts">
-          <h3>Receipts</h3>
-          <p class="hint">Only your 5 most recent top-up receipts are shown here.</p>
+          <h3>{t('settings.receiptsHead')}</h3>
+          <p class="hint">{t('settings.receiptsNote')}</p>
           <ul>
             {#each receipts as r (r.id)}
               <li class="receipt-row">
                 <span class="r-date">{receiptDate(r.created_at)}</span>
-                <span class="r-amt">${(r.amount_micro_usd / 1_000_000).toFixed(2)} · {fmtCredits(microToCredits(r.amount_micro_usd))} credits</span>
-                <button type="button" class="r-dl" onclick={() => downloadReceipt(r)}>Download PDF</button>
+                <span class="r-amt">${(r.amount_micro_usd / 1_000_000).toFixed(2)} · {t('settings.creditsVal', { credits: fmtCredits(microToCredits(r.amount_micro_usd)) })}</span>
+                <button type="button" class="r-dl" onclick={() => downloadReceipt(r)}>{t('settings.downloadPdf')}</button>
               </li>
             {/each}
           </ul>
@@ -647,12 +641,8 @@
 
   <!-- Subscribed calendars (inbound: Google Calendar / .ics) -->
   <section class="card">
-    <h2>subscribed calendars</h2>
-    <p class="sub">
-      pull an external calendar into your date book (read-only). paste a
-      google calendar "secret address in iCal format", or an .ics url —
-      or import an .ics file. events refresh when you open the app.
-    </p>
+    <h2>{t('settings.subsHead')}</h2>
+    <p class="sub">{t('settings.subsSub')}</p>
 
     {#if calsubs.subs.length > 0}
       <ul class="sub-list">
@@ -663,25 +653,25 @@
               <span class="sub-url">{s.url}</span>
             </div>
             <button type="button" class="secondary" onclick={() => calsubs.remove(s.url)} disabled={subBusy}>
-              remove
+              {t('settings.subRemove')}
             </button>
           </li>
         {/each}
       </ul>
       <div class="sub-actions">
         <button type="button" onclick={refreshSubs} disabled={subBusy}>
-          {subBusy ? 'refreshing…' : 'refresh now'}
+          {subBusy ? t('settings.subRefreshing') : t('settings.subRefreshNow')}
         </button>
         <label class="interval">
-          auto-refresh
+          {t('settings.subAutoRefresh')}
           <select
             value={String(calsubs.intervalHours)}
             onchange={(e) => calsubs.setIntervalHours(+(e.currentTarget as HTMLSelectElement).value)}
           >
-            <option value="0">on open</option>
-            <option value="6">every 6h</option>
-            <option value="12">every 12h</option>
-            <option value="24">daily</option>
+            <option value="0">{t('settings.subOnOpen')}</option>
+            <option value="6">{t('settings.subEvery6')}</option>
+            <option value="12">{t('settings.subEvery12')}</option>
+            <option value="24">{t('settings.subDaily')}</option>
           </select>
         </label>
       </div>
@@ -689,23 +679,23 @@
 
     <form class="sub-form" onsubmit={addSub}>
       <label>
-        name (optional)
-        <input bind:value={subName} placeholder="e.g. Work, Family" maxlength="80" />
+        {t('settings.subNameLabel')}
+        <input bind:value={subName} placeholder={t('settings.subNamePh')} maxlength="80" />
       </label>
       <label>
-        iCal URL
+        {t('settings.subUrlLabel')}
         <input
           bind:value={subUrl}
           placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
           inputmode="url"
         />
       </label>
-      <button type="submit" disabled={subBusy || !subUrl.trim()}>add subscription</button>
+      <button type="submit" disabled={subBusy || !subUrl.trim()}>{t('settings.subAdd')}</button>
     </form>
 
     <div class="ics-import">
       <button type="button" class="secondary" onclick={() => icsFileInput?.click()} disabled={subBusy}>
-        import .ics file
+        {t('settings.subImport')}
       </button>
       <input
         bind:this={icsFileInput}

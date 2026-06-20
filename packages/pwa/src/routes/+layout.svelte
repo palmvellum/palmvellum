@@ -26,10 +26,13 @@
   // render their own title bar / drawer trigger, so the global topnav
   // is redundant there. Hide it on those routes (and always on
   // Capacitor, where the whole app is Palm-themed).
-  const palmRoute = $derived.by(() => {
-    const path = page.url.pathname.replace(base, '') || '/';
-    return path.startsWith('/palm') || path.startsWith('/settings');
-  });
+  const routePath = $derived(page.url.pathname.replace(base, '') || '/');
+  // The login screen ('/') wears the same Palm silver chrome as the app
+  // so it doesn't look like a different site.
+  const isLoginRoute = $derived(routePath === '/');
+  const palmRoute = $derived(
+    routePath.startsWith('/palm') || routePath.startsWith('/settings') || isLoginRoute,
+  );
   const showTopnav = $derived(!isCapacitor && !palmRoute);
 
   // Reflect palm-route on <html> so global CSS can override only the
@@ -43,15 +46,18 @@
   // room for the side rail on wide viewports.
   $effect(() => {
     if (!browser) return;
-    document.documentElement.classList.toggle('drawer-docked', palmRoute && drawer.docked);
+    // Only leave room for the side rail once the drawer is actually shown
+    // (i.e. signed in) — never on the login screen.
+    document.documentElement.classList.toggle(
+      'drawer-docked',
+      palmRoute && drawer.docked && authState.phase === 'ready',
+    );
   });
 
   // Bounce unauthenticated visits to /palm/* or /settings back to the
-  // landing page. Without this guard those pages render only the
-  // "loading…" placeholder forever — which is exactly the "blank
-  // page" complaint we just fixed.
+  // login screen. The login screen itself ('/') must never bounce.
   $effect(() => {
-    if (!palmRoute) return;
+    if (!palmRoute || isLoginRoute) return;
     if (authState.phase !== 'unauthenticated') return;
     void goto(base + '/', { replaceState: true });
   });
@@ -110,7 +116,9 @@
   {#if !palmRoute}
     <BottomNav />
   {/if}
-  <PalmDrawer />
+  {#if authState.phase === 'ready'}
+    <PalmDrawer />
+  {/if}
   <PalmConfirm />
 </div>
 

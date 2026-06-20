@@ -824,7 +824,7 @@
   }
   .row button:not(.primary) {
     background: var(--surface);
-    color: var(--ink);
+    color: #fff;
     border: 1px solid var(--line);
     padding: 0.4rem 0.9rem;
     font: inherit;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
   import { authState } from '$lib/auth.svelte';
   import { base } from '$app/paths';
@@ -96,6 +97,46 @@
   function balanceUsd(): string {
     return ((authState.settings?.balance_micro_usd ?? 0) / 1_000_000).toFixed(2);
   }
+
+  // ── Post-checkout success lightbox ──────────────────────
+  // Airwallex redirects back to ?topup=ok|fail after the hosted page.
+  // The balance is credited by the webhook, which can lag a second or
+  // two, so we poll refreshSettings() until it lands (or the user taps
+  // Refresh). The modal shows the balance live.
+  let topupSuccess = $state(false);
+  let balanceUpdating = $state(false);
+
+  async function refreshBalance() {
+    balanceUpdating = true;
+    await authState.refreshSettings();
+    balanceUpdating = false;
+  }
+
+  async function pollBalance(prevMicro: number) {
+    balanceUpdating = true;
+    for (let i = 0; i < 6; i++) {
+      await authState.refreshSettings();
+      if ((authState.settings?.balance_micro_usd ?? 0) > prevMicro) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    balanceUpdating = false;
+  }
+
+  onMount(() => {
+    const topup = new URLSearchParams(location.search).get('topup');
+    if (!topup) return;
+    // Strip the query so a manual page refresh won't re-open the modal.
+    history.replaceState(null, '', base + '/settings');
+    if (topup === 'ok') {
+      topupBusy = false;
+      topupError = null;
+      topupSuccess = true;
+      void pollBalance(authState.settings?.balance_micro_usd ?? 0);
+    } else if (topup === 'fail') {
+      topupBusy = false;
+      topupError = 'Payment was not completed — you have not been charged.';
+    }
+  });
 
   async function buyCredits() {
     topupError = null;
@@ -223,6 +264,25 @@
 <svelte:head>
   <title>PalmVellum · {t('settings.heading')}</title>
 </svelte:head>
+
+{#if topupSuccess}
+  <div class="lb-bk" onclick={() => (topupSuccess = false)} role="presentation"></div>
+  <div class="lb-dlg" role="dialog" aria-modal="true" aria-label="Top-up successful">
+    <h2 class="lb-title">Top-up successful</h2>
+    <p class="lb-msg">Thank you — your payment cleared. Credits have been added to your balance.</p>
+    <p class="lb-balance">
+      Balance: <strong>${balanceUsd()}</strong>
+      {#if balanceUpdating}<span class="lb-sync">updating…</span>{/if}
+    </p>
+    <p class="lb-hint">If the balance hasn't updated yet, tap Refresh — crediting can take a moment.</p>
+    <div class="lb-actions">
+      <button type="button" class="lb-btn refresh" onclick={refreshBalance} disabled={balanceUpdating}>
+        {balanceUpdating ? 'Refreshing…' : 'Refresh balance'}
+      </button>
+      <button type="button" class="lb-btn done" onclick={() => (topupSuccess = false)}>Done</button>
+    </div>
+  </div>
+{/if}
 
 {#if authState.phase === 'loading'}
   <p>{t('common.loading')}</p>
@@ -519,6 +579,82 @@
 {/if}
 
 <style>
+  /* ── Top-up success lightbox (mirrors PalmConfirm styling) ── */
+  .lb-bk {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 200;
+  }
+  .lb-dlg {
+    position: fixed;
+    z-index: 201;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--surface-lo, #e6e6e1);
+    border: 1px solid var(--line, #1a1a1a);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    width: min(380px, calc(100vw - 2rem));
+    padding: 1.1rem 1.2rem 1rem;
+    border-radius: 4px;
+  }
+  .lb-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent, #7e2b22);
+  }
+  .lb-msg {
+    margin: 0 0 0.7rem;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: var(--ink, #000);
+  }
+  .lb-balance {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: var(--ink, #000);
+  }
+  .lb-balance strong { font-size: 1.15rem; }
+  .lb-sync {
+    margin-left: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--ink-mute, #555);
+  }
+  .lb-hint {
+    margin: 0 0 0.9rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: var(--ink-mute, #555);
+  }
+  .lb-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  .lb-btn {
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+    border-radius: 3px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: 1px solid var(--line, #1a1a1a);
+  }
+  .lb-btn.refresh {
+    background: var(--surface-hi, #f4f4ee);
+    color: var(--ink, #000);
+  }
+  .lb-btn.done {
+    background: var(--surface-dk, #4a4a48);
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+  .lb-btn.done:hover { background: #2c2c2a; }
+  .lb-btn:disabled { opacity: 0.6; cursor: default; }
+
   .pg-heading {
     font-size: 1.3rem;
     font-weight: 700;

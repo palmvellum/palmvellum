@@ -30,6 +30,10 @@
     { key: 'settings', href: '/settings',      i18n: 'nav.setting',  glyph: '⚙', subI18n: 'palm.sub.settings' },
     { key: 'apps',     href: '/palm/apps',     i18n: 'tab.apps',     glyph: '⬇', subI18n: 'palm.sub.apps' },
   ];
+
+  // Donation link — same target as the landing page's "support the
+  // research" button (Airwallex hosted pay page).
+  const DONATE = 'https://pay.airwallex.com/hkhjmem9gpkz';
 </script>
 
 {#if authState.phase !== 'ready'}
@@ -46,6 +50,11 @@
           </a>
         {/each}
       </div>
+
+      <a class="support-box" href={DONATE} target="_blank" rel="noopener noreferrer">
+        <span class="s-cta"><span class="s-mark">$</span>{t('support.cta')}</span>
+        <span class="s-tag">{t('support.tagline')}</span>
+      </a>
     </section>
   </PalmAppShell>
 {/if}
@@ -150,4 +159,42 @@
     .label { font-size: 0.85rem; }
     .sublbl { font-size: 0.65rem; }
   }
+
+  /* Support / donate box — sits below the app grid, deliberately
+     distinct from the app tiles. */
+  .support-box {
+    display: block;
+    margin-top: 0.9rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface-lo);
+    border: 1px dashed var(--accent);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s ease;
+  }
+  .support-box:hover, .support-box:active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .s-cta {
+    display: block;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+  .support-box:hover .s-cta,
+  .support-box:active .s-cta { color: #fff; }
+  .s-mark {
+    font-family: 'IBM Plex Mono', system-ui, monospace;
+    margin-right: 0.3rem;
+  }
+  .s-tag {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+    line-height: 1.35;
+  }
+  .support-box:hover .s-tag,
+  .support-box:active .s-tag { color: #fff; }
 </style>

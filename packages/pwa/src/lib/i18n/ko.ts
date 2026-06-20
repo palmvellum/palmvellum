@@ -1,4 +1,7 @@
 export default {
+  // ── support / donate ──
+  "support.cta": "리서치 지원",
+  "support.tagline": "홍콩의 한 사람이 밤과 주말에 만듭니다. 여러분의 후원이 리서치를 이어갑니다.",
   // ── /palm/apps download hub ──
   "tab.apps": "앱 받기",
   "palm.sub.apps": "Mac 동기화 + Android",

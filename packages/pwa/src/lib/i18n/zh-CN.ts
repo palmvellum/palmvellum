@@ -1,4 +1,7 @@
 export default {
+  // ── support / donate ──
+  "support.cta": "支持研究",
+  "support.tagline": "由香港一个人在晚上和周末打造。你的支持让研究得以延续。",
   // ── /palm/apps download hub ──
   "tab.apps": "下载 app",
   "palm.sub.apps": "Mac 同步 + Android",

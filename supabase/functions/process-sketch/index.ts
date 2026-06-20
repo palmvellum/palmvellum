@@ -18,6 +18,7 @@
 
 // @ts-expect-error Deno runtime
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { chargeUsage } from '../_shared/billing.ts';
 
 // @ts-expect-error Deno globals
 const env = (k: string): string => Deno.env.get(k) ?? '';
@@ -99,7 +100,7 @@ Deno.serve(async (req: Request) => {
   // BYOK key resolution
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model, balance_micro_usd, low_balance_threshold_micro')
     .eq('user_id', r.user_id)
     .single();
   if (!settings) {
@@ -126,6 +127,11 @@ Deno.serve(async (req: Request) => {
       await failSketch(r.id, `platform ${settings.preferred_provider} key not configured`);
       return jsonResp({ error: 'no-platform-key' }, 200);
     }
+    // Pay-as-you-go: refuse a metered call when the balance is exhausted.
+    if ((settings.balance_micro_usd ?? 0) <= 0) {
+      await failSketch(r.id, 'insufficient credit — please top up');
+      return jsonResp({ error: 'no-credit' }, 200);
+    }
   }
 
   const imgUrl = `${SUPABASE_URL}/storage/v1/object/public/notepad/${r.metadata.image_path}`;
@@ -150,6 +156,11 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', r.id);
 
+    // Deduct platform credit (no-op for BYOK). Keyed on the record id so a
+    // retry cannot double-charge.
+    const costMicro = await chargeUsage(
+      supa, settings.api_mode, r.user_id, result.model, result.tokensIn, result.tokensOut, r.id,
+    );
     await supa.from('ai_usage').insert({
       user_id: r.user_id,
       api_mode: settings.api_mode,
@@ -158,6 +169,7 @@ Deno.serve(async (req: Request) => {
       tokens_in: result.tokensIn,
       tokens_out: result.tokensOut,
       cost_credits: 0,
+      cost_micro_usd: costMicro,
     });
 
     return jsonResp({ ok: true, text_len: result.text.length }, 200);

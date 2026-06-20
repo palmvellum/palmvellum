@@ -159,7 +159,7 @@
       .select('id, created_at, amount_micro_usd, balance_after, ref')
       .eq('kind', 'topup')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(5);
     receipts = (data as Receipt[]) ?? [];
   }
 
@@ -508,6 +508,7 @@
     {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
       <!-- PalmVellum Credits: balance + top-up -->
       <p class="balance">Balance: <strong>{fmtCredits(balanceCredits())} credits</strong></p>
+      <p class="hint rate-note">US$10 = 1,000 credits ≈ 3,000 AI actions</p>
       <div class="topup-row">
         <label class="field">
           Top up (USD, min ${MIN_TOPUP})
@@ -529,6 +530,7 @@
       {#if receipts.length}
         <div class="receipts">
           <h3>Receipts</h3>
+          <p class="hint">Only your 5 most recent top-up receipts are shown here.</p>
           <ul>
             {#each receipts as r (r.id)}
               <li class="receipt-row">
@@ -716,17 +718,6 @@
 
     {#if subMsg}<p class="ok">{subMsg}</p>{/if}
     {#if subError}<p class="error">{subError}</p>{/if}
-  </section>
-
-  <!-- Credits + subscription -->
-  <section class="card">
-    <h2>{t('settings.creditsHeading')}</h2>
-    <p>
-      <strong>{authState.settings.credits_remaining}</strong> {t('settings.creditsRemaining')},
-      {authState.settings.credits_used_month} {t('settings.creditsUsed')}.
-      {t('settings.subscription')}: <strong>{authState.settings.subscription_status}</strong>.
-    </p>
-    <p class="hint">{t('settings.creditsHint')}</p>
   </section>
 
   <!-- Sign out -->

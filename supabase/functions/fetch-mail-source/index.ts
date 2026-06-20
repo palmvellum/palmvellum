@@ -24,6 +24,7 @@
 
 // @ts-expect-error Deno runtime
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { chargeUsage } from '../_shared/billing.ts';
 
 // @ts-expect-error Deno globals
 const env = (k: string): string => Deno.env.get(k) ?? '';
@@ -234,7 +235,7 @@ Deno.serve(async (req: Request) => {
   // Resolve BYOK API key
   const { data: settings } = await supa
     .from('user_settings')
-    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model')
+    .select('api_mode, preferred_provider, openai_model, anthropic_model, gemini_model, balance_micro_usd, low_balance_threshold_micro')
     .eq('user_id', source.user_id)
     .single();
   if (!settings) {
@@ -259,6 +260,11 @@ Deno.serve(async (req: Request) => {
     if (!apiKey) {
       await markError(sourceId, 'platform key not configured');
       return jsonResp({ error: 'no-platform-key' }, 200);
+    }
+    // Pay-as-you-go: refuse a metered call when the balance is exhausted.
+    if ((settings.balance_micro_usd ?? 0) <= 0) {
+      await markError(sourceId, 'insufficient credit — please top up');
+      return jsonResp({ error: 'no-credit' }, 200);
     }
   }
 
@@ -359,6 +365,11 @@ Deno.serve(async (req: Request) => {
     })
     .eq('id', sourceId);
 
+  // Deduct platform credit (no-op for BYOK). Keyed on the inserted record
+  // id so a retry of the same digest cannot double-charge.
+  const costMicro = await chargeUsage(
+    supa, settings.api_mode, source.user_id, model, tokensIn, tokensOut, recordId,
+  );
   await supa.from('ai_usage').insert({
     user_id: source.user_id,
     api_mode: settings.api_mode,
@@ -367,6 +378,7 @@ Deno.serve(async (req: Request) => {
     tokens_in: tokensIn,
     tokens_out: tokensOut,
     cost_credits: 0,
+    cost_micro_usd: costMicro,
   });
 
   return jsonResp({ ok: true, record_id: recordId, subject: digest.subject }, 200);

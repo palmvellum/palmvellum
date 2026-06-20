@@ -112,12 +112,15 @@
       topupError = error?.message ?? data?.error ?? 'Could not start top-up.';
       return;
     }
-    // Hand off to Airwallex hosted checkout. The balance is credited by the
-    // webhook on payment success — never client-side.
+    // Hand off to Airwallex's Hosted Payment Page (full-page redirect). The
+    // balance is credited by the airwallex-webhook on payment success — never
+    // client-side. redirectToCheckout navigates away, so topupBusy stays true.
     try {
-      const sdk: any = await import(/* @vite-ignore */ 'https://esm.sh/@airwallex/components-sdk@1');
-      await sdk.init({ env: data.env === 'live' ? 'prod' : 'demo', enabledElements: ['payments'] });
-      await sdk.payments.redirectToCheckout({
+      const env = data.env === 'live' ? 'prod' : 'demo';
+      const awx: any = await import(/* @vite-ignore */ 'https://esm.sh/airwallex-payment-elements@1');
+      awx.init({ env, origin: location.origin });
+      awx.redirectToCheckout({
+        env,
         intent_id: data.intent_id,
         client_secret: data.client_secret,
         currency: 'USD',

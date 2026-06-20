@@ -132,10 +132,13 @@
   // Persist the "show success" signal in sessionStorage so it survives a
   // remount (onMount re-reads it); only Done clears it.
   onMount(() => {
-    const topup = new URLSearchParams(location.search).get('topup');
+    // Airwallex returns to #topup=ok|fail (hash). Fall back to ?topup=…
+    // for any redirect issued before this build went live.
+    const raw = location.hash.slice(1) || location.search.slice(1);
+    const topup = new URLSearchParams(raw).get('topup');
     if (topup === 'ok' || topup === 'fail') {
       try { sessionStorage.setItem('pv_topup', topup); } catch { /* ignore */ }
-      // Strip the query (shallow — no remount) so refresh won't reprocess it.
+      // Strip the hash/query (shallow — no remount) so refresh won't reprocess.
       replaceState(base + '/settings', {});
     }
     let flag: string | null = null;
@@ -183,8 +186,11 @@
         intent_id: data.intent_id,
         client_secret: data.client_secret,
         currency: 'USD',
-        successUrl: location.origin + base + '/settings?topup=ok',
-        failUrl: location.origin + base + '/settings?topup=fail',
+        // Return to a hash, not a query string: a query on the boot URL
+        // stalls Supabase's detectSessionInUrl and leaves the app stuck
+        // on the loading screen. A hash is invisible to it.
+        successUrl: location.origin + base + '/settings#topup=ok',
+        failUrl: location.origin + base + '/settings#topup=fail',
       });
     } catch (e) {
       topupBusy = false;

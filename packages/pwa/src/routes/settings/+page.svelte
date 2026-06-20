@@ -118,7 +118,11 @@
     try {
       const env = data.env === 'live' ? 'prod' : 'demo';
       const awx: any = await import(/* @vite-ignore */ 'https://esm.sh/airwallex-payment-elements@1');
-      awx.init({ env, origin: location.origin });
+      // loadAirwallex() injects the remote checkout bundle and runs init().
+      // init()/redirectToCheckout() are no-ops until this resolves — skipping
+      // it leaves the button stuck on "starting" with no error.
+      const loaded = await awx.loadAirwallex({ env, origin: location.origin });
+      if (!loaded) throw new Error('Could not load the Airwallex checkout SDK.');
       awx.redirectToCheckout({
         env,
         intent_id: data.intent_id,

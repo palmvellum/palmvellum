@@ -95,6 +95,7 @@
 
   // ── edit sheet ─────────────────────────────────────────────
   let sheetOpen = $state(false);
+  let lightboxDay = $state<Date | null>(null);
   let editing = $state<CalendarEvent | null>(null);
   let fTitle = $state('');
   let fStart = $state('');
@@ -144,8 +145,6 @@
 
   const grid = $derived(monthGridDays(anchor, prefs.weekStart));
   const byDay = $derived(bucketByDay(events));
-  const selectedKey = $derived(ymd(selectedDay));
-  const selectedEvents = $derived(byDay.get(selectedKey) ?? []);
 
   // Agenda groups — one entry per day with events, plus an explicit
   // entry for "today" when today has none (so the user always sees a
@@ -323,19 +322,13 @@
 
   function setMode(m: Mode) { mode = m; }
 
-  /** Month-grid tap handler — clicking a populated day jumps to
-   *  Agenda mode anchored on that day so the user immediately sees
-   *  the events. Empty days stay in Month and just highlight. */
+  /** Month-grid tap handler — opens a lightbox showing that day's
+   *  schedule over a dimmed calendar (instead of switching to Agenda). */
   function onMonthCellClick(d: Date): void {
-    const rows = byDay.get(ymd(d)) ?? [];
-    if (rows.length === 0) {
-      selectDay(d);
-      return;
-    }
     selectedDay = atMidnight(d);
-    anchor = atMidnight(d);
-    mode = 'agenda';
+    lightboxDay = atMidnight(d);
   }
+  function closeLightbox(): void { lightboxDay = null; }
 
   /** Row tap: real events open the edit sheet; a dated to-do jumps to
    *  the To Do List, where it is actually editable. */
@@ -522,10 +515,15 @@
     if (!authState.userId || !fTitle.trim() || !fStart) return;
     saving = true;
     try {
+      const startIso = localInputToISO(fStart);
+      const endIso = fEnd ? localInputToISO(fEnd) : null;
       const payload: Partial<CalendarEvent> = {
         title: fTitle.trim(),
-        start_at: localInputToISO(fStart),
-        end_at: fEnd ? localInputToISO(fEnd) : null,
+        start_at: startIso,
+        // Drop an end that is empty, on an all-day event, or before the
+        // start — the events table enforces end_at >= start_at, and a
+        // rejected save would leave this sheet stuck open.
+        end_at: !fAllDay && endIso && endIso >= startIso ? endIso : null,
         all_day: fAllDay,
         location: fLocation.trim() || null,
         notes: fNotes.trim() || null,
@@ -737,16 +735,25 @@
         </button>
       {/each}
     </div>
+    <p class="cal-hint">{t('datebook.tapNewDayHint')}</p>
+  {/if}
 
-    <div class="day-head">
-      <span class="dh-label">{shortDayLabel(selectedDay)}</span>
-      {#if sameDay(selectedDay, now)}<span class="dh-today">· {t('common.today')}</span>{/if}
+</div>
+
+<!-- Day lightbox (month mode): that day's schedule over a dimmed calendar -->
+{#if lightboxDay}
+  {@const lbRows = byDay.get(ymd(lightboxDay)) ?? []}
+  <div class="lb-backdrop" onclick={closeLightbox} role="presentation"></div>
+  <div class="lb" role="dialog" aria-modal="true">
+    <div class="lb-head">
+      <span class="lb-title">{shortDayLabel(lightboxDay)}</span>
+      <button type="button" class="lb-close" onclick={closeLightbox} aria-label="×">×</button>
     </div>
-    {#if selectedEvents.length === 0}
+    {#if lbRows.length === 0}
       <PalmEmpty title={t('datebook.nothingScheduled')} hint={t('datebook.tapNewDayHint')} />
     {:else}
       <PalmList>
-        {#each selectedEvents as e (e.id)}
+        {#each lbRows as e (e.id)}
           <PalmCell
             leading={e.all_day ? '●' : '·'}
             title={e.title}
@@ -756,7 +763,7 @@
                 ? t('datebook.allDay')
                 : (e.end_at ? hhmm(e.start_at) + '–' + hhmm(e.end_at) : hhmm(e.start_at))}
             metaAccent
-            onclick={() => openRow(e)}
+            onclick={() => { const d = lightboxDay; closeLightbox(); if (d) openRow(e); }}
           >
             {#if e.location}{t('datebook.atLocation', { location: e.location })}{/if}
             {#if e.notes && !e.location}{e.notes}{/if}
@@ -764,9 +771,13 @@
         {/each}
       </PalmList>
     {/if}
-  {/if}
-
-</div>
+    <div class="lb-actions">
+      <PalmButton variant="primary" onclick={() => { const d = lightboxDay; closeLightbox(); openCreate(d ?? undefined); }}>
+        {t('datebook.newEvent')}
+      </PalmButton>
+    </div>
+  </div>
+{/if}
 
 {#if sheetOpen}
   <div class="sheet-backdrop" onclick={closeSheet} role="presentation"></div>
@@ -909,8 +920,10 @@
     border: 0;
     color: var(--ink);
     font: inherit;
-    padding: 0.25rem 0.1rem 0.2rem;
-    aspect-ratio: 1 / 1;
+    padding: 0.2rem 0.1rem 0.15rem;
+    /* Shorter than square so the month grid is compact. */
+    aspect-ratio: 1 / 0.66;
+    min-height: 0;
     cursor: pointer;
   }
   .cell.out { color: var(--ink-mute); background: var(--surface-hi); }
@@ -1120,6 +1133,35 @@
   .sheet-head h3 { margin: 0; font-size: 1rem; color: var(--ink); font-weight: 700; }
   .sheet-close { background: transparent; border: 0; color: var(--ink-mute); font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 0 0.4rem; }
   .sheet form { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  /* Compact, centred month calendar */
+  .dow, .grid { max-width: 460px; margin-left: auto; margin-right: auto; }
+  .cal-hint { text-align: center; color: var(--ink-mute); font-size: 0.72rem; margin: 0.4rem 0 0; }
+
+  /* Day lightbox (month mode) */
+  .lb-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50;
+  }
+  .lb {
+    position: fixed;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(92vw, 420px);
+    max-height: 80vh; overflow-y: auto;
+    background: var(--surface-lo);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    z-index: 51;
+    padding: 0.75rem 0.9rem 1rem;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  :global(html.drawer-docked) .lb { left: calc(50% + 130px); }
+  .lb-head {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line); padding-bottom: 0.5rem; margin-bottom: 0.6rem;
+  }
+  .lb-title { font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .lb-close { background: transparent; border: 0; color: var(--ink-mute); font-size: 1.5rem; line-height: 1; cursor: pointer; padding: 0 0.4rem; }
+  .lb-actions { margin-top: 0.75rem; display: flex; justify-content: flex-end; }
   .sheet label { display: flex; flex-direction: column; gap: 0.2rem; color: var(--ink-mute); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; }
   .sheet label.inline { flex-direction: row; align-items: center; gap: 0.5rem; color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 0.9rem; }
   .sheet input, .sheet textarea { background: var(--surface-hi); border: 1px solid var(--line); color: var(--ink); padding: 0.45rem 0.55rem; font: inherit; font-size: 0.9rem; border-radius: 3px; }

@@ -511,7 +511,7 @@
 
   .create {
     background: var(--surface-lo);
-    border: 1px solid var(--line);
+    border: 1px solid transparent;
     padding: 1rem 1.1rem;
     margin-bottom: 1rem;
     display: grid;
@@ -574,7 +574,7 @@
   }
   .item {
     background: var(--surface-lo);
-    border: 1px solid var(--line);
+    border: 1px solid transparent;
     padding: 0.9rem 1.1rem;
     border-radius: 2px;
   }

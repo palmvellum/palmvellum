@@ -380,14 +380,16 @@
     {#if (authState.settings?.api_mode ?? 'platform') === 'platform'}
       <!-- Platform credits: balance + top-up -->
       <p class="balance">Balance: <strong>${balanceUsd()}</strong></p>
-      <label class="field">
-        Top up (USD, min ${MIN_TOPUP})
-        <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
-      </label>
+      <div class="topup-row">
+        <label class="field">
+          Top up (USD, min ${MIN_TOPUP})
+          <input type="number" min={MIN_TOPUP} step="1" bind:value={topupUsd} />
+        </label>
+        <button type="button" class="buy-btn" onclick={buyCredits} disabled={topupBusy}>
+          {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
+        </button>
+      </div>
       {#if topupError}<p class="error">{topupError}</p>{/if}
-      <button type="button" class="buy-btn" onclick={buyCredits} disabled={topupBusy}>
-        {topupBusy ? 'Starting…' : `Buy $${topupUsd} of credits`}
-      </button>
       <p class="hint">
         Secure payment via Airwallex; minimum ${MIN_TOPUP}. We never store your
         card. Credit is added once payment clears.
@@ -949,7 +951,18 @@
   .mode-note {
     margin-top: 0;
   }
+  .topup-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .topup-row .field {
+    flex: 1;
+    min-width: 0;
+  }
   .buy-btn {
-    margin-bottom: 1.25rem;
+    margin-bottom: 0;
+    white-space: nowrap;
   }
 </style>

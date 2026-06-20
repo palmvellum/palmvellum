@@ -89,19 +89,19 @@
   }
 
   // ── PalmVellum Credits (pay-as-you-go) ──────────────────
-  const MIN_TOPUP = 1; // TEMP: $1 for testing
-  let topupUsd = $state(1);
+  const MIN_TOPUP = 10; // US$10 minimum = 1,000 credits
+  let topupUsd = $state(10);
   let topupBusy = $state(false);
   let topupError = $state<string | null>(null);
 
   // Credits are a display unit over the real micro-USD balance. The
-  // server still charges exact micro-USD per call (OpenAI cost × 1.5);
-  // we just show it as credits so usage reads in round numbers.
-  //   1 credit = 100 micro-USD  →  US$1 = 10,000 credits.
-  // Calibrated so ~300 AI-created Date Book records (~333 micro-USD each
-  // on gpt-4o-mini) ≈ 1,000 credits.
-  const MICRO_PER_CREDIT = 100;
-  const CREDITS_PER_USD = 1_000_000 / MICRO_PER_CREDIT; // 10,000
+  // server charges exact micro-USD per call (raw OpenAI cost × 15 retail
+  // markup, see _shared/pricing.ts); we show it as credits.
+  //   1 credit = 10,000 micro-USD  →  US$1 = 100 credits, US$10 = 1,000.
+  // Calibrated so US$10 (1,000 credits) ≈ ~3,000 typical AI Date Book
+  // records (~3,330 micro-USD each on gpt-4o-mini at the 15× markup).
+  const MICRO_PER_CREDIT = 10_000;
+  const CREDITS_PER_USD = 1_000_000 / MICRO_PER_CREDIT; // 100
 
   function balanceCredits(): number {
     return Math.round((authState.settings?.balance_micro_usd ?? 0) / MICRO_PER_CREDIT);
@@ -238,7 +238,7 @@
     doc.setFontSize(9.5);
     doc.setTextColor(120);
     doc.text('Thank you for supporting PalmVellum.', left, y);
-    doc.text('Credits power on-device AI features. 1 credit = US$0.0001.', left, (y += 16));
+    doc.text('Credits power on-device AI features. 1 credit = US$0.01.', left, (y += 16));
 
     doc.save(`palmvellum-receipt-${r.id}.pdf`);
   }

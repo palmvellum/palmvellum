@@ -1,8 +1,11 @@
 # Platform credits (pay-as-you-go AI)
 
 Users top up a USD balance via Airwallex and spend it on platform AI calls.
-Each call is billed at the underlying **OpenAI cost × 1.5** (a +50% markup).
-Balances are integer **micro-USD** (1 USD = 1,000,000) — no floats.
+Each call is billed at the underlying **OpenAI cost × 15** (retail markup — the
+raw token cost is tiny, so credits are priced as a product, not cost-plus).
+Balances are integer **micro-USD** (1 USD = 1,000,000) — no floats. The UI
+shows the balance as **credits** where **1 credit = US$0.01** (US$10 = 1,000
+credits ≈ ~3,000 typical AI Date Book records).
 
 - BYOK users are unaffected (`api_mode='byok'`, `cost_micro_usd=0`).
 - Platform users (`api_mode='platform'`) need `balance_micro_usd > 0`; the AI
@@ -58,7 +61,7 @@ subscribe to `payment_intent.succeeded`, and copy the signing secret into
 3. Confirm: the webhook fires → `credit_ledger` gets a `topup` row →
    `user_settings.balance_micro_usd` increases by 10,000,000.
 4. Trigger an `(AI)` memo. Confirm `ai_usage.cost_micro_usd > 0`, a `usage`
-   ledger row appears, and the balance drops by ≈ OpenAI cost × 1.5.
+   ledger row appears, and the balance drops by ≈ OpenAI cost × 15.
 5. Spend to zero → the next `(AI)` call is refused with "insufficient credit".
 
 ## Go live

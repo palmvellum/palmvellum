@@ -3,8 +3,14 @@
 // We bill the user the underlying OpenAI token cost plus a fixed markup.
 // Balances are integer micro-USD (1 USD = 1_000_000) to avoid float drift.
 
-/** Markup over raw OpenAI cost. 1.5 = +50%. */
-export const MARKUP = 1.5;
+/**
+ * Retail markup over raw OpenAI cost. The token cost itself is tiny
+ * (a Date Book record ≈ US$0.0002), so credits are priced as a retail
+ * product, not cost-plus. 15× is calibrated with MICRO_PER_CREDIT=10,000
+ * (client) so US$10 = 1,000 credits ≈ ~3,000 typical Date Book records.
+ * Every call always bills 15× its real cost, so the margin is constant.
+ */
+export const MARKUP = 15;
 
 /** OpenAI list prices in USD per 1,000,000 tokens (input / output). */
 const OPENAI_USD_PER_1M: Record<string, { in: number; out: number }> = {
@@ -39,7 +45,7 @@ export function costMicroUsd(model: string, tokensIn: number, tokensOut: number)
 
 /** Helpers for the $-facing UI / minimums. */
 export const USD = 1_000_000; // micro-USD per USD
-export const MIN_TOPUP_USD = 1; // TEMP: $1 for testing (restore to 10 for production)
+export const MIN_TOPUP_USD = 10; // US$10 minimum = 1,000 credits
 export function usdToMicro(usd: number): number {
   return Math.round(usd * USD);
 }

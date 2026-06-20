@@ -14,11 +14,18 @@
   const APK_STD = `${REL}/download/android-v0.1.0/PalmOrganizers-0.1.0-standard.apk`;
   const APK_COSMO = `${REL}/download/android-v0.1.0/PalmOrganizers-0.1.0-cosmo.apk`;
   const GUIDE = 'https://github.com/palmvellum/palmvellum/blob/main/docs/USAGE.md';
+  // Donation link — same target as the landing page's "support the research".
+  const DONATE = 'https://pay.airwallex.com/hkhjmem9gpkz';
 </script>
 
 <PalmAppShell title={t('apps.heading')} backHref="/palm">
   <h1 class="pg-heading">{t('apps.heading')}</h1>
   <p class="lede">{t('apps.lede')}</p>
+
+  <a class="support-banner" href={DONATE} target="_blank" rel="noopener noreferrer">
+    <strong><span class="s-mark">$</span>{t('support.cta')}</strong>
+    <span>{t('support.tagline')}</span>
+  </a>
 
   <!-- ── macOS desktop sync ───────────────────────────── -->
   <section class="card">
@@ -57,7 +64,38 @@
   .lede {
     color: var(--ink-dim);
     line-height: 1.5;
+    margin: 0 0 1rem;
+  }
+  /* Support / donate statement — top of the page, links to the same
+     Airwallex pay page as the landing's "support the research". */
+  .support-banner {
+    display: block;
     margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface-lo);
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.12s ease;
+  }
+  .support-banner:hover { background: var(--accent); }
+  .support-banner strong {
+    display: block;
+    color: var(--accent);
+    font-size: 0.95rem;
+    margin-bottom: 0.2rem;
+  }
+  .support-banner span {
+    display: block;
+    color: var(--ink-dim);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .support-banner:hover strong,
+  .support-banner:hover span { color: #fff; }
+  .s-mark {
+    font-family: 'IBM Plex Mono', system-ui, monospace;
+    margin-right: 0.3rem;
   }
   .card {
     border: 1px solid var(--line);

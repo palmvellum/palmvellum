@@ -1,4 +1,7 @@
 export default {
+  // ── support / donate ──
+  "support.cta": "Support the research",
+  "support.tagline": "Built by one person in Hong Kong, on nights and weekends. Your support keeps the research going.",
   // ── /palm/apps download hub ──
   "tab.apps": "Get the apps",
   "palm.sub.apps": "Mac sync + Android",

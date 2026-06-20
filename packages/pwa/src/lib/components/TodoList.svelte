@@ -450,7 +450,7 @@
   .create,
   .edit {
     background: var(--surface-lo);
-    border: 1px solid transparent;
+    border: 1px solid var(--line);
     padding: 0.9rem 1.1rem;
     margin-bottom: 1rem;
     display: grid;
@@ -547,7 +547,7 @@
   }
   .item {
     background: var(--surface-lo);
-    border: 1px solid transparent;
+    border: 1px solid var(--line);
     border-left: 3px solid var(--cat-todo);
     padding: 0.55rem 0.8rem;
     border-radius: 2px;

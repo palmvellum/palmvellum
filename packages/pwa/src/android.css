@@ -75,7 +75,6 @@
 :is(html.palm-route, html[data-platform='android']) .ai-card,
 :is(html.palm-route, html[data-platform='android']) .form-card,
 :is(html.palm-route, html[data-platform='android']) .day-panel,
-:is(html.palm-route, html[data-platform='android']) .row,
 :is(html.palm-route, html[data-platform='android']) .ev,
 :is(html.palm-route, html[data-platform='android']) .manual-trigger,
 :is(html.palm-route, html[data-platform='android']) .ical-panel {

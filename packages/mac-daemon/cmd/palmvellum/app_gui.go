@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -48,11 +49,14 @@ type gui struct {
 	autoSync bool
 	waitAI   bool
 	lastCard *cardwatch.Card
+	busy     bool // a HotSync/install session is in progress
 
-	// main-view bindings
-	logText binding.String
-	status  binding.String
-	cardLbl binding.String
+	// main-view widgets/bindings
+	hotsyncBtn *widget.Button
+	logText    binding.String
+	status     binding.String
+	cardLbl    binding.String
+	dropLbl    binding.String
 }
 
 func newGUI(ctx context.Context) *gui {
@@ -66,6 +70,7 @@ func newGUI(ctx context.Context) *gui {
 		logText:  binding.NewString(),
 		status:   binding.NewString(),
 		cardLbl:  binding.NewString(),
+		dropLbl:  binding.NewString(),
 	}
 }
 
@@ -165,6 +170,7 @@ func (g *gui) showMain() {
 	}
 	_ = g.status.Set("Logged in: " + sess.Email)
 	_ = g.cardLbl.Set("No card detected")
+	_ = g.dropLbl.Set("⬇  Drop a .prc or .pdb file here to install it on your Palm")
 	_ = g.logText.Set("Ready. Connect your Palm by USB/cradle and press HotSync to sync.\n")
 
 	statusLbl := widget.NewLabelWithData(g.status)
@@ -177,10 +183,20 @@ func (g *gui) showMain() {
 	waitChk.SetChecked(g.waitAI)
 
 	// ── Primary: cable HotSync ──
-	hotsyncBtn := widget.NewButton("Sync over USB (HotSync)", func() { go g.doHotSync() })
-	hotsyncBtn.Importance = widget.HighImportance
-	hotsyncHint := widget.NewLabel("Connect the Palm by USB/cradle, then press HotSync on the device.")
+	g.hotsyncBtn = widget.NewButton("① Sync over USB (HotSync)", func() { go g.doHotSync() })
+	g.hotsyncBtn.Importance = widget.HighImportance
+	hotsyncHint := widget.NewLabel(
+		"Two steps: ① click the button above, then ② press the HotSync " +
+			"button on the Palm. (Click first — the Mac must be listening " +
+			"before the Palm dials in.)")
 	hotsyncHint.Wrapping = fyne.TextWrapWord
+
+	// Drag-and-drop install zone (window-wide drop; this card is the cue).
+	dropLbl := widget.NewLabelWithData(g.dropLbl)
+	dropLbl.Wrapping = fyne.TextWrapWord
+	dropLbl.Alignment = fyne.TextAlignCenter
+	dropZone := widget.NewCard("Install apps / databases", "",
+		container.NewPadded(dropLbl))
 
 	// ── Secondary: Memory Stick card sync ──
 	autoChk := widget.NewCheck("Sync automatically when a card is inserted", func(b bool) {
@@ -194,7 +210,7 @@ func (g *gui) showMain() {
 	logEntry.Bind(g.logText)
 	logEntry.Disable()
 	logScroll := container.NewScroll(logEntry)
-	logScroll.SetMinSize(fyne.NewSize(440, 200))
+	logScroll.SetMinSize(fyne.NewSize(440, 180))
 
 	logoutBtn := widget.NewButton("Log out", func() {
 		_ = auth.Clear()
@@ -207,9 +223,10 @@ func (g *gui) showMain() {
 		statusLbl,
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Sync your Palm — USB HotSync", fyne.TextAlignLeading, bold),
-		hotsyncBtn,
+		g.hotsyncBtn,
 		hotsyncHint,
 		waitChk,
+		dropZone,
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Memory Stick card sync (no cable)", fyne.TextAlignLeading, bold),
 		cardLbl,
@@ -221,6 +238,25 @@ func (g *gui) showMain() {
 		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),
 	)
 	g.win.SetContent(container.NewPadded(container.NewBorder(top, nil, nil, nil, logScroll)))
+
+	// Window-wide file drop → install onto the Palm.
+	g.win.SetOnDropped(func(_ fyne.Position, uris []fyne.URI) {
+		var files []string
+		for _, u := range uris {
+			if u == nil {
+				continue
+			}
+			ext := strings.ToLower(filepath.Ext(u.Path()))
+			if ext == ".prc" || ext == ".pdb" || ext == ".pqa" {
+				files = append(files, u.Path())
+			}
+		}
+		if len(files) == 0 {
+			g.appendLog("Drop a .prc or .pdb file to install it on the Palm.")
+			return
+		}
+		go g.doInstall(files)
+	})
 
 	// Start the card watcher once.
 	go (&cardwatch.Watcher{OnInsert: g.onCardInsert}).Run(g.ctx)
@@ -236,6 +272,13 @@ func (g *gui) onCardInsert(c cardwatch.Card) {
 }
 
 func (g *gui) doSync() {
+	if g.busy {
+		g.appendLog("A sync is already running — wait for it to finish.")
+		return
+	}
+	g.busy = true
+	defer func() { g.busy = false }()
+
 	card := g.lastCard
 	if card == nil {
 		if cards := cardwatch.FindCards(cardwatch.VolumesDir); len(cards) > 0 {
@@ -286,6 +329,11 @@ func (g *gui) doHotSync() {
 		fyne.Do(g.showLogin)
 		return
 	}
+	if !g.beginSession() {
+		return
+	}
+	defer g.endSession()
+
 	stage, err := os.MkdirTemp("", "palmvellum-hotsync-")
 	if err != nil {
 		g.appendLog("❌ " + err.Error())
@@ -297,7 +345,7 @@ func (g *gui) doHotSync() {
 	if !hotsync.DevicePresent() {
 		g.appendLog("No Palm seen on USB yet — connect the cradle/cable.")
 	}
-	g.appendLog("👉 Press the HotSync button on your Palm now…")
+	g.appendLog("👉 Step ②: press the HotSync button on your Palm now…")
 
 	// Honour the same "wait for AI" toggle as the card path. For HotSync
 	// this holds the live USB link open during the wait, so only enable it
@@ -329,6 +377,60 @@ func (g *gui) doHotSync() {
 		return
 	}
 	g.appendLog("⏏️ HotSync finished — safe to disconnect.")
+}
+
+// doInstall pushes dropped .prc/.pdb files onto the Palm in one HotSync
+// session (no cloud, no pull). Triggered by the drag-and-drop zone.
+func (g *gui) doInstall(files []string) {
+	if !g.beginSession() {
+		return
+	}
+	defer g.endSession()
+
+	names := make([]string, 0, len(files))
+	for _, f := range files {
+		names = append(names, filepath.Base(f))
+	}
+	g.appendLog("──────────")
+	g.appendLog("Install to Palm: " + strings.Join(names, ", "))
+	if !hotsync.DevicePresent() {
+		g.appendLog("No Palm seen on USB yet — connect the cradle/cable.")
+	}
+	g.appendLog("👉 Step ②: press the HotSync button on your Palm now…")
+
+	if err := hotsync.RunSync(g.ctx, hotsync.Options{InstallFiles: files, Log: g.appendLog}); err != nil {
+		g.appendLog("❌ " + err.Error())
+		return
+	}
+	g.appendLog("⏏️ Install finished — safe to disconnect.")
+}
+
+// beginSession guards against overlapping HotSync/install runs and flips the
+// primary button into its "now press HotSync" reminder state. Returns false
+// if a session is already running.
+func (g *gui) beginSession() bool {
+	if g.busy {
+		g.appendLog("A sync is already running — wait for it to finish.")
+		return false
+	}
+	g.busy = true
+	fyne.Do(func() {
+		if g.hotsyncBtn != nil {
+			g.hotsyncBtn.SetText("② Now press HotSync on the Palm…")
+			g.hotsyncBtn.Disable()
+		}
+	})
+	return true
+}
+
+func (g *gui) endSession() {
+	g.busy = false
+	fyne.Do(func() {
+		if g.hotsyncBtn != nil {
+			g.hotsyncBtn.SetText("① Sync over USB (HotSync)")
+			g.hotsyncBtn.Enable()
+		}
+	})
 }
 
 // ─────────────────────────── about / help ───────────────────────────

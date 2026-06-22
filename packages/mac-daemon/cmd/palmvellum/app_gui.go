@@ -235,21 +235,24 @@ func (g *gui) showMain() {
 	})
 	aboutBtn := widget.NewButton("About / Help", g.showAbout)
 
+	cardHint := widget.NewLabel("Back up to a Memory Stick on the Palm, insert it in a reader here; the app syncs and ejects, then restore from card on the Palm.")
+	cardHint.Wrapping = fyne.TextWrapWord
+
+	// Two pages: cable HotSync (primary) and Memory Stick card sync.
+	usbTab := container.NewVBox(g.hotsyncBtn, hotsyncHint, dropZone)
+	cardTab := container.NewVBox(cardHint, cardLbl, autoChk, syncBtn)
+	tabs := container.NewAppTabs(
+		container.NewTabItem("USB HotSync", container.NewPadded(usbTab)),
+		container.NewTabItem("Card Sync", container.NewPadded(cardTab)),
+	)
+	tabs.SetTabLocation(container.TabLocationTop)
+
 	bold := fyne.TextStyle{Bold: true}
 	top := container.NewVBox(
 		statusLbl,
+		tabs,
 		widget.NewSeparator(),
-		widget.NewLabelWithStyle("Sync your Palm — USB HotSync", fyne.TextAlignLeading, bold),
-		g.hotsyncBtn,
-		hotsyncHint,
 		waitChk,
-		dropZone,
-		widget.NewSeparator(),
-		widget.NewLabelWithStyle("Memory Stick card sync (no cable)", fyne.TextAlignLeading, bold),
-		cardLbl,
-		autoChk,
-		syncBtn,
-		widget.NewSeparator(),
 		container.NewGridWithColumns(2, logoutBtn, aboutBtn),
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),

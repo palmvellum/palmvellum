@@ -39,9 +39,46 @@ sed "s/__VERSION__/$VERSION/g" packaging/Info.plist > "$APP/Contents/Info.plist"
 [ -f packaging/icon.icns ] && cp packaging/icon.icns "$RES/icon.icns" || \
   echo "  (no packaging/icon.icns — using default app icon)"
 
+# ── Bundle the HotSync sidecar (Node runtime + palm-sync) ───────────
+# So USB HotSync works on a machine with no Node installed. Ships a
+# stripped Node binary plus the sidecar's production node_modules under
+# Contents/Resources; the Go binary resolves them at runtime (see
+# internal/hotsync/sidecar.go → Resolve()).
+echo "→ bundling HotSync sidecar (Node + palm-sync)"
+NODE_VERSION="${NODE_VERSION:-v22.14.0}"
+case "$(uname -m)" in
+  arm64)  NODE_ARCH="darwin-arm64" ;;
+  x86_64) NODE_ARCH="darwin-x64" ;;
+  *) echo "  unsupported arch $(uname -m)"; exit 1 ;;
+esac
+NODE_PKG="node-$NODE_VERSION-$NODE_ARCH"
+NODE_CACHE="${TMPDIR:-/tmp}/palmvellum-node-cache"
+mkdir -p "$NODE_CACHE"
+if [ ! -x "$NODE_CACHE/$NODE_PKG/bin/node" ]; then
+  echo "  downloading $NODE_PKG"
+  curl -fsSL "https://nodejs.org/dist/$NODE_VERSION/$NODE_PKG.tar.gz" \
+    | tar -xz -C "$NODE_CACHE"
+fi
+mkdir -p "$RES/node/bin"
+cp "$NODE_CACHE/$NODE_PKG/bin/node" "$RES/node/bin/node"
+
+echo "  installing sidecar production deps"
+( cd sidecar && { npm ci --omit=dev --no-audit --no-fund 2>/dev/null \
+                  || npm install --omit=dev --no-audit --no-fund; } )
+mkdir -p "$RES/sidecar"
+cp sidecar/conduit.js sidecar/package.json "$RES/sidecar/"
+cp -R sidecar/node_modules "$RES/sidecar/node_modules"
+
 if [ -n "${DEVELOPER_ID:-}" ]; then
   echo "→ code-signing with: $DEVELOPER_ID"
-  codesign --force --deep --options runtime --timestamp \
+  # Sign inner executables first (bundled node + native .node addons),
+  # then the app, all with the hardened-runtime entitlements Node needs.
+  ENT="packaging/entitlements.plist"
+  find "$RES/sidecar/node_modules" -name '*.node' -print0 | while IFS= read -r -d '' f; do
+    codesign --force --options runtime --timestamp --entitlements "$ENT" --sign "$DEVELOPER_ID" "$f"
+  done
+  codesign --force --options runtime --timestamp --entitlements "$ENT" --sign "$DEVELOPER_ID" "$RES/node/bin/node"
+  codesign --force --deep --options runtime --timestamp --entitlements "$ENT" \
     --sign "$DEVELOPER_ID" "$APP"
   codesign --verify --strict --verbose=2 "$APP"
 else

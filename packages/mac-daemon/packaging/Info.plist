@@ -10,6 +10,8 @@
   <string>dev.tatliving.palmvellum</string>
   <key>CFBundleExecutable</key>
   <string>palmvellum</string>
+  <key>CFBundleIconFile</key>
+  <string>icon.icns</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

@@ -15,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/spf13/cobra"
@@ -90,8 +91,8 @@ func newGUI(ctx context.Context) *gui {
 func (g *gui) run() {
 	g.app = fyneapp.NewWithID("dev.tatliving.palmvellum")
 	g.app.Settings().SetTheme(ui.PalmTheme{}) // retro Palm organizer look
-	g.win = g.app.NewWindow("PalmVellum")
-	g.win.Resize(fyne.NewSize(480, 480))
+	g.win = g.app.NewWindow("PalmVellum on Mac")
+	g.win.Resize(fyne.NewSize(480, 500))
 
 	// Stay logged in across restarts: if a session is saved in the
 	// Keychain at all, go straight to the main view (it refreshes the
@@ -202,8 +203,8 @@ func (g *gui) showMain() {
 	usbStatusLbl.TextStyle = fyne.TextStyle{Bold: true}
 	usbStatusLbl.Wrapping = fyne.TextWrapWord
 	hotsyncHint := widget.NewLabel(
-		"No button to click — PalmVellum is always listening. Just press the " +
-			"HotSync button on your Palm and it syncs automatically.")
+		"PalmVellum is always listening. Just press the HotSync button on " +
+			"your Palm and it syncs automatically.")
 	hotsyncHint.Wrapping = fyne.TextWrapWord
 
 	// Drag-and-drop install zone: a queue you build up (drop more, remove
@@ -261,7 +262,13 @@ func (g *gui) showMain() {
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),
 	)
-	g.win.SetContent(container.NewPadded(container.NewBorder(top, nil, nil, nil, logScroll)))
+	// Version stamp in the bottom-right corner.
+	verLbl := widget.NewLabelWithStyle("PalmVellum on Mac · v"+version,
+		fyne.TextAlignTrailing, fyne.TextStyle{Italic: true})
+	footer := container.NewHBox(layout.NewSpacer(), verLbl)
+
+	g.win.SetContent(container.NewPadded(
+		container.NewBorder(top, footer, nil, nil, logScroll)))
 	g.refreshInstallUI()
 
 	// Window-wide file drop → add to the install queue.
@@ -603,7 +610,7 @@ func (g *gui) showAbout() {
 	)
 	scroll := container.NewScroll(body)
 	scroll.SetMinSize(fyne.NewSize(440, 420))
-	dialog.ShowCustom("About PalmVellum", "Close", scroll, g.win)
+	dialog.ShowCustom("About PalmVellum on Mac · v"+version, "Close", scroll, g.win)
 }
 
 // appendLog prepends a timestamped line so the newest entry sits at the

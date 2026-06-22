@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
-  <string>PalmVellum</string>
+  <string>PalmVellum on Mac</string>
   <key>CFBundleDisplayName</key>
-  <string>PalmVellum</string>
+  <string>PalmVellum on Mac</string>
   <key>CFBundleIdentifier</key>
   <string>dev.tatliving.palmvellum</string>
   <key>CFBundleExecutable</key>

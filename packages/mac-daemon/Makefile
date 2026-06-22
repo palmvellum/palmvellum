@@ -8,8 +8,8 @@ all: build
 
 build:
 	@mkdir -p bin
-	@go build -ldflags "-X main.version=$(VERSION)" -o $(BIN) ./cmd/palmvellum
-	@echo "built  $(BIN)  version=$(VERSION)"
+	@go build -o $(BIN) ./cmd/palmvellum
+	@echo "built  $(BIN)  (version from cmd/palmvellum/main.go)"
 
 test:
 	@go test -race -count=1 ./...

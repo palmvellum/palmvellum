@@ -33,8 +33,9 @@ import (
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/supa"
 )
 
-// version is set at build time via -ldflags.
-var version = "pre-alpha"
+// version is the single source of truth for the app version, shown in the
+// app's corner and used for the .app bundle / .dmg. Bump it on every change.
+var version = "1.0.0"
 
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix

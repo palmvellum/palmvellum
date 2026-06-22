@@ -1,0 +1,14 @@
+{
+  "name": "palmvellum-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HotSync transport sidecar for PalmVellum — wraps palm-sync (Node USB/serial HotSync) so the pure-Go daemon can pull/push Palm databases over a live HotSync session.",
+  "license": "MIT",
+  "main": "conduit.js",
+  "scripts": {
+    "palm-sync": "palm-sync"
+  },
+  "dependencies": {
+    "palm-sync": "file:./vendor/palm-sync-0.2.1.tgz"
+  }
+}

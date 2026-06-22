@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/url"
+	"os"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -16,6 +17,7 @@ import (
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/auth"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/cardwatch"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/config"
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/hotsync"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/cloud"
 	palmsync "github.com/palmvellum/palmvellum/packages/palm-engine/sync"
 )
@@ -177,7 +179,8 @@ func (g *gui) showMain() {
 	})
 	waitChk.SetChecked(g.waitAI)
 
-	syncBtn := widget.NewButton("Sync now", func() { go g.doSync() })
+	syncBtn := widget.NewButton("Sync card now", func() { go g.doSync() })
+	hotsyncBtn := widget.NewButton("Sync over USB (HotSync)", func() { go g.doHotSync() })
 
 	logEntry := widget.NewMultiLineEntry()
 	logEntry.Wrapping = fyne.TextWrapWord
@@ -197,7 +200,8 @@ func (g *gui) showMain() {
 		cardLbl,
 		autoChk,
 		waitChk,
-		container.NewGridWithColumns(3, syncBtn, logoutBtn, aboutBtn),
+		container.NewGridWithColumns(2, syncBtn, hotsyncBtn),
+		container.NewGridWithColumns(2, logoutBtn, aboutBtn),
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
@@ -254,6 +258,45 @@ func (g *gui) doSync() {
 	g.lastCard = nil
 	_ = g.cardLbl.Set("Card ejected — remove it and restore on the Palm")
 	g.appendLog("⏏️ Ejected " + card.Volume + " — safe to remove")
+}
+
+// doHotSync runs a live USB HotSync: the Node sidecar pulls the Palm's
+// databases, this app merges them with the cloud (in a subprocess), and the
+// sidecar writes the merged result back — all in one button press on the
+// Palm. Unlike the card path it needs no Memory Stick; the device stays
+// connected over USB the whole time.
+func (g *gui) doHotSync() {
+	if _, err := g.ac.Current(g.ctx); err != nil {
+		g.appendLog("Please log in again.")
+		fyne.Do(g.showLogin)
+		return
+	}
+	stage, err := os.MkdirTemp("", "palmvellum-hotsync-")
+	if err != nil {
+		g.appendLog("❌ " + err.Error())
+		return
+	}
+	defer os.RemoveAll(stage)
+
+	g.appendLog("──────────")
+	if !hotsync.DevicePresent() {
+		g.appendLog("No Palm seen on USB yet — connect the cradle/cable.")
+	}
+	g.appendLog("👉 Press the HotSync button on your Palm now…")
+
+	// Honour the same "wait for AI" toggle as the card path. For HotSync
+	// this holds the live USB link open during the wait, so only enable it
+	// if the user opted in.
+	var aiWait time.Duration
+	if g.waitAI {
+		aiWait = 120 * time.Second
+	}
+	err = hotsync.RunSync(g.ctx, hotsync.Options{StageDir: stage, AIWait: aiWait, Log: g.appendLog})
+	if err != nil {
+		g.appendLog("❌ " + err.Error())
+		return
+	}
+	g.appendLog("⏏️ HotSync finished — safe to disconnect.")
 }
 
 // ─────────────────────────── about / help ───────────────────────────

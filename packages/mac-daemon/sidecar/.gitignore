@@ -1,0 +1,6 @@
+node_modules/
+
+# The root .gitignore excludes all `vendor/` dirs (Go vendoring), but here
+# vendor/ holds the pinned palm-sync tarball that IS the dependency — track it.
+!vendor/
+!vendor/*.tgz

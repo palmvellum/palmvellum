@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Entitlements for the hardened-runtime signed build. The bundled Node
+     runtime (and palm-sync's native `usb` addon) need these:
+       • disable-library-validation — load the prebuilt .node addon, which
+         is not signed by the same Team ID as the app.
+       • allow-jit / allow-unsigned-executable-memory — V8 JIT.
+     USB device access on non-sandboxed macOS needs no special entitlement;
+     libusb claims the Palm directly once HotSync is pressed. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>

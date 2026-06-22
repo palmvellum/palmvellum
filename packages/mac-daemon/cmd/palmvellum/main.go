@@ -28,6 +28,7 @@ import (
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/aiworker"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/api"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/config"
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/hotsync"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/store"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/supa"
 )
@@ -63,6 +64,7 @@ localhost HTTP API for the PWA / system tray UI.`,
 		logoutCmd(),
 		whoamiCmd(),
 		cardSyncCmd(),
+		hotsyncMergeCmd(),
 		appCmd(),
 		versionCmd(),
 	)
@@ -190,6 +192,18 @@ func doctorCmd() *cobra.Command {
 				fmt.Printf("✅ ai provider configured: %s\n", provider.ProviderName())
 			} else {
 				fmt.Printf("⚠️  ai provider %s not configured (worker will be idle)\n", provider.ProviderName())
+			}
+
+			// HotSync sidecar readiness (Node runtime + palm-sync).
+			if rt, err := hotsync.Resolve(); err != nil {
+				fmt.Printf("⚠️  hotsync sidecar: %v\n", err)
+			} else {
+				fmt.Printf("✅ hotsync sidecar ready (node=%s)\n", rt.Node)
+			}
+			if hotsync.DevicePresent() {
+				fmt.Println("✅ Palm detected on USB")
+			} else {
+				fmt.Println("ℹ️  no Palm on USB (normal until you press HotSync)")
 			}
 
 			// TODO(v0.5): check Full Disk Access via IOKit

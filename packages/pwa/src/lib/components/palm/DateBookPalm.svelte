@@ -493,7 +493,10 @@
     const base = forDay ? new Date(forDay) : new Date();
     if (forDay) { base.setHours(9, 0, 0, 0); }
     fStart = isoToLocalInput(base.toISOString());
-    fEnd = '';
+    // Default the end to one hour after the start, so a new timed event
+    // carries a real duration (and shows its time on the Palm) instead of
+    // saving with no end.
+    fEnd = isoToLocalInput(new Date(base.getTime() + 60 * 60 * 1000).toISOString());
     fAllDay = false;
     fLocation = '';
     fNotes = '';
@@ -508,6 +511,16 @@
     fLocation = e.location ?? '';
     fNotes = e.notes ?? '';
     sheetOpen = true;
+  }
+  // Keep the end one hour after the start while the user hasn't set a later
+  // end of their own — so picking/changing a start time defaults the end to
+  // start + 1h instead of leaving it empty.
+  function onStartChange() {
+    if (fAllDay || !fStart) return;
+    if (!fEnd || fEnd <= fStart) {
+      const s = localInputToISO(fStart);
+      if (s) fEnd = isoToLocalInput(new Date(new Date(s).getTime() + 60 * 60 * 1000).toISOString());
+    }
   }
   function closeSheet() { sheetOpen = false; editing = null; }
   async function saveSheet(ev: Event) {
@@ -790,7 +803,7 @@
     <form onsubmit={saveSheet}>
       <label>{t('datebook.fldTitle')}<input type="text" bind:value={fTitle} required maxlength={256} /></label>
       <label class="inline"><input type="checkbox" bind:checked={fAllDay} />{t('datebook.allDay')}</label>
-      <label>{t('datebook.fldStart')}<input type="datetime-local" bind:value={fStart} required /></label>
+      <label>{t('datebook.fldStart')}<input type="datetime-local" bind:value={fStart} onchange={onStartChange} required /></label>
       <label>{t('datebook.fldEnd')}<input type="datetime-local" bind:value={fEnd} /></label>
       <label>{t('datebook.fldLocation')}<input type="text" bind:value={fLocation} maxlength={120} /></label>
       <label>{t('datebook.fldNotes')}<textarea bind:value={fNotes} rows="3"></textarea></label>

@@ -86,8 +86,17 @@ func DatebookPush(c Cloud, userID string, data []byte, tz *time.Location) (PushR
 			res.Inserted++
 		} else {
 			patch := map[string]any{
-				"title": ev.Title, "start_at": ev.StartAt, "end_at": ev.EndAt,
-				"all_day": ev.AllDay, "notes": ev.Notes, "alarm_minutes": ev.AlarmMinutes,
+				"title": ev.Title, "notes": ev.Notes, "alarm_minutes": ev.AlarmMinutes,
+			}
+			// A Palm record can't store a start-without-end, so an *untimed*
+			// record usually means "time unknown", not "all-day". Don't let it
+			// clobber a richer timed event already in the cloud (web-created
+			// times would otherwise be flattened to all-day/midnight). Only a
+			// timed Palm record updates the cloud's start/end/all-day.
+			if !a.Untimed {
+				patch["start_at"] = ev.StartAt
+				patch["end_at"] = ev.EndAt
+				patch["all_day"] = ev.AllDay
 			}
 			if err := c.UpdateEvent(existing, patch); err != nil {
 				return res, err
@@ -141,12 +150,20 @@ func DatebookPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Loca
 		if e.Notes != nil {
 			a.Note = *e.Notes
 		}
-		if e.AllDay || e.EndAt == nil {
+		// Only an explicitly all-day event is untimed on the Palm. A timed
+		// event with no end (e.g. created on the web without a duration)
+		// must still show its start time, so default end = start rather
+		// than collapsing it to untimed (which hid the time on-device).
+		if e.AllDay {
 			a.Untimed = true
 		} else {
-			et := e.EndAt.In(tz)
 			a.StartHour, a.StartMin = uint8(st.Hour()), uint8(st.Minute())
-			a.EndHour, a.EndMin = uint8(et.Hour()), uint8(et.Minute())
+			if e.EndAt != nil {
+				et := e.EndAt.In(tz)
+				a.EndHour, a.EndMin = uint8(et.Hour()), uint8(et.Minute())
+			} else {
+				a.EndHour, a.EndMin = a.StartHour, a.StartMin
+			}
 		}
 		if e.AlarmMinutes != nil {
 			a.HasAlarm = true

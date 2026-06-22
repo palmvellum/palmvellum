@@ -48,6 +48,10 @@ type Options struct {
 	StageDir string
 	// DBs are the device database names to sync. Defaults to DefaultDBs.
 	DBs []string
+	// InstallFiles, if non-empty, switches to install-only mode: the listed
+	// .prc/.pdb files are pushed onto the device and nothing is pulled or
+	// merged. StageDir/DBs/AIWait/BackupDir are ignored.
+	InstallFiles []string
 	// Dry pulls the databases but skips the cloud merge and the write-
 	// back — a transport-only smoke test that needs no login.
 	Dry bool
@@ -71,31 +75,38 @@ func RunSync(ctx context.Context, opts Options) error {
 	if err != nil {
 		return err
 	}
-	if opts.StageDir == "" {
-		return errors.New("hotsync: StageDir required")
-	}
-	if err := os.MkdirAll(opts.StageDir, 0o755); err != nil {
-		return fmt.Errorf("hotsync: create staging dir: %w", err)
-	}
-	dbs := opts.DBs
-	if len(dbs) == 0 {
-		dbs = DefaultDBs
-	}
 
 	cmd := exec.CommandContext(ctx, rt.Node, rt.CLI, "run", rt.Conduit, "--usb")
-	cmd.Env = append(os.Environ(),
-		"PV_STAGE="+opts.StageDir,
-		"PV_DBS="+strings.Join(dbs, ","),
-		"PV_MERGE_BIN="+rt.MergeBin,
-	)
-	if opts.Dry {
-		cmd.Env = append(cmd.Env, "PV_DRY=1")
-	}
-	if opts.BackupDir != "" {
-		cmd.Env = append(cmd.Env, "PV_BACKUP="+opts.BackupDir)
-	}
-	if opts.AIWait > 0 {
-		cmd.Env = append(cmd.Env, "PV_MERGE_WAIT="+opts.AIWait.String())
+	cmd.Env = os.Environ()
+
+	if len(opts.InstallFiles) > 0 {
+		// Install-only: push the given files, nothing else.
+		cmd.Env = append(cmd.Env, "PV_INSTALL="+strings.Join(opts.InstallFiles, "\n"))
+	} else {
+		if opts.StageDir == "" {
+			return errors.New("hotsync: StageDir required")
+		}
+		if err := os.MkdirAll(opts.StageDir, 0o755); err != nil {
+			return fmt.Errorf("hotsync: create staging dir: %w", err)
+		}
+		dbs := opts.DBs
+		if len(dbs) == 0 {
+			dbs = DefaultDBs
+		}
+		cmd.Env = append(cmd.Env,
+			"PV_STAGE="+opts.StageDir,
+			"PV_DBS="+strings.Join(dbs, ","),
+			"PV_MERGE_BIN="+rt.MergeBin,
+		)
+		if opts.Dry {
+			cmd.Env = append(cmd.Env, "PV_DRY=1")
+		}
+		if opts.BackupDir != "" {
+			cmd.Env = append(cmd.Env, "PV_BACKUP="+opts.BackupDir)
+		}
+		if opts.AIWait > 0 {
+			cmd.Env = append(cmd.Env, "PV_MERGE_WAIT="+opts.AIWait.String())
+		}
 	}
 
 	if err := streamRun(cmd, opts.Log); err != nil {

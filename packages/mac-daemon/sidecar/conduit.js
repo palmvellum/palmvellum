@@ -43,6 +43,25 @@ function log(line) {
 }
 
 async function run(dlpConnection) {
+  // Install-only mode: PV_INSTALL is a newline-separated list of .prc/.pdb
+  // file paths to push onto the device. Skips pull/merge entirely (used by
+  // the app's drag-and-drop install zone).
+  const installList = (process.env.PV_INSTALL || '')
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (installList.length) {
+    for (const p of installList) {
+      const dir = path.dirname(p);
+      const name = path.basename(p);
+      const st = new NodeDatabaseStorage(dir, READ_WRITE_TO_BASE_DIR_DIRECTLY);
+      await writeDbFromFile(dlpConnection, name, st, {overwrite: true});
+      log(`⬆️  installed ${name}`);
+    }
+    log(`✅ installed ${installList.length} file(s) — safe to disconnect`);
+    return;
+  }
+
   const stage = process.env.PV_STAGE;
   const dbs = (process.env.PV_DBS || '')
     .split(',')

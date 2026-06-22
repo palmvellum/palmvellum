@@ -16,6 +16,24 @@
 
 ---
 
+## PalmVellum on Mac
+
+<img src="docs/photos/sync-app.png" alt="PalmVellum on Mac — always-listening USB HotSync, drag-and-drop install zone, and a live sync log" width="300" align="right">
+
+Connect a Sony Clié by USB and press the **HotSync** button — the app is always
+listening and syncs Memo Pad, To Do, Date Book, Address & Mail with the cloud in
+one press. Drag and drop `.prc`/`.pdb` files to install apps onto the device. A
+Memory Stick card-sync path is included too.
+
+⚠️ **Tested on Sony Clié over USB only** — other USB Palms and SD-card devices are
+unverified. A restore point is saved before every write-back.
+
+**[⬇ Download PalmVellum on Mac (.dmg)](https://github.com/palmvellum/palmvellum/releases/latest)** — unsigned (first launch: right-click → Open).
+
+<br clear="all">
+
+---
+
 ## English
 
 **PalmVellum is an open-source platform that gives the native apps on a 1996–2003 Palm Pilot AI-assist and cloud sync — while leaving the Palm itself completely alone.**

@@ -165,23 +165,29 @@ func (g *gui) showMain() {
 	}
 	_ = g.status.Set("Logged in: " + sess.Email)
 	_ = g.cardLbl.Set("No card detected")
-	_ = g.logText.Set("Ready. Insert a Palm backup card to sync.\n")
+	_ = g.logText.Set("Ready. Connect your Palm by USB/cradle and press HotSync to sync.\n")
 
 	statusLbl := widget.NewLabelWithData(g.status)
 	cardLbl := widget.NewLabelWithData(g.cardLbl)
 
-	autoChk := widget.NewCheck("Sync automatically when a card is inserted", func(b bool) {
-		g.autoSync = b
-	})
-	autoChk.SetChecked(g.autoSync)
-
+	// Shared option (applies to both sync methods).
 	waitChk := widget.NewCheck("Wait for AI answers before writing back (slower)", func(b bool) {
 		g.waitAI = b
 	})
 	waitChk.SetChecked(g.waitAI)
 
-	syncBtn := widget.NewButton("Sync card now", func() { go g.doSync() })
+	// ── Primary: cable HotSync ──
 	hotsyncBtn := widget.NewButton("Sync over USB (HotSync)", func() { go g.doHotSync() })
+	hotsyncBtn.Importance = widget.HighImportance
+	hotsyncHint := widget.NewLabel("Connect the Palm by USB/cradle, then press HotSync on the device.")
+	hotsyncHint.Wrapping = fyne.TextWrapWord
+
+	// ── Secondary: Memory Stick card sync ──
+	autoChk := widget.NewCheck("Sync automatically when a card is inserted", func(b bool) {
+		g.autoSync = b
+	})
+	autoChk.SetChecked(g.autoSync)
+	syncBtn := widget.NewButton("Sync card now", func() { go g.doSync() })
 
 	logEntry := widget.NewMultiLineEntry()
 	logEntry.Wrapping = fyne.TextWrapWord
@@ -196,15 +202,23 @@ func (g *gui) showMain() {
 	})
 	aboutBtn := widget.NewButton("About / Help", g.showAbout)
 
+	bold := fyne.TextStyle{Bold: true}
 	top := container.NewVBox(
 		statusLbl,
+		widget.NewSeparator(),
+		widget.NewLabelWithStyle("Sync your Palm — USB HotSync", fyne.TextAlignLeading, bold),
+		hotsyncBtn,
+		hotsyncHint,
+		waitChk,
+		widget.NewSeparator(),
+		widget.NewLabelWithStyle("Memory Stick card sync (no cable)", fyne.TextAlignLeading, bold),
 		cardLbl,
 		autoChk,
-		waitChk,
-		container.NewGridWithColumns(2, syncBtn, hotsyncBtn),
+		syncBtn,
+		widget.NewSeparator(),
 		container.NewGridWithColumns(2, logoutBtn, aboutBtn),
 		widget.NewSeparator(),
-		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),
 	)
 	g.win.SetContent(container.NewPadded(container.NewBorder(top, nil, nil, nil, logScroll)))
 
@@ -327,29 +341,32 @@ func (g *gui) showAbout() {
 	intro := widget.NewLabel(
 		"PalmVellum — slow tools for fast lives.\n\n" +
 			"Cloud sync + AI for the native apps on a 1996–2003 Palm. " +
-			"Back up on the device, sync the card here, restore on the Palm. " +
-			"The Palm itself never changes.")
+			"Connect by USB and press HotSync, and the app syncs Memo, To Do, " +
+			"Date Book, Address and Mail with the cloud — in one button press.")
 	intro.Wrapping = fyne.TextWrapWord
 
 	how := widget.NewLabel(
-		"How to use:\n" +
+		"How to use — USB HotSync (recommended):\n" +
+			"1. Connect the Palm to your Mac by USB cable or cradle.\n" +
+			"2. Log in here, then click \"Sync over USB (HotSync)\".\n" +
+			"3. Press the HotSync button on the Palm. Done — both sides merge.\n\n" +
+			"No cable? Memory Stick card sync:\n" +
 			"1. On the Palm, use the built-in MS Backup to back up to the card.\n" +
-			"2. Put the Memory Stick in a reader on your Mac.\n" +
-			"3. Log in here; the app syncs Memo, To Do, Date Book, Address and\n" +
-			"   Mail, then ejects the card.\n" +
-			"4. Put the card back and restore from card in MS Backup.")
+			"2. Put the Memory Stick in a reader; the app syncs it, then ejects.\n" +
+			"3. Put the card back and restore from card in MS Backup.")
 	how.Wrapping = fyne.TextWrapWord
 
 	compat := widget.NewLabel(
 		"Compatibility:\n" +
-			"• Sony Clié + Memory Stick + the built-in MS Backup app — tested.\n" +
-			"• Palm devices with an SD card: NOT yet tested — may not work.\n" +
-			"• On restore the Clié may do a brief, harmless soft reset.")
+			"• Sony Clié over USB HotSync — tested.\n" +
+			"• Sony Clié + Memory Stick + built-in MS Backup — tested.\n" +
+			"• Other USB Palm models / SD-card Palms: not yet tested.\n" +
+			"• On write-back the Clié may do a brief, harmless soft reset.")
 	compat.Wrapping = fyne.TextWrapWord
 
 	disclaimer := widget.NewLabelWithStyle(
 		"⚠️ No warranty of any kind. Use entirely at your own risk. "+
-			"Always keep a separate backup of your card before restoring.",
+			"PalmVellum keeps a restore point before each write-back.",
 		fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	disclaimer.Wrapping = fyne.TextWrapWord
 

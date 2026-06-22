@@ -51,6 +51,10 @@ type Options struct {
 	// Dry pulls the databases but skips the cloud merge and the write-
 	// back — a transport-only smoke test that needs no login.
 	Dry bool
+	// BackupDir, if set, receives a copy of every database as pulled from
+	// the device (before the cloud merge writes anything back) — a clean
+	// restore point. Created if missing.
+	BackupDir string
 	// AIWait, if > 0, holds the live USB session open while the cloud side
 	// waits up to this long for the AI worker to answer newly-asked memos,
 	// so the answers are written back in the same HotSync. 0 (default)
@@ -86,6 +90,9 @@ func RunSync(ctx context.Context, opts Options) error {
 	)
 	if opts.Dry {
 		cmd.Env = append(cmd.Env, "PV_DRY=1")
+	}
+	if opts.BackupDir != "" {
+		cmd.Env = append(cmd.Env, "PV_BACKUP="+opts.BackupDir)
 	}
 	if opts.AIWait > 0 {
 		cmd.Env = append(cmd.Env, "PV_MERGE_WAIT="+opts.AIWait.String())

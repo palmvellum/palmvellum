@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -291,7 +292,24 @@ func (g *gui) doHotSync() {
 	if g.waitAI {
 		aiWait = 120 * time.Second
 	}
-	err = hotsync.RunSync(g.ctx, hotsync.Options{StageDir: stage, AIWait: aiWait, Log: g.appendLog})
+
+	// Keep a clean restore point of the device's databases (as pulled,
+	// before any write-back) under the app's data dir.
+	backup := ""
+	if home, err := os.UserHomeDir(); err == nil {
+		backup = filepath.Join(home, ".local", "share", "palmvellum", "backups",
+			"hotsync-"+time.Now().Format("20060102-150405"))
+	}
+
+	if backup != "" {
+		g.appendLog("Restore point will be saved to: " + backup)
+	}
+	err = hotsync.RunSync(g.ctx, hotsync.Options{
+		StageDir:  stage,
+		BackupDir: backup,
+		AIWait:    aiWait,
+		Log:       g.appendLog,
+	})
 	if err != nil {
 		g.appendLog("❌ " + err.Error())
 		return

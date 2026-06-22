@@ -75,6 +75,17 @@ async function run(dlpConnection) {
     return;
   }
 
+  // Safety net: snapshot the just-pulled (pre-merge) databases so there's
+  // always a clean restore point before anything is written back.
+  const backup = process.env.PV_BACKUP;
+  if (backup) {
+    fs.mkdirSync(backup, {recursive: true});
+    for (const f of fs.readdirSync(stage).filter((f) => f.toLowerCase().endsWith('.pdb'))) {
+      fs.copyFileSync(path.join(stage, f), path.join(backup, f));
+    }
+    log(`💾 backed up original databases to ${backup}`);
+  }
+
   // ── 2. MERGE (Go engine, in place) ─────────────────────────────────
   const bin = process.env.PV_MERGE_BIN;
   if (!bin) throw new Error('PV_MERGE_BIN not set');

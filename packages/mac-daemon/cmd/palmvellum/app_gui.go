@@ -20,6 +20,7 @@ import (
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/cardwatch"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/config"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/hotsync"
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/ui"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/cloud"
 	palmsync "github.com/palmvellum/palmvellum/packages/palm-engine/sync"
 )
@@ -76,8 +77,9 @@ func newGUI(ctx context.Context) *gui {
 
 func (g *gui) run() {
 	g.app = fyneapp.NewWithID("dev.tatliving.palmvellum")
+	g.app.Settings().SetTheme(ui.PalmTheme{}) // retro Palm organizer look
 	g.win = g.app.NewWindow("PalmVellum")
-	g.win.Resize(fyne.NewSize(480, 460))
+	g.win.Resize(fyne.NewSize(480, 480))
 
 	// Stay logged in across restarts: if a session is saved in the
 	// Keychain at all, go straight to the main view (it refreshes the

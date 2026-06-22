@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/spf13/cobra"
 
@@ -57,7 +59,11 @@ type gui struct {
 	logText    binding.String
 	status     binding.String
 	cardLbl    binding.String
-	dropLbl    binding.String
+
+	// pending .prc/.pdb files to install (the drag-drop queue)
+	installQueue []string
+	queueBox     *fyne.Container
+	installBtn   *widget.Button
 }
 
 func newGUI(ctx context.Context) *gui {
@@ -71,7 +77,6 @@ func newGUI(ctx context.Context) *gui {
 		logText:  binding.NewString(),
 		status:   binding.NewString(),
 		cardLbl:  binding.NewString(),
-		dropLbl:  binding.NewString(),
 	}
 }
 
@@ -172,7 +177,6 @@ func (g *gui) showMain() {
 	}
 	_ = g.status.Set("Logged in: " + sess.Email)
 	_ = g.cardLbl.Set("No card detected")
-	_ = g.dropLbl.Set("⬇  Drop a .prc or .pdb file here to install it on your Palm")
 	_ = g.logText.Set("Ready. Connect your Palm by USB/cradle and press HotSync to sync.\n")
 
 	statusLbl := widget.NewLabelWithData(g.status)
@@ -193,12 +197,23 @@ func (g *gui) showMain() {
 			"before the Palm dials in.)")
 	hotsyncHint.Wrapping = fyne.TextWrapWord
 
-	// Drag-and-drop install zone (window-wide drop; this card is the cue).
-	dropLbl := widget.NewLabelWithData(g.dropLbl)
-	dropLbl.Wrapping = fyne.TextWrapWord
-	dropLbl.Alignment = fyne.TextAlignCenter
+	// Drag-and-drop install zone: a queue you build up (drop more, remove
+	// any) and then install all at once on the next HotSync.
+	dropHint := widget.NewLabel("Drop .prc / .pdb files here. Add as many as you like, remove any, then install.")
+	dropHint.Wrapping = fyne.TextWrapWord
+	g.queueBox = container.NewVBox()
+	g.installBtn = widget.NewButton("Install to Palm", func() { go g.doInstall() })
+	g.installBtn.Importance = widget.HighImportance
+	clearBtn := widget.NewButton("Clear list", func() {
+		g.installQueue = nil
+		g.refreshInstallUI()
+	})
 	dropZone := widget.NewCard("Install apps / databases", "",
-		container.NewPadded(dropLbl))
+		container.NewPadded(container.NewVBox(
+			dropHint,
+			g.queueBox,
+			container.NewGridWithColumns(2, g.installBtn, clearBtn),
+		)))
 
 	// ── Secondary: Memory Stick card sync ──
 	autoChk := widget.NewCheck("Sync automatically when a card is inserted", func(b bool) {
@@ -240,8 +255,9 @@ func (g *gui) showMain() {
 		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),
 	)
 	g.win.SetContent(container.NewPadded(container.NewBorder(top, nil, nil, nil, logScroll)))
+	g.refreshInstallUI()
 
-	// Window-wide file drop → install onto the Palm.
+	// Window-wide file drop → add to the install queue.
 	g.win.SetOnDropped(func(_ fyne.Position, uris []fyne.URI) {
 		var files []string
 		for _, u := range uris {
@@ -254,10 +270,10 @@ func (g *gui) showMain() {
 			}
 		}
 		if len(files) == 0 {
-			g.appendLog("Drop a .prc or .pdb file to install it on the Palm.")
+			g.appendLog("Only .prc / .pdb / .pqa files can be installed on the Palm.")
 			return
 		}
-		go g.doInstall(files)
+		g.addToQueue(files)
 	})
 
 	// Start the card watcher once.
@@ -381,9 +397,67 @@ func (g *gui) doHotSync() {
 	g.appendLog("⏏️ HotSync finished — safe to disconnect.")
 }
 
-// doInstall pushes dropped .prc/.pdb files onto the Palm in one HotSync
-// session (no cloud, no pull). Triggered by the drag-and-drop zone.
-func (g *gui) doInstall(files []string) {
+// addToQueue appends dropped files to the install queue, skipping ones
+// already queued, and refreshes the list.
+func (g *gui) addToQueue(files []string) {
+	for _, f := range files {
+		dup := false
+		for _, q := range g.installQueue {
+			if q == f {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			g.installQueue = append(g.installQueue, f)
+		}
+	}
+	g.refreshInstallUI()
+}
+
+// removeFromQueue drops one file (by path) from the queue.
+func (g *gui) removeFromQueue(path string) {
+	out := g.installQueue[:0]
+	for _, q := range g.installQueue {
+		if q != path {
+			out = append(out, q)
+		}
+	}
+	g.installQueue = out
+	g.refreshInstallUI()
+}
+
+// refreshInstallUI rebuilds the queued-files list and the install button
+// label/enabled state to match installQueue.
+func (g *gui) refreshInstallUI() {
+	fyne.Do(func() {
+		g.queueBox.RemoveAll()
+		for _, f := range g.installQueue {
+			path := f
+			rm := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() { g.removeFromQueue(path) })
+			rm.Importance = widget.LowImportance
+			g.queueBox.Add(container.NewBorder(nil, nil, nil, rm,
+				widget.NewLabel("• "+filepath.Base(f))))
+		}
+		g.queueBox.Refresh()
+		if n := len(g.installQueue); n == 0 {
+			g.installBtn.SetText("Install to Palm")
+			g.installBtn.Disable()
+		} else {
+			g.installBtn.SetText(fmt.Sprintf("Install %d file(s) to Palm", n))
+			g.installBtn.Enable()
+		}
+	})
+}
+
+// doInstall pushes every queued .prc/.pdb file onto the Palm in one HotSync
+// session (no cloud, no pull). On success the queue is cleared.
+func (g *gui) doInstall() {
+	files := append([]string(nil), g.installQueue...) // snapshot
+	if len(files) == 0 {
+		g.appendLog("Drop one or more .prc / .pdb files first.")
+		return
+	}
 	if !g.beginSession() {
 		return
 	}
@@ -405,6 +479,8 @@ func (g *gui) doInstall(files []string) {
 		return
 	}
 	g.appendLog("⏏️ Install finished — safe to disconnect.")
+	g.installQueue = nil
+	g.refreshInstallUI()
 }
 
 // beginSession guards against overlapping HotSync/install runs and flips the

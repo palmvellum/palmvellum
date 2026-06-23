@@ -141,7 +141,12 @@ const DEF_FINISH = { name: 'finish', description: 'Conclude with a short summary
 
 // Both Memo and To-Do agents act directly: they create events/tasks and tell
 // the user what they did in the finish summary (no approval step).
-const TOOL_LIST = [DEF_CREATE_EVENT, DEF_CREATE_TODO, DEF_CREATE_MEMO, DEF_FINISH];
+//
+// create_memo is deliberately omitted: the agent's answer belongs in the
+// ORIGINAL memo — it's appended via the finish summary — not in a new memo.
+// Only real calendar entries (create_event) and tasks (create_todo) become
+// separate records.
+const TOOL_LIST = [DEF_CREATE_EVENT, DEF_CREATE_TODO, DEF_FINISH];
 
 function toolsFor(_kind: 'thought' | 'todo') {
   return TOOL_LIST;
@@ -405,6 +410,8 @@ Keep tool calls under five total. Resolve relative dates ("tomorrow", "next Frid
     return `You are helping with a Palm Memo Pad note the user prefixed with "(AI)".
 
 YOUR FIRST PRIORITY is to answer the user's question or develop their idea, thoughtfully and directly, in your finish summary. That summary is written back into the memo as your reply, so make it genuinely useful and detailed — give the full answer with explanations, concrete options, steps, examples and reasoning. Be thorough; you may use up to ~3000 characters when the topic warrants it (do not pad a simple answer).
+
+Your whole answer goes into THIS memo (it is appended below the user's note). Never split it into a separate memo — there is no tool for that; keep everything in the finish summary.
 
 THEN, if the memo also contains concrete action items or scheduling arrangements, create them directly: call create_todo(...) for each task and create_event(...) for each appointment. Do this without asking — the user wants them added straight away. Skip this for a memo that is just a question or a note with no action items.
 

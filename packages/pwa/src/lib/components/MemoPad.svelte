@@ -21,6 +21,7 @@
     createMemo as createMemoStore,
     updateMemo as updateMemoStore,
     deleteMemo as deleteMemoStore,
+    type MemoRow,
   } from '$lib/stores/memos.svelte';
   import { t } from '$lib/i18n.svelte';
   import { palmConfirm } from '$lib/confirm.svelte';
@@ -128,18 +129,31 @@
   async function saveEdit(m: Memo) {
     if (!editBody.trim()) return;
     editBusy = true;
-    const isAgent = /^\s*\(ai\)/i.test(editBody);
-    // The agent webhook fires on INSERT only, so UPDATEs can't re-
-    // trigger. Editing here just persists the body; to re-run the
-    // agent the user has to delete and re-create.
+    let body = editBody.trim();
+    const isAgent = /^\s*\(ai\)/i.test(body);
+    const patch: Partial<MemoRow> = { body };
+    if (isAgent) {
+      // Editing an (AI) memo re-runs the agent. Strip any previous answer so
+      // the re-run starts from the user's question, and clear the processed
+      // flags + set ai_status='pending' so the (now UPDATE-aware) webhook
+      // fires again. See migration v08_agent_rerun.
+      const sep = body.indexOf('-- AI agent --');
+      if (sep >= 0) body = body.slice(0, sep).replace(/\n+$/, '');
+      const md: Record<string, unknown> = {
+        ...(m.metadata ?? {}),
+        palm_category_name: 'AI Agent',
+      };
+      delete md.agent_processed;
+      delete md.agent_summary;
+      delete md.ai_actions;
+      patch.body = body;
+      patch.metadata = md as MemoRow['metadata'];
+      patch.ai_status = 'pending';
+    } else {
+      patch.metadata = { ...(m.metadata ?? {}), palm_category_name: 'Unfiled' };
+    }
     try {
-      await updateMemoStore(m.id, {
-        body: editBody.trim(),
-        metadata: {
-          ...(m.metadata ?? {}),
-          palm_category_name: isAgent ? 'AI Agent' : 'Unfiled',
-        },
-      });
+      await updateMemoStore(m.id, patch);
     } catch (e) {
       editBusy = false;
       alert(e instanceof Error ? e.message : String(e));

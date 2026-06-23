@@ -35,7 +35,7 @@ import (
 
 // version is the single source of truth for the app version, shown in the
 // app's corner and used for the .app bundle / .dmg. Bump it on every change.
-var version = "1.1.1"
+var version = "1.1.2"
 
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix

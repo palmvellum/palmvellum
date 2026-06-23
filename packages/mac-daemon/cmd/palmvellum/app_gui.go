@@ -93,7 +93,7 @@ func (g *gui) run() {
 	g.app = fyneapp.NewWithID("dev.tatliving.palmvellum")
 	g.app.Settings().SetTheme(ui.PalmTheme{}) // retro Palm organizer look
 	g.win = g.app.NewWindow("PalmVellum on Mac")
-	g.win.Resize(fyne.NewSize(480, 500))
+	g.win.Resize(fyne.NewSize(880, 520)) // landscape: controls left, log right
 
 	// Stay logged in across restarts: if a session is saved in the
 	// Keychain at all, go straight to the main view (it refreshes the
@@ -237,7 +237,7 @@ func (g *gui) showMain() {
 	logEntry.Bind(g.logText)
 	logEntry.Disable()
 	logScroll := container.NewScroll(logEntry)
-	logScroll.SetMinSize(fyne.NewSize(440, 180))
+	logScroll.SetMinSize(fyne.NewSize(190, 360))
 
 	logoutBtn := widget.NewButton("Log out", func() {
 		_ = auth.Clear()
@@ -258,22 +258,28 @@ func (g *gui) showMain() {
 	tabs.SetTabLocation(container.TabLocationTop)
 
 	bold := fyne.TextStyle{Bold: true}
-	top := container.NewVBox(
+	// Landscape: controls on the left (~3/4), the sync log on the right (~1/4).
+	mainCol := container.NewVBox(
 		statusLbl,
 		tabs,
 		widget.NewSeparator(),
 		waitChk,
 		container.NewGridWithColumns(2, logoutBtn, aboutBtn),
-		widget.NewSeparator(),
-		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),
 	)
+	logCol := container.NewBorder(
+		widget.NewLabelWithStyle("Sync log", fyne.TextAlignLeading, bold),
+		nil, nil, nil, logScroll,
+	)
+	split := container.NewHSplit(mainCol, logCol)
+	split.SetOffset(0.75) // log column ≈ 1/4 of the width
+
 	// Version stamp in the bottom-right corner.
 	verLbl := widget.NewLabelWithStyle("PalmVellum on Mac · v"+version,
 		fyne.TextAlignTrailing, fyne.TextStyle{Italic: true})
 	footer := container.NewHBox(layout.NewSpacer(), verLbl)
 
 	g.win.SetContent(container.NewPadded(
-		container.NewBorder(top, footer, nil, nil, logScroll)))
+		container.NewBorder(nil, footer, nil, nil, split)))
 	g.refreshInstallUI()
 
 	// Window-wide file drop → add to the install queue.

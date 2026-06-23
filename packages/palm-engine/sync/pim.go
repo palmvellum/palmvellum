@@ -391,6 +391,10 @@ func contactFromMetadata(r cloud.Record) addressdb.Contact {
 // (category 0) so they can be read on-device. This is one-way: Palm Mail
 // is a read surface for digests, so there is no MailPush. appInfo (folder
 // categories) is reused verbatim from the card.
+// mailSyncDays bounds how much mail history is written to the Palm (the cloud
+// keeps everything). Mac + Android HotSync both honour this window.
+const mailSyncDays = 5
+
 func MailPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Location) (PullResult, error) {
 	res := PullResult{OutPath: outPath}
 	rows, err := c.ListByType(userID, "mail")
@@ -402,9 +406,16 @@ func MailPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Location
 	type backfill struct{ id, dev string }
 	var backfills []backfill
 
+	// Only the last few days of mail are written to the Palm — old digests are
+	// noise on a storage-limited handheld. The cloud keeps the full history.
+	cutoff := time.Now().Add(-mailSyncDays * 24 * time.Hour)
+
 	mails := make([]maildb.Mail, 0, len(rows))
 	for _, r := range rows {
 		if r.DeviceID != nil && !strings.HasPrefix(*r.DeviceID, "mail:") {
+			continue
+		}
+		if r.CreatedAt != nil && r.CreatedAt.Before(cutoff) {
 			continue
 		}
 		var uid uint32

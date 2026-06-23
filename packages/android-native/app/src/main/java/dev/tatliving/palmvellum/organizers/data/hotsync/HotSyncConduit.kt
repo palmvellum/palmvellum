@@ -31,6 +31,7 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 /**
  * The cloud half of a USB HotSync: push the device's Memo Pad + To Do databases
@@ -490,8 +491,13 @@ class HotSyncConduit(
         var maxUid = maxDeviceUid(rows, "mail:")
         val backfills = ArrayList<Pair<String, String>>()
         val mails = ArrayList<Mail>()
+        // Only the last few days of mail go to the Palm — old digests are noise on
+        // a storage-limited handheld. The cloud keeps the full history.
+        val cutoff = Instant.now().minus(MAIL_SYNC_DAYS.toLong(), ChronoUnit.DAYS)
         for (r in rows) {
             if (r.deviceId != null && !r.deviceId.startsWith("mail:")) continue
+            val created = parseInstant(r.createdAt)
+            if (created != null && created.isBefore(cutoff)) continue
             val uid: Int
             if (r.deviceId != null) {
                 uid = r.deviceId.removePrefix("mail:").toIntOrNull(16) ?: 0
@@ -502,7 +508,7 @@ class HotSyncConduit(
             val subject = metaString(r.metadata, "mail_subject")?.ifEmpty { null } ?: "(digest)"
             val from = metaString(r.metadata, "mail_source_name") ?: ""
             val m = Mail(uniqueId = uid, category = 0, subject = subject, from = from, body = r.body)
-            parseInstant(r.createdAt)?.atZone(zone)?.let { t ->
+            created?.atZone(zone)?.let { t ->
                 m.year = t.year; m.month = t.monthValue; m.day = t.dayOfMonth
                 m.hour = t.hour; m.min = t.minute
             }
@@ -557,5 +563,8 @@ class HotSyncConduit(
     companion object {
         /** Divides the user's question from the AI answer inside a single memo. */
         const val AI_SEPARATOR = "\n-- AI --\n"
+
+        /** How many days of mail history are written to the Palm (cloud keeps all). */
+        const val MAIL_SYNC_DAYS = 5
     }
 }

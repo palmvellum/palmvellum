@@ -506,58 +506,49 @@ private fun DrawSketch(
             )
         },
     ) { padding ->
-        // Two-pane: text input on the left, a square grid drawing area on the right.
-        Row(Modifier.fillMaxSize().padding(padding)) {
-            // Left column — text input + drawing controls.
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState())
-                    .padding(12.dp),
-            ) {
-                error?.let { err ->
-                    Text(
-                        "(!) $err",
-                        color = PalmRed, fontSize = 13.sp,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    )
-                }
-                PalmField(I18n.t("notepad.titleOptional"), title, { title = it })
-                Spacer(Modifier.height(8.dp))
-                // Toolbar
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        I18n.t("notepad.undo"),
-                        color = if (hasInk) PalmTitleBar else PalmInkMute,
-                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clickable(enabled = hasInk) {
-                                if (current.isNotEmpty()) current = emptyList()
-                                else if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex)
-                            }
-                            .padding(6.dp),
-                    )
-                    Spacer(Modifier.width(20.dp))
-                    Text(
-                        I18n.t("notepad.clear"),
-                        color = if (hasInk) PalmRed else PalmInkMute,
-                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clickable(enabled = hasInk) { strokes.clear(); current = emptyList() }
-                            .padding(6.dp),
-                    )
-                }
-                if (saving) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(I18n.t("notepad.saving"), color = PalmInkMute, fontSize = 13.sp)
-                }
+        // The text input + drawing controls (shared by both layouts).
+        val controls: @Composable () -> Unit = {
+            error?.let { err ->
+                Text(
+                    "(!) $err",
+                    color = PalmRed, fontSize = 13.sp,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
             }
-            // Right column — square graph-paper drawing surface.
-            BoxWithConstraints(
-                modifier = Modifier.weight(1f).fillMaxHeight().padding(12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+            PalmField(I18n.t("notepad.titleOptional"), title, { title = it })
+            Spacer(Modifier.height(8.dp))
+            // Toolbar
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    I18n.t("notepad.undo"),
+                    color = if (hasInk) PalmTitleBar else PalmInkMute,
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clickable(enabled = hasInk) {
+                            if (current.isNotEmpty()) current = emptyList()
+                            else if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex)
+                        }
+                        .padding(6.dp),
+                )
+                Spacer(Modifier.width(20.dp))
+                Text(
+                    I18n.t("notepad.clear"),
+                    color = if (hasInk) PalmRed else PalmInkMute,
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clickable(enabled = hasInk) { strokes.clear(); current = emptyList() }
+                        .padding(6.dp),
+                )
+            }
+            if (saving) {
+                Spacer(Modifier.height(8.dp))
+                Text(I18n.t("notepad.saving"), color = PalmInkMute, fontSize = 13.sp)
+            }
+        }
+        // The square graph-paper drawing surface (sized to the smaller side of
+        // whatever space [mod] gives it).
+        val canvas: @Composable (Modifier) -> Unit = { mod ->
+            BoxWithConstraints(modifier = mod, contentAlignment = Alignment.Center) {
                 val side = if (maxWidth < maxHeight) maxWidth else maxHeight
                 Box(
                     modifier = Modifier
@@ -618,6 +609,28 @@ private fun DrawSketch(
                         }
                     }
                 }
+            }
+        }
+
+        if (BuildConfig.COSMO) {
+            // Cosmo landscape: controls on the left, square canvas on the right.
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(12.dp),
+                ) { controls() }
+                canvas(Modifier.weight(1f).fillMaxHeight().padding(12.dp))
+            }
+        } else {
+            // Portrait: controls stacked above a full-width square canvas that
+            // fills the remaining height — no wasted space, no cramped pane.
+            Column(Modifier.fillMaxSize().padding(padding).padding(12.dp)) {
+                controls()
+                Spacer(Modifier.height(12.dp))
+                canvas(Modifier.fillMaxWidth().weight(1f))
             }
         }
     }

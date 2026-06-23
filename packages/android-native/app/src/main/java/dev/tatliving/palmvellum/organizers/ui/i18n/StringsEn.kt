@@ -26,6 +26,7 @@ val STR_EN: Map<String, String> = mapOf(
     "nav.address" to "Address",
     "nav.todo" to "To Do",
     "nav.memo" to "Memo",
+    "nav.mail" to "Mail",
 
     // ── Launcher ─────────────────────────────────────────────────────
     "launcher.title" to "Applications",

@@ -50,11 +50,11 @@ import dev.tatliving.palmvellum.organizers.ui.theme.PalmTitleBar
 /** One of the four classic Palm Pilot silkscreen hardware buttons. */
 private data class HardwareButton(val route: String, val glyph: String, val labelKey: String)
 
-// Left-to-right order on the original Palm Pilot hardware.
+// The four core apps docked in the button bar / rail: Date Book, To Do, Mail, Memo.
 private val HARDWARE_BUTTONS = listOf(
     HardwareButton(Routes.DATEBOOK, "◫", "nav.datebook"),
-    HardwareButton(Routes.ADDRESS, "✦", "nav.address"),
     HardwareButton(Routes.TODO, "☑", "nav.todo"),
+    HardwareButton(Routes.MAIL, "✉", "nav.mail"),
     HardwareButton(Routes.MEMO, "▤", "nav.memo"),
 )
 
@@ -287,33 +287,66 @@ private fun PalmButtonRow(navController: NavHostController, currentRoute: String
                 .height(66.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Home / Applications key (leftmost, compact) — back to the launcher.
+            BottomBarButton(
+                glyph = "⌂",
+                label = I18n.t("common.home"),
+                selected = currentRoute == Routes.LAUNCHER,
+                modifier = Modifier.width(56.dp),
+                onClick = {
+                    navController.navigate(Routes.LAUNCHER) {
+                        popUpTo(Routes.LAUNCHER) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+            )
             HARDWARE_BUTTONS.forEach { btn ->
-                val selected = btn.route == currentRoute
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(5.dp)
-                        .background(
-                            color = if (selected) Color(0x33FFFFFF) else Color.Transparent,
-                            shape = RoundedCornerShape(6.dp),
-                        )
-                        .clickable {
-                            if (!selected) {
-                                navController.navigate(btn.route) {
-                                    popUpTo(Routes.LAUNCHER)
-                                    launchSingleTop = true
-                                }
-                            }
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(text = btn.glyph, color = PalmOnDark, fontSize = 20.sp)
-                    Spacer(Modifier.height(2.dp))
-                    Text(text = I18n.t(btn.labelKey), color = PalmOnDark, fontSize = 11.sp, maxLines = 1)
-                }
+                BottomBarButton(
+                    glyph = btn.glyph,
+                    label = I18n.t(btn.labelKey),
+                    selected = btn.route == currentRoute,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        navController.navigate(btn.route) {
+                            popUpTo(Routes.LAUNCHER)
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
         }
+    }
+}
+
+/** A glyph+label button in the standard portrait bottom bar. */
+@Composable
+private fun BottomBarButton(
+    glyph: String,
+    label: String,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(5.dp)
+            .background(
+                color = if (selected) Color(0x33FFFFFF) else Color.Transparent,
+                shape = RoundedCornerShape(6.dp),
+            )
+            .clickable(enabled = !selected, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(text = glyph, color = PalmOnDark, fontSize = 20.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            color = PalmOnDark,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

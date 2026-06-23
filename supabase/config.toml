@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.fetch-mail-source]
 verify_jwt = false
+
+[functions.summarize-upload]
+verify_jwt = false
+
+[functions.process-sketch]
+verify_jwt = false
+
+[functions.ai-agent]
+verify_jwt = false

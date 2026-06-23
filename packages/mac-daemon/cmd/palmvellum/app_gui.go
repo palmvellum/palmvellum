@@ -64,13 +64,14 @@ type gui struct {
 
 	started bool // guards one-time startup of background loops
 
-	// USB auto-listener state (guarded by usbMu)
+	// USB listener state (guarded by usbMu)
 	usbMu        sync.Mutex
 	installQueue []string // pending .prc/.pdb to install on the next HotSync
-	wantInstall  bool     // next HotSync should install the queue, not sync
-	connected    bool     // a HotSync session is mid-transfer (don't interrupt)
-	curCancel    context.CancelFunc
+	wantInstall  bool     // this run should install the queue, not sync
+	connected    bool     // a HotSync session is mid-transfer
+	usbBusy      bool     // a listen session is active
 	queueBox     *fyne.Container
+	listenBtn    *widget.Button
 }
 
 func newGUI(ctx context.Context) *gui {
@@ -185,7 +186,7 @@ func (g *gui) showMain() {
 	}
 	_ = g.status.Set("Logged in: " + sess.Email)
 	_ = g.cardLbl.Set("No card detected")
-	_ = g.usbStatus.Set("● Starting USB listener…")
+	_ = g.usbStatus.Set("● Idle — click the button, then press HotSync on your Palm")
 	_ = g.logText.Set("Ready. Press the HotSync button on your Palm to sync.\n")
 
 	statusLbl := widget.NewLabelWithData(g.status)
@@ -197,14 +198,18 @@ func (g *gui) showMain() {
 	})
 	waitChk.SetChecked(g.waitAI)
 
-	// ── Primary: cable HotSync — no button; the app listens continuously
-	// and runs the moment the user presses HotSync on the device. ──
+	// ── Primary: cable HotSync ──
+	// Two steps: click to arm the Mac's listener, THEN press HotSync on the
+	// Palm. (Each press re-enumerates the device, so arming fresh per sync is
+	// more reliable than a permanent listener.)
 	usbStatusLbl := widget.NewLabelWithData(g.usbStatus)
 	usbStatusLbl.TextStyle = fyne.TextStyle{Bold: true}
 	usbStatusLbl.Wrapping = fyne.TextWrapWord
+	g.listenBtn = widget.NewButton("Sync over USB (HotSync)", func() { go g.doListenOnce() })
+	g.listenBtn.Importance = widget.HighImportance
 	hotsyncHint := widget.NewLabel(
-		"PalmVellum is always listening. Just press the HotSync button on " +
-			"your Palm and it syncs automatically.")
+		"Two steps: ① click the button to start the Mac listening, then ② press " +
+			"the HotSync button on your Palm.")
 	hotsyncHint.Wrapping = fyne.TextWrapWord
 
 	// Drag-and-drop install zone: a queue you build up (drop more, remove
@@ -244,7 +249,7 @@ func (g *gui) showMain() {
 	cardHint.Wrapping = fyne.TextWrapWord
 
 	// Two pages: cable HotSync (primary) and Memory Stick card sync.
-	usbTab := container.NewVBox(usbStatusLbl, hotsyncHint, dropZone)
+	usbTab := container.NewVBox(g.listenBtn, usbStatusLbl, hotsyncHint, dropZone)
 	cardTab := container.NewVBox(cardHint, cardLbl, autoChk, syncBtn)
 	tabs := container.NewAppTabs(
 		container.NewTabItem("USB HotSync", container.NewPadded(usbTab)),
@@ -290,11 +295,10 @@ func (g *gui) showMain() {
 		g.addToQueue(files)
 	})
 
-	// Start background loops once (showMain may run again on re-login).
+	// Start the card watcher once (showMain may run again on re-login).
 	if !g.started {
 		g.started = true
 		go (&cardwatch.Watcher{OnInsert: g.onCardInsert}).Run(g.ctx)
-		go g.autoHotSyncLoop()
 	}
 }
 
@@ -354,92 +358,96 @@ func (g *gui) doSync() {
 	g.appendLog("⏏️ Ejected " + card.Volume + " — safe to remove")
 }
 
-// autoHotSyncLoop keeps a USB HotSync listener armed for the app's whole
-// lifetime: the user never clicks anything here — they just press HotSync on
-// the Palm and the matching action runs. Each palm-sync session is one-shot
-// (it stops after a connect→disconnect), so we re-arm in a loop. If files
-// are queued, the press installs them; otherwise it runs a cloud sync.
-func (g *gui) autoHotSyncLoop() {
-	for {
-		if g.ctx.Err() != nil {
+// doListenOnce arms the Mac's USB HotSync listener for one session: the user
+// clicks the button (this), then presses HotSync on the Palm. Arming fresh per
+// sync (rather than a permanent listener) is reliable because each HotSync
+// press re-enumerates the device. If files are queued the session installs
+// them; otherwise it runs a cloud sync. Times out if no press arrives.
+func (g *gui) doListenOnce() {
+	g.usbMu.Lock()
+	if g.usbBusy {
+		g.usbMu.Unlock()
+		return
+	}
+	g.usbBusy = true
+	install := g.wantInstall && len(g.installQueue) > 0
+	files := append([]string(nil), g.installQueue...)
+	g.connected = false
+	g.usbMu.Unlock()
+
+	fyne.Do(func() {
+		if g.listenBtn != nil {
+			g.listenBtn.Disable()
+		}
+	})
+	defer func() {
+		g.usbMu.Lock()
+		g.usbBusy = false
+		g.usbMu.Unlock()
+		_ = g.usbStatus.Set("● Idle — click the button, then press HotSync on your Palm")
+		g.refreshInstallUI() // restores button label + re-enables
+	}()
+
+	if _, err := g.ac.Current(g.ctx); err != nil {
+		g.appendLog("Please log in again.")
+		fyne.Do(g.showLogin)
+		return
+	}
+
+	// Give the user time to reach the Palm and press HotSync, then give up so
+	// the button frees again.
+	sctx, cancel := context.WithTimeout(g.ctx, 120*time.Second)
+	defer cancel()
+
+	var opts hotsync.Options
+	var stage string
+	if install {
+		_ = g.usbStatus.Set(fmt.Sprintf("● Listening — now press HotSync to INSTALL %d file(s)…", len(files)))
+		opts = hotsync.Options{InstallFiles: files, Log: g.usbLog}
+	} else {
+		_ = g.usbStatus.Set("● Listening — now press the HotSync button on your Palm…")
+		var err error
+		stage, err = os.MkdirTemp("", "palmvellum-hotsync-")
+		if err != nil {
+			g.appendLog("❌ " + err.Error())
 			return
 		}
-		if _, err := g.ac.Current(g.ctx); err != nil {
-			_ = g.usbStatus.Set("● Log in to enable USB HotSync")
-			if !sleepCtx(g.ctx, 2*time.Second) {
-				return
-			}
-			continue
+		backup := ""
+		if home, e := os.UserHomeDir(); e == nil {
+			backup = filepath.Join(home, ".local", "share", "palmvellum", "backups",
+				"hotsync-"+time.Now().Format("20060102-150405"))
 		}
+		var aiWait time.Duration
+		if g.waitAI {
+			aiWait = 120 * time.Second
+		}
+		opts = hotsync.Options{StageDir: stage, BackupDir: backup, AIWait: aiWait, Log: g.usbLog}
+	}
 
-		g.usbMu.Lock()
-		install := g.wantInstall && len(g.installQueue) > 0
-		files := append([]string(nil), g.installQueue...)
-		sctx, cancel := context.WithCancel(g.ctx)
-		g.curCancel = cancel
-		g.connected = false
-		g.usbMu.Unlock()
+	err := hotsync.RunSync(sctx, opts)
+	if stage != "" {
+		_ = os.RemoveAll(stage)
+	}
 
-		var opts hotsync.Options
-		var stage string
-		if install {
-			_ = g.usbStatus.Set(fmt.Sprintf("● Press HotSync on your Palm to INSTALL %d file(s)", len(files)))
-			opts = hotsync.Options{InstallFiles: files, Log: g.usbLog}
+	g.usbMu.Lock()
+	wasConnected := g.connected
+	g.usbMu.Unlock()
+
+	switch {
+	case err != nil:
+		if wasConnected {
+			g.appendLog("❌ " + err.Error())
 		} else {
-			_ = g.usbStatus.Set("● Listening — press the HotSync button on your Palm")
-			var err error
-			stage, err = os.MkdirTemp("", "palmvellum-hotsync-")
-			if err != nil {
-				g.appendLog("❌ " + err.Error())
-				cancel()
-				if !sleepCtx(g.ctx, 2*time.Second) {
-					return
-				}
-				continue
-			}
-			backup := ""
-			if home, e := os.UserHomeDir(); e == nil {
-				backup = filepath.Join(home, ".local", "share", "palmvellum", "backups",
-					"hotsync-"+time.Now().Format("20060102-150405"))
-			}
-			var aiWait time.Duration
-			if g.waitAI {
-				aiWait = 120 * time.Second
-			}
-			opts = hotsync.Options{StageDir: stage, BackupDir: backup, AIWait: aiWait, Log: g.usbLog}
+			g.appendLog("⏱️ No HotSync detected — click the button again, then press HotSync on the Palm.")
 		}
-
-		err := hotsync.RunSync(sctx, opts)
-		if stage != "" {
-			_ = os.RemoveAll(stage)
-		}
-
+	case install:
+		g.appendLog("⏏️ Install finished — safe to disconnect.")
 		g.usbMu.Lock()
-		wasConnected := g.connected
-		g.curCancel = nil
+		g.installQueue = nil
+		g.wantInstall = false
 		g.usbMu.Unlock()
-
-		switch {
-		case sctx.Err() != nil:
-			// Cancelled to re-arm (e.g. the queue changed) — silent.
-		case err != nil:
-			if wasConnected { // ignore "no device" waits; surface real sync errors
-				g.appendLog("❌ " + err.Error())
-			}
-		case install:
-			g.appendLog("⏏️ Install finished — safe to disconnect.")
-			g.usbMu.Lock()
-			g.installQueue = nil
-			g.wantInstall = false
-			g.usbMu.Unlock()
-			g.refreshInstallUI()
-		default:
-			g.appendLog("⏏️ HotSync finished — safe to disconnect.")
-		}
-
-		if !sleepCtx(g.ctx, 600*time.Millisecond) {
-			return
-		}
+	default:
+		g.appendLog("⏏️ HotSync finished — safe to disconnect.")
 	}
 }
 
@@ -470,19 +478,8 @@ func (g *gui) usbLog(line string) {
 	g.appendLog(line)
 }
 
-// rearm cancels the currently-waiting listener (if it's idle, not mid-sync)
-// so the loop immediately re-spawns with the new mode/queue.
-func (g *gui) rearm() {
-	g.usbMu.Lock()
-	c := g.curCancel
-	idle := !g.connected
-	g.usbMu.Unlock()
-	if c != nil && idle {
-		c()
-	}
-}
-
-// addToQueue appends dropped files (de-duped) and re-arms into install mode.
+// addToQueue appends dropped files (de-duped). Queued files install on the
+// next listen session instead of a sync.
 func (g *gui) addToQueue(files []string) {
 	g.usbMu.Lock()
 	for _, f := range files {
@@ -500,10 +497,9 @@ func (g *gui) addToQueue(files []string) {
 	g.wantInstall = len(g.installQueue) > 0
 	g.usbMu.Unlock()
 	g.refreshInstallUI()
-	g.rearm()
 }
 
-// removeFromQueue drops one file (by path) and re-arms.
+// removeFromQueue drops one file (by path).
 func (g *gui) removeFromQueue(path string) {
 	g.usbMu.Lock()
 	out := g.installQueue[:0]
@@ -516,23 +512,23 @@ func (g *gui) removeFromQueue(path string) {
 	g.wantInstall = len(g.installQueue) > 0
 	g.usbMu.Unlock()
 	g.refreshInstallUI()
-	g.rearm()
 }
 
-// clearQueue empties the queue and re-arms back into sync mode.
+// clearQueue empties the queue.
 func (g *gui) clearQueue() {
 	g.usbMu.Lock()
 	g.installQueue = nil
 	g.wantInstall = false
 	g.usbMu.Unlock()
 	g.refreshInstallUI()
-	g.rearm()
 }
 
-// refreshInstallUI rebuilds the queued-files list to match installQueue.
+// refreshInstallUI rebuilds the queued-files list and updates the primary
+// button (label = sync vs install N; disabled while a session is running).
 func (g *gui) refreshInstallUI() {
 	g.usbMu.Lock()
 	files := append([]string(nil), g.installQueue...)
+	busy := g.usbBusy
 	g.usbMu.Unlock()
 	fyne.Do(func() {
 		g.queueBox.RemoveAll()
@@ -544,18 +540,19 @@ func (g *gui) refreshInstallUI() {
 				widget.NewLabel("• "+filepath.Base(f))))
 		}
 		g.queueBox.Refresh()
+		if g.listenBtn != nil {
+			if n := len(files); n > 0 {
+				g.listenBtn.SetText(fmt.Sprintf("Install %d file(s) via HotSync", n))
+			} else {
+				g.listenBtn.SetText("Sync over USB (HotSync)")
+			}
+			if busy {
+				g.listenBtn.Disable()
+			} else {
+				g.listenBtn.Enable()
+			}
+		}
 	})
-}
-
-// sleepCtx sleeps for d unless ctx is cancelled first; returns false if
-// ctx was cancelled (caller should stop).
-func sleepCtx(ctx context.Context, d time.Duration) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case <-time.After(d):
-		return true
-	}
 }
 
 // ─────────────────────────── about / help ───────────────────────────

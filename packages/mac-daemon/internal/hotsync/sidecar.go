@@ -25,7 +25,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -76,8 +78,30 @@ func RunSync(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	// An earlier sidecar that was orphaned (e.g. the app was force-quit
+	// mid-listen) keeps holding the USB device, so a fresh listen can't
+	// claim it. Clear any such leftovers for THIS app's conduit before
+	// starting. The busy guard upstream means no legitimate session is
+	// running at this point.
+	if n := killStaleSidecars(rt.Conduit); n > 0 {
+		if opts.Log != nil {
+			opts.Log(fmt.Sprintf("Cleared %d stale USB listener(s).", n))
+		}
+		time.Sleep(300 * time.Millisecond) // let libusb release the device
+	}
+
 	cmd := exec.CommandContext(ctx, rt.Node, rt.CLI, "run", rt.Conduit, "--usb")
 	cmd.Env = os.Environ()
+	// Own process group + group-kill on cancel, so a timeout/cancel takes
+	// the node process (and any children) down together instead of leaving
+	// an orphan holding the USB port.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		if cmd.Process != nil {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
+		return nil
+	}
 
 	if len(opts.InstallFiles) > 0 {
 		// Install-only: push the given files, nothing else.
@@ -223,6 +247,26 @@ func devSearchBases(exe string) []string {
 		add(filepath.Join(cwd, "packages", "mac-daemon"))
 	}
 	return bases
+}
+
+// killStaleSidecars force-kills any leftover sidecar processes running this
+// app's conduit (orphans from a prior crashed/force-quit run that are still
+// holding the USB device). Returns how many were killed. Matched narrowly by
+// the conduit path so it never touches unrelated processes.
+func killStaleSidecars(conduit string) int {
+	out, err := exec.Command("pgrep", "-f", conduit).Output()
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, f := range strings.Fields(string(out)) {
+		if pid, e := strconv.Atoi(f); e == nil && pid > 0 {
+			if syscall.Kill(pid, syscall.SIGKILL) == nil {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // DevicePresent reports whether a Palm/Clié is currently enumerated on the

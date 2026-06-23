@@ -294,6 +294,25 @@
     await loadAll();
   }
 
+  async function deleteAllMail() {
+    if (mails.length === 0 || !authState.userId) return;
+    if (!(await palmConfirm("Delete all mail in the inbox? This can't be undone.", { danger: true })))
+      return;
+    // Soft-delete every mail record (not just the 200 most recent shown).
+    const { error } = await supabase
+      .from('records')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('user_id', authState.userId)
+      .eq('type', 'mail')
+      .is('deleted_at', null);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    activeMailId = null;
+    await loadAll();
+  }
+
   function openMail(m: MailRecord) {
     activeMailId = m.id;
   }
@@ -554,6 +573,9 @@
   <section class="inbox">
     <header class="sec-h">
       <h3>inbox ({mails.length})</h3>
+      {#if mails.length > 0}
+        <button class="link danger" onclick={deleteAllMail}>delete all</button>
+      {/if}
     </header>
     {#if loading}
       <p class="status">loading…</p>

@@ -28,13 +28,13 @@ class MainActivity : ComponentActivity() {
      * Bumped each time the app is launched (or brought forward) by plugging in a
      * Palm/CLIE cradle — the USB_DEVICE_ATTACHED intent. The Compose root watches
      * this and jumps straight to the HotSync screen so the user can press Start
-     * without hunting for the tile. Cosmo-only (the standard build has no tile).
+     * without hunting for the tile. Both builds have HotSync, so both auto-open.
      */
     var hotSyncRequest by mutableStateOf(0)
         private set
 
     private fun consumeUsbAttach(intent: Intent?) {
-        if (BuildConfig.COSMO && intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
+        if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
             hotSyncRequest++
         }
     }

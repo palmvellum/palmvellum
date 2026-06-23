@@ -51,11 +51,10 @@ private val APPS = listOf(
     LauncherApp(Routes.NOTEPAD, "✎", "app.notepad.label", "app.notepad.sub"),
     LauncherApp(Routes.EXPENSE, "¤", "app.expense.label", "app.expense.sub"),
     LauncherApp(Routes.MAIL, "✉", "app.mail.label", "app.mail.sub"),
-)
-
-// USB HotSync is Cosmo-only: the Cosmo's USB-C port hosts a docked Palm/CLIE
-// to sync over a cradle cable, no desktop needed. Hidden on the portrait build.
-private val COSMO_APPS = listOf(
+    // USB HotSync: host a docked Palm/CLIE over this device's USB host port and
+    // sync over the cradle cable, no desktop needed. Shown on both builds —
+    // portrait phones with USB-OTG can sync too (the screen reports gracefully
+    // if the device has no USB host support).
     LauncherApp(Routes.HOTSYNC, "⇄", "app.hotsync.label", "app.hotsync.sub"),
 )
 
@@ -78,7 +77,7 @@ fun LauncherScreen(navController: NavHostController) {
         // fill it (adaptive ~160dp tiles => ~4 columns at 2160x1080).
         val columns = if (BuildConfig.COSMO) GridCells.Adaptive(160.dp) else GridCells.Fixed(2)
         val tileHeight = if (BuildConfig.COSMO) 140.dp else 180.dp
-        val apps = if (BuildConfig.COSMO) APPS + COSMO_APPS else APPS
+        val apps = APPS
         Column(
             modifier = Modifier
                 .fillMaxSize()

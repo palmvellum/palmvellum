@@ -1,6 +1,7 @@
 package dev.tatliving.palmvellum.organizers.data.hotsync
 
 import dev.tatliving.palmvellum.organizers.data.card.PalmDb
+import dev.tatliving.palmvellum.organizers.data.card.PalmInstallParser
 import dev.tatliving.palmvellum.organizers.data.card.PalmRecord
 
 /**
@@ -129,6 +130,39 @@ class HotSyncSession(transport: PalmTransport, private val stack: UsbStack = Usb
      * each one. The serial stack has no such signal, so it always reports alive.
      */
     fun linkAlive(): Boolean = (dlpTransport as? NetSyncStream)?.dead != true
+
+    /**
+     * Install a `.prc`/`.pdb` file onto the device: delete any existing database
+     * of the same name, create it, write its AppInfo, then write every resource
+     * (PRC) or record (PDB). Returns the installed database name; throws on
+     * failure. Reports progress via [log].
+     */
+    fun installFile(bytes: ByteArray, log: (String) -> Unit): String {
+        val f = PalmInstallParser.parse(bytes)
+        val kind = if (f.isResource) "prc" else "pdb"
+        log("Installing ${f.name} ($kind, ${f.entryCount} ${if (f.isResource) "resource" else "record"}(s))")
+        dlp.deleteDb(f.name)
+        val handle = dlp.createDb(f.name, f.creator, f.type, f.attributes, f.version)
+        try {
+            f.appInfo?.takeIf { it.isNotEmpty() }?.let { dlp.writeAppBlock(handle, it) }
+            if (f.isResource) {
+                f.resources.forEachIndexed { i, r ->
+                    log("${f.name}: resource ${i + 1}/${f.resources.size}")
+                    dlp.writeResource(handle, r.type, r.id, r.data)
+                }
+            } else {
+                val recs = f.pdb!!.records
+                recs.forEachIndexed { i, r ->
+                    log("${f.name}: record ${i + 1}/${recs.size}")
+                    // Keep the 'secret' flag + category; drop transient dirty/busy/delete bits.
+                    dlp.writeRecord(handle, r.uniqueId, r.attributes and 0x10, r.attributes and 0x0F, r.data)
+                }
+            }
+        } finally {
+            dlp.closeDb(handle)
+        }
+        return f.name
+    }
 
     fun log(text: String) = dlp.addSyncLogEntry(text)
 

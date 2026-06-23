@@ -65,6 +65,9 @@ val STR_EN: Map<String, String> = mapOf(
     "hotsync.savedlog" to "Log saved to Memo Pad — open Memo on the web or another device to copy it.",
     "hotsync.savelogfail" to "Could not save log:",
     "hotsync.nolog" to "Nothing to save yet — run a sync first.",
+    "hotsync.install" to "Install .prc / .pdb file…",
+    "hotsync.installqueued" to "To install: %s",
+    "hotsync.installclear" to "Clear install queue",
 
     // ── Scaffold ─────────────────────────────────────────────────────
     "scaffold.placeholder" to "Pick an item from the list, or tap + new.",

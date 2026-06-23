@@ -125,6 +125,51 @@ class Dlp(private val transport: DlpTransport) {
         runCatching { execOk(CMD_CLOSE_DB, listOf(Arg(0x20, byteArrayOf(handle.toByte())))) }
     }
 
+    /** Delete a database by name (best-effort: a missing DB is fine). */
+    fun deleteDb(name: String) {
+        val nameBytes = name.toByteArray(Charsets.US_ASCII)
+        val data = ByteArray(2 + nameBytes.size + 1)
+        // data[0] = cardNo 0, data[1] = padding 0, then NUL-terminated name.
+        nameBytes.copyInto(data, 2)
+        runCatching { exec(CMD_DELETE_DB, listOf(Arg(0x20, data))) }
+    }
+
+    /**
+     * Create a database on card 0 and return its handle. [creator]/[type] are
+     * 4-byte tags, [flags] the database attribute word, [version] the DB version.
+     */
+    fun createDb(name: String, creator: ByteArray, type: ByteArray, flags: Int, version: Int): Int {
+        val nameBytes = name.toByteArray(Charsets.US_ASCII)
+        val out = ByteArrayOutputStream()
+        out.write(tag4(creator))
+        out.write(tag4(type))
+        out.write(0) // cardNo
+        out.write(0) // padding1
+        out.write(flags ushr 8); out.write(flags and 0xFF)       // dbFlags (BE)
+        out.write(version ushr 8); out.write(version and 0xFF)   // version (BE)
+        out.write(nameBytes); out.write(0)                       // NUL-terminated name
+        val r = exec(CMD_CREATE_DB, listOf(Arg(0x20, out.toByteArray())))
+        if (!r.ok) throw HotSyncException("createDb($name) failed: error ${r.error}")
+        return r.firstArg()?.data?.firstOrNull()?.toInt()?.and(0xFF)
+            ?: throw HotSyncException("createDb($name): no handle in response")
+    }
+
+    /** Write one resource (.prc) into an open database. */
+    fun writeResource(handle: Int, type: ByteArray, id: Int, data: ByteArray) {
+        val out = ByteArrayOutputStream()
+        out.write(handle)
+        out.write(0) // padding1
+        out.write(tag4(type))
+        out.write(id ushr 8); out.write(id and 0xFF)            // resource id (BE)
+        out.write(data.size ushr 8); out.write(data.size and 0xFF) // data length (BE)
+        out.write(data)
+        execOk(CMD_WRITE_RESOURCE, listOf(Arg(0x20, out.toByteArray())))
+    }
+
+    /** Coerce a tag to exactly 4 bytes (space-padded / truncated). */
+    private fun tag4(t: ByteArray): ByteArray =
+        if (t.size == 4) t else ByteArray(4) { i -> if (i < t.size) t[i] else ' '.code.toByte() }
+
     /**
      * Number of records in an open database (ReadOpenDBInfo, DLP 1.0 — supported
      * on every Palm OS). Returns -1 if the device won't report it, signalling the
@@ -232,11 +277,14 @@ class Dlp(private val transport: DlpTransport) {
         private const val CMD_READ_USER_INFO = 0x10
         private const val CMD_READ_SYS_INFO = 0x12
         private const val CMD_OPEN_DB = 0x17
+        private const val CMD_CREATE_DB = 0x18
         private const val CMD_CLOSE_DB = 0x19
+        private const val CMD_DELETE_DB = 0x1A
         private const val CMD_READ_APP_BLOCK = 0x1B
         private const val CMD_WRITE_APP_BLOCK = 0x1C
         private const val CMD_READ_RECORD = 0x20
         private const val CMD_WRITE_RECORD = 0x21
+        private const val CMD_WRITE_RESOURCE = 0x24
         private const val CMD_RESET_SYNC_FLAGS = 0x27
         private const val CMD_ADD_SYNC_LOG = 0x2A
         private const val CMD_READ_OPEN_DB_INFO = 0x2B

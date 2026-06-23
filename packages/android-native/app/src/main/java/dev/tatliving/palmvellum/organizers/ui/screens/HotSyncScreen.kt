@@ -1,7 +1,12 @@
 package dev.tatliving.palmvellum.organizers.ui.screens
 
+import android.content.ContentResolver
 import android.content.Context
 import android.hardware.usb.UsbManager
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,6 +77,8 @@ fun HotSyncScreen(navController: NavHostController) {
     val log = remember { mutableListOf<String>().toMutableStateList() }
     var running by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    // .prc/.pdb files queued to install onto the Palm during the next sync.
+    val installs = remember { mutableStateListOf<InstallItem>() }
 
     // Keep the log scrolled to the newest line.
     LaunchedEffect(log.size) {
@@ -78,6 +86,14 @@ fun HotSyncScreen(navController: NavHostController) {
     }
 
     fun line(s: String) { log.add(s) }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNullOrEmpty()) return@rememberLauncherForActivityResult
+        scope.launch {
+            val items = withContext(Dispatchers.IO) { uris.mapNotNull { runCatching { readFile(context.contentResolver, it) }.getOrNull() } }
+            installs.addAll(items)
+        }
+    }
 
     PalmScaffold(
         title = I18n.t("hotsync.title"),
@@ -121,9 +137,11 @@ fun HotSyncScreen(navController: NavHostController) {
                     .clickable(enabled = enabled) {
                         running = true
                         log.clear()
+                        val toInstall = installs.toList()
                         scope.launch {
                             // SnapshotStateList is safe to mutate off the main thread.
-                            withContext(Dispatchers.IO) { runHotSync(context) { msg -> line(msg) } }
+                            withContext(Dispatchers.IO) { runHotSync(context, toInstall) { msg -> line(msg) } }
+                            installs.clear()
                             running = false
                         }
                     }
@@ -134,6 +152,36 @@ fun HotSyncScreen(navController: NavHostController) {
                     if (running) I18n.t("hotsync.syncing") else I18n.t("hotsync.start"),
                     color = PalmOnDark,
                     fontWeight = FontWeight.Bold,
+                )
+            }
+
+            // Queue .prc/.pdb files to install onto the Palm on the next Start.
+            Spacer(Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PalmSurfaceLo)
+                    .border(1.dp, PalmLine)
+                    .clickable(enabled = !running) { picker.launch(arrayOf("*/*")) }
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(I18n.t("hotsync.install"), color = PalmInk, fontWeight = FontWeight.Bold)
+            }
+            if (installs.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    I18n.t("hotsync.installqueued", installs.joinToString(", ") { it.name }),
+                    color = PalmInkMute,
+                    fontSize = 12.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    I18n.t("hotsync.installclear"),
+                    color = PalmInkMute,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable(enabled = !running) { installs.clear() },
                 )
             }
 
@@ -209,8 +257,22 @@ private suspend fun saveLogToMemo(logText: String): String? = try {
     e.message ?: e.toString()
 }
 
+/** A .prc/.pdb file the user queued to install onto the Palm. */
+private class InstallItem(val name: String, val bytes: ByteArray)
+
+/** Read a picked document's display name + bytes. */
+private fun readFile(resolver: ContentResolver, uri: Uri): InstallItem {
+    var name = "file"
+    resolver.query(uri, null, null, null, null)?.use { c ->
+        val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (idx >= 0 && c.moveToFirst()) c.getString(idx)?.let { name = it }
+    }
+    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+    return InstallItem(name, bytes)
+}
+
 /** Run one full HotSync, streaming progress to [log]. Call off the main thread. */
-private suspend fun runHotSync(context: Context, log: (String) -> Unit) {
+private suspend fun runHotSync(context: Context, installs: List<InstallItem> = emptyList(), log: (String) -> Unit) {
     val manager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
     if (manager == null) { log(I18n.t("hotsync.nousb")); return }
 
@@ -243,6 +305,15 @@ private suspend fun runHotSync(context: Context, log: (String) -> Unit) {
         session.open()
         val cloud = PalmCloud(Graph.rest, uid)
         HotSyncConduit(cloud).run(session, log)
+        // Install any queued .prc/.pdb files (best-effort, one failure per file).
+        for (item in installs) {
+            try {
+                val name = session.installFile(item.bytes, log)
+                log("Installed $name")
+            } catch (e: Exception) {
+                log("Install ${item.name} failed — ${e.message ?: e.toString()}")
+            }
+        }
         log(I18n.t("hotsync.done"))
     } catch (e: Exception) {
         log("Error: ${e.message ?: e.toString()}")

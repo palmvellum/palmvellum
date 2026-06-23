@@ -16,8 +16,8 @@ android {
         targetSdk = 35
         // Bump both on every shipped build so the in-app version (shown on the
         // launcher footer + HotSync screen) identifies exactly which APK is running.
-        versionCode = 6
-        versionName = "0.1.5-native"
+        versionCode = 7
+        versionName = "0.1.6-native"
     }
 
     // Two device targets from one codebase:

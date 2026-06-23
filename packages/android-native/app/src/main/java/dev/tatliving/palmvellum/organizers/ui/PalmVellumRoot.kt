@@ -38,7 +38,9 @@ fun PalmVellumRoot() {
         if (mainActivity != null) {
             val request = mainActivity.hotSyncRequest
             LaunchedEffect(request) {
-                if (request > 0) {
+                // Only jump if we're not already on HotSync — re-navigating would
+                // pop and recreate the screen, wiping any queued .prc/.pdb files.
+                if (request > 0 && navController.currentDestination?.route != Routes.HOTSYNC) {
                     navController.navigate(Routes.HOTSYNC) {
                         popUpTo(Routes.LAUNCHER); launchSingleTop = true
                     }

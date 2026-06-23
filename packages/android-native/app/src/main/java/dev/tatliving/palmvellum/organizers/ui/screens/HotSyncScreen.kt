@@ -12,14 +12,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,13 +48,13 @@ import dev.tatliving.palmvellum.organizers.BuildConfig
 import dev.tatliving.palmvellum.organizers.data.Clock
 import dev.tatliving.palmvellum.organizers.data.Graph
 import dev.tatliving.palmvellum.organizers.data.Ulid
-import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
 import dev.tatliving.palmvellum.organizers.data.hotsync.HotSyncConduit
 import dev.tatliving.palmvellum.organizers.data.hotsync.HotSyncException
 import dev.tatliving.palmvellum.organizers.data.hotsync.HotSyncSession
 import dev.tatliving.palmvellum.organizers.data.hotsync.PalmCloud
 import dev.tatliving.palmvellum.organizers.data.hotsync.PalmUsbTransport
 import dev.tatliving.palmvellum.organizers.data.hotsync.UsbPermission
+import dev.tatliving.palmvellum.organizers.data.local.RecordEntity
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
 import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
@@ -65,10 +71,12 @@ import kotlinx.coroutines.withContext
 
 /**
  * USB HotSync — connect a vintage Palm/CLIE to the Cosmo's USB-C port and sync
- * its Memo Pad + To Do databases with the PalmVellum cloud, no desktop needed.
+ * its databases with the PalmVellum cloud (and install .prc/.pdb files), no
+ * desktop needed.
  *
- * Reached only from the Cosmo launcher (the standard portrait build hides the
- * tile), but the screen is harmless on any device with USB host support.
+ * Layout: on the Cosmo's wide landscape display the live log fills the middle
+ * and the action buttons sit in a column on the right; the portrait build keeps
+ * the buttons stacked above a full-width log.
  */
 @Composable
 fun HotSyncScreen(navController: NavHostController) {
@@ -79,6 +87,7 @@ fun HotSyncScreen(navController: NavHostController) {
     val listState = rememberLazyListState()
     // .prc/.pdb files queued to install onto the Palm during the next sync.
     val installs = remember { mutableStateListOf<InstallItem>() }
+    val signedIn = Graph.sync.isSignedIn
 
     // Keep the log scrolled to the newest line.
     LaunchedEffect(log.size) {
@@ -90,9 +99,35 @@ fun HotSyncScreen(navController: NavHostController) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNullOrEmpty()) return@rememberLauncherForActivityResult
         scope.launch {
-            val items = withContext(Dispatchers.IO) { uris.mapNotNull { runCatching { readFile(context.contentResolver, it) }.getOrNull() } }
+            val items = withContext(Dispatchers.IO) {
+                uris.mapNotNull { runCatching { readFile(context.contentResolver, it) }.getOrNull() }
+            }
             installs.addAll(items)
         }
+    }
+
+    val onStart = {
+        running = true
+        log.clear()
+        val toInstall = installs.toList()
+        scope.launch {
+            val installed = withContext(Dispatchers.IO) { runHotSync(context, toInstall) { msg -> line(msg) } }
+            // Only drop files that actually installed — keep the queue intact if
+            // the Palm wasn't connected, sign-in was missing, or an install failed,
+            // so the user can retry without re-picking.
+            installs.removeAll(installed)
+            running = false
+        }
+        Unit
+    }
+
+    val onSaveLog = {
+        scope.launch {
+            val text = log.joinToString("\n")
+            val err = withContext(Dispatchers.IO) { saveLogToMemo(text) }
+            line(if (err == null) I18n.t("hotsync.savedlog") else "${I18n.t("hotsync.savelogfail")} $err")
+        }
+        Unit
     }
 
     PalmScaffold(
@@ -100,135 +135,169 @@ fun HotSyncScreen(navController: NavHostController) {
         navController = navController,
         currentRoute = Routes.HOTSYNC,
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(12.dp),
-        ) {
-            Column(
+        val controls: @Composable (Modifier) -> Unit = { mod ->
+            HotSyncControls(
+                modifier = mod,
+                running = running,
+                signedIn = signedIn,
+                installs = installs,
+                hasLog = log.isNotEmpty(),
+                onStart = onStart,
+                onPickFile = { picker.launch(arrayOf("*/*")) },
+                onClearInstalls = { installs.clear() },
+                onSaveLog = onSaveLog,
+            )
+        }
+
+        if (BuildConfig.COSMO) {
+            // Wide landscape: log in the middle, controls in a right-hand column.
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(PalmSurfaceLo)
-                    .border(1.dp, PalmLineSoft)
+                    .fillMaxSize()
+                    .padding(padding)
                     .padding(12.dp),
             ) {
-                Text(I18n.t("hotsync.howto.title"), fontWeight = FontWeight.Bold, color = PalmInk, fontSize = 15.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(I18n.t("hotsync.howto.body"), color = PalmInkMute, fontSize = 13.sp)
-                Spacer(Modifier.height(6.dp))
-                Text("v${BuildConfig.VERSION_NAME}", color = PalmInkMute, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            val signedIn = Graph.sync.isSignedIn
-            if (!signedIn) {
-                Text(I18n.t("hotsync.needsignin"), color = PalmInkMute, fontSize = 13.sp)
-                Spacer(Modifier.height(8.dp))
-            }
-
-            // Start button (no dedicated PalmButton in this codebase — style a row).
-            val enabled = signedIn && !running
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(if (enabled) PalmTitleBar else PalmLineSoft)
-                    .clickable(enabled = enabled) {
-                        running = true
-                        log.clear()
-                        val toInstall = installs.toList()
-                        scope.launch {
-                            // SnapshotStateList is safe to mutate off the main thread.
-                            withContext(Dispatchers.IO) { runHotSync(context, toInstall) { msg -> line(msg) } }
-                            installs.clear()
-                            running = false
-                        }
-                    }
-                    .padding(vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    if (running) I18n.t("hotsync.syncing") else I18n.t("hotsync.start"),
-                    color = PalmOnDark,
-                    fontWeight = FontWeight.Bold,
+                HotSyncLog(listState, log, Modifier.weight(1f).fillMaxHeight())
+                Spacer(Modifier.width(12.dp))
+                controls(
+                    Modifier
+                        .width(320.dp)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
                 )
             }
+        } else {
+            // Portrait: controls stacked above a full-width log.
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(12.dp),
+            ) {
+                controls(Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+                HotSyncLog(listState, log, Modifier.fillMaxWidth().weight(1f))
+            }
+        }
+    }
+}
 
-            // Queue .prc/.pdb files to install onto the Palm on the next Start.
+/** The how-to card, version, and the Start / Install / Save-log buttons. */
+@Composable
+private fun HotSyncControls(
+    modifier: Modifier,
+    running: Boolean,
+    signedIn: Boolean,
+    installs: List<InstallItem>,
+    hasLog: Boolean,
+    onStart: () -> Unit,
+    onPickFile: () -> Unit,
+    onClearInstalls: () -> Unit,
+    onSaveLog: () -> Unit,
+) {
+    Column(modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(PalmSurfaceLo)
+                .border(1.dp, PalmLineSoft)
+                .padding(12.dp),
+        ) {
+            Text(I18n.t("hotsync.howto.title"), fontWeight = FontWeight.Bold, color = PalmInk, fontSize = 15.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(I18n.t("hotsync.howto.body"), color = PalmInkMute, fontSize = 13.sp)
+            Spacer(Modifier.height(6.dp))
+            Text("v${BuildConfig.VERSION_NAME}", color = PalmInkMute, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (!signedIn) {
+            Text(I18n.t("hotsync.needsignin"), color = PalmInkMute, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(PalmSurfaceLo)
-                    .border(1.dp, PalmLine)
-                    .clickable(enabled = !running) { picker.launch(arrayOf("*/*")) }
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(I18n.t("hotsync.install"), color = PalmInk, fontWeight = FontWeight.Bold)
-            }
-            if (installs.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    I18n.t("hotsync.installqueued", installs.joinToString(", ") { it.name }),
-                    color = PalmInkMute,
-                    fontSize = 12.sp,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    I18n.t("hotsync.installclear"),
-                    color = PalmInkMute,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable(enabled = !running) { installs.clear() },
-                )
-            }
+        }
 
-            // Save the on-screen log to a Memo (which syncs to the cloud) so it
-            // can be copied — the log view itself isn't selectable on-device.
-            if (log.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                val canSave = signedIn && !running
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(PalmSurfaceLo)
-                        .border(1.dp, PalmLine)
-                        .clickable(enabled = canSave) {
-                            scope.launch {
-                                val text = log.joinToString("\n")
-                                val err = withContext(Dispatchers.IO) { saveLogToMemo(text) }
-                                line(
-                                    if (err == null) I18n.t("hotsync.savedlog")
-                                    else "${I18n.t("hotsync.savelogfail")} $err",
-                                )
-                            }
-                        }
-                        .padding(vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(I18n.t("hotsync.savelog"), color = PalmInk, fontWeight = FontWeight.Bold)
-                }
-            }
+        PalmActionButton(
+            label = if (running) I18n.t("hotsync.syncing") else I18n.t("hotsync.start"),
+            primary = true,
+            enabled = signedIn && !running,
+            onClick = onStart,
+        )
 
-            Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
-            // Live sync log.
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(PalmSurfaceLo)
-                    .border(1.dp, PalmLine)
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                items(log) { l ->
-                    Text(l, color = PalmInk, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                }
-            }
+        // Queue .prc/.pdb files to install onto the Palm on the next Start.
+        PalmActionButton(
+            label = I18n.t("hotsync.install"),
+            primary = false,
+            enabled = !running,
+            onClick = onPickFile,
+        )
+        if (installs.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                I18n.t("hotsync.installqueued", installs.joinToString(", ") { it.name }),
+                color = PalmInkMute,
+                fontSize = 12.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                I18n.t("hotsync.installclear"),
+                color = PalmInkMute,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable(enabled = !running, onClick = onClearInstalls),
+            )
+        }
+
+        // Save the on-screen log to a Memo (which syncs to the cloud) so it can
+        // be copied — the log view itself isn't selectable on-device.
+        if (hasLog) {
+            Spacer(Modifier.height(8.dp))
+            PalmActionButton(
+                label = I18n.t("hotsync.savelog"),
+                primary = false,
+                enabled = signedIn && !running,
+                onClick = onSaveLog,
+            )
+        }
+    }
+}
+
+/** A full-width tap target styled as a Palm button (primary = dark title bar). */
+@Composable
+private fun PalmActionButton(
+    label: String,
+    primary: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val base = Modifier
+        .fillMaxWidth()
+        .background(if (primary) (if (enabled) PalmTitleBar else PalmLineSoft) else PalmSurfaceLo)
+    Column(
+        modifier = (if (primary) base else base.border(1.dp, PalmLine))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(label, color = if (primary) PalmOnDark else PalmInk, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** The live, monospaced sync log. */
+@Composable
+private fun HotSyncLog(listState: LazyListState, log: List<String>, modifier: Modifier) {
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .background(PalmSurfaceLo)
+            .border(1.dp, PalmLine)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        items(log) { l ->
+            Text(l, color = PalmInk, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
         }
     }
 }
@@ -271,31 +340,40 @@ private fun readFile(resolver: ContentResolver, uri: Uri): InstallItem {
     return InstallItem(name, bytes)
 }
 
-/** Run one full HotSync, streaming progress to [log]. Call off the main thread. */
-private suspend fun runHotSync(context: Context, installs: List<InstallItem> = emptyList(), log: (String) -> Unit) {
+/**
+ * Run one full HotSync, streaming progress to [log]. Returns the queued files
+ * that actually installed (so the caller can drop just those from the queue).
+ * Call off the main thread.
+ */
+private suspend fun runHotSync(
+    context: Context,
+    installs: List<InstallItem> = emptyList(),
+    log: (String) -> Unit,
+): List<InstallItem> {
+    val installed = mutableListOf<InstallItem>()
     val manager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
-    if (manager == null) { log(I18n.t("hotsync.nousb")); return }
+    if (manager == null) { log(I18n.t("hotsync.nousb")); return installed }
 
     val device = PalmUsbTransport.findPalmDevice(manager)
     if (device == null) {
         log(I18n.t("hotsync.nodevice"))
-        return
+        return installed
     }
     log(I18n.t("hotsync.found") + " ${device.productName ?: device.deviceName}")
 
     if (!UsbPermission.ensure(context, manager, device)) {
         log(I18n.t("hotsync.nopermission"))
-        return
+        return installed
     }
 
     val uid = Graph.session.userId
-    if (uid.isNullOrBlank()) { log(I18n.t("hotsync.needsignin")); return }
+    if (uid.isNullOrBlank()) { log(I18n.t("hotsync.needsignin")); return installed }
 
     val opened = try {
         PalmUsbTransport.open(manager, device, log)
     } catch (e: HotSyncException) {
         log("Error: ${e.message}")
-        return
+        return installed
     }
     log("Device ${opened.label}, ${opened.stack} protocol")
 
@@ -309,6 +387,7 @@ private suspend fun runHotSync(context: Context, installs: List<InstallItem> = e
         for (item in installs) {
             try {
                 val name = session.installFile(item.bytes, log)
+                installed.add(item)
                 log("Installed $name")
             } catch (e: Exception) {
                 log("Install ${item.name} failed — ${e.message ?: e.toString()}")
@@ -326,4 +405,5 @@ private suspend fun runHotSync(context: Context, installs: List<InstallItem> = e
         }
         opened.transport.close()
     }
+    return installed
 }

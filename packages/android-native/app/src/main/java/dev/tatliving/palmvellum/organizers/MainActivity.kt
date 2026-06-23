@@ -1,15 +1,57 @@
 package dev.tatliving.palmvellum.organizers
 
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.hardware.usb.UsbManager
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import dev.tatliving.palmvellum.organizers.ui.PalmVellumRoot
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Cosmo physical-keyboard handler. The Compose root installs this; it
+     * returns true to consume a shortcut. Unhandled keys fall through to normal
+     * text input. Null on the standard build (no hardware keyboard contract).
+     */
+    var keyHandler: ((KeyEvent) -> Boolean)? = null
+
+    /**
+     * Bumped each time the app is launched (or brought forward) by plugging in a
+     * Palm/CLIE cradle — the USB_DEVICE_ATTACHED intent. The Compose root watches
+     * this and jumps straight to the HotSync screen so the user can press Start
+     * without hunting for the tile. Cosmo-only (the standard build has no tile).
+     */
+    var hotSyncRequest by mutableStateOf(0)
+        private set
+
+    private fun consumeUsbAttach(intent: Intent?) {
+        if (BuildConfig.COSMO && intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
+            hotSyncRequest++
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeUsbAttach(intent)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (BuildConfig.COSMO) {
+            keyHandler?.let { if (it(event)) return true }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // The Cosmo Communicator is used open, in landscape, with its physical
         // keyboard along the bottom edge. Lock the Cosmo build to landscape so
@@ -24,6 +66,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        consumeUsbAttach(intent)
         setContent {
             PalmVellumRoot()
         }

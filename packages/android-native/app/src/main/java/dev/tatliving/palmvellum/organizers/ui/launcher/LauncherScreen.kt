@@ -53,6 +53,12 @@ private val APPS = listOf(
     LauncherApp(Routes.MAIL, "✉", "app.mail.label", "app.mail.sub"),
 )
 
+// USB HotSync is Cosmo-only: the Cosmo's USB-C port hosts a docked Palm/CLIE
+// to sync over a cradle cable, no desktop needed. Hidden on the portrait build.
+private val COSMO_APPS = listOf(
+    LauncherApp(Routes.HOTSYNC, "⇄", "app.hotsync.label", "app.hotsync.sub"),
+)
+
 @Composable
 fun LauncherScreen(navController: NavHostController) {
     val conflictCount by Graph.sync.observeConflictCount().collectAsState(0)
@@ -72,16 +78,22 @@ fun LauncherScreen(navController: NavHostController) {
         // fill it (adaptive ~160dp tiles => ~4 columns at 2160x1080).
         val columns = if (BuildConfig.COSMO) GridCells.Adaptive(160.dp) else GridCells.Fixed(2)
         val tileHeight = if (BuildConfig.COSMO) 140.dp else 180.dp
+        val apps = if (BuildConfig.COSMO) APPS + COSMO_APPS else APPS
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
         LazyVerticalGrid(
             columns = columns,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .fillMaxWidth()
+                .weight(1f)
                 .padding(10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(APPS) { app ->
+            items(apps, key = { it.route }) { app ->
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -116,6 +128,16 @@ fun LauncherScreen(navController: NavHostController) {
                     )
                 }
             }
+        }
+            Text(
+                "PalmVellum v${BuildConfig.VERSION_NAME}",
+                fontSize = 11.sp,
+                color = PalmInkMute,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            )
         }
     }
 }

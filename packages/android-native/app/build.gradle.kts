@@ -14,8 +14,10 @@ android {
         applicationId = "dev.tatliving.palmvellum.organizers"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-native"
+        // Bump both on every shipped build so the in-app version (shown on the
+        // launcher footer + HotSync screen) identifies exactly which APK is running.
+        versionCode = 6
+        versionName = "0.1.5-native"
     }
 
     // Two device targets from one codebase:

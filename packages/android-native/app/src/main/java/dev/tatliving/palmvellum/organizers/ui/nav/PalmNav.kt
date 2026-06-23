@@ -11,6 +11,7 @@ import dev.tatliving.palmvellum.organizers.ui.screens.AddressScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.ConflictsScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.DateBookScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.ExpenseScreen
+import dev.tatliving.palmvellum.organizers.ui.screens.HotSyncScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.MailScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.MemoScreen
 import dev.tatliving.palmvellum.organizers.ui.screens.NotePadScreen
@@ -28,6 +29,7 @@ object Routes {
     const val MAIL = "mail"
     const val SETTINGS = "settings"
     const val CONFLICTS = "conflicts"
+    const val HOTSYNC = "hotsync"
 }
 
 @Composable
@@ -53,5 +55,6 @@ fun PalmNavHost(navController: NavHostController) {
         composable(Routes.MAIL) { MailScreen(navController) }
         composable(Routes.SETTINGS) { SettingsScreen(navController) }
         composable(Routes.CONFLICTS) { ConflictsScreen(navController) }
+        composable(Routes.HOTSYNC) { HotSyncScreen(navController) }
     }
 }

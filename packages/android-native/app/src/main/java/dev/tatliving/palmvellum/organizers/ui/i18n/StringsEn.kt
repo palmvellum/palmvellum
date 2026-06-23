@@ -45,6 +45,26 @@ val STR_EN: Map<String, String> = mapOf(
     "app.expense.sub" to "spending log",
     "app.mail.label" to "Mail",
     "app.mail.sub" to "AI morning paper",
+    "app.hotsync.label" to "HotSync",
+    "app.hotsync.sub" to "USB cradle sync",
+
+    // ── USB HotSync (Cosmo) ──────────────────────────────────────────
+    "hotsync.title" to "USB HotSync",
+    "hotsync.howto.title" to "Sync a Palm over the cradle cable",
+    "hotsync.howto.body" to "Connect your Palm or CLIE cradle to this device's USB-C port (via a USB-OTG adapter), press HotSync on the Palm, then tap Start. Memo Pad and To Do sync with your PalmVellum cloud — no computer needed.",
+    "hotsync.needsignin" to "Sign in (Settings) first — HotSync merges with your cloud account.",
+    "hotsync.start" to "Start HotSync",
+    "hotsync.syncing" to "Syncing — keep the Palm connected…",
+    "hotsync.found" to "Found device:",
+    "hotsync.handshake" to "Connecting to the Palm…",
+    "hotsync.nodevice" to "No Palm detected. Dock it, press HotSync, then tap Start.",
+    "hotsync.nopermission" to "USB permission denied.",
+    "hotsync.nousb" to "This device has no USB host support.",
+    "hotsync.done" to "Done — safe to disconnect.",
+    "hotsync.savelog" to "Save log to Memo",
+    "hotsync.savedlog" to "Log saved to Memo Pad — open Memo on the web or another device to copy it.",
+    "hotsync.savelogfail" to "Could not save log:",
+    "hotsync.nolog" to "Nothing to save yet — run a sync first.",
 
     // ── Scaffold ─────────────────────────────────────────────────────
     "scaffold.placeholder" to "Pick an item from the list, or tap + new.",

@@ -132,6 +132,17 @@ class SupabaseRest(private val session: SessionStore) {
             .fold({ Result.success(it) }, { Result.failure(it) })
     }
 
+    /** Patch (partial update) rows matching a PostgREST filter (e.g. "id=eq.$id"). */
+    suspend fun patch(table: String, query: String, row: JsonObject): Result<JsonArray> = withContext(Dispatchers.IO) {
+        val payload = row.toString()
+        fun headers() = authHeaders() + mapOf("Prefer" to "return=representation")
+        var r = http("PATCH", "$base/rest/v1/$table?$query", headers(), payload)
+        if (r.code == 401 && refreshToken()) r = http("PATCH", "$base/rest/v1/$table?$query", headers(), payload)
+        if (r.code !in 200..299) return@withContext Result.failure(Exception(errorMsg(r)))
+        runCatching { json.parseToJsonElement(r.body).jsonArray }
+            .fold({ Result.success(it) }, { Result.failure(it) })
+    }
+
     /** Delete rows matching a PostgREST filter (e.g. "id=eq.$id"). */
     suspend fun delete(table: String, query: String): Result<Unit> = withContext(Dispatchers.IO) {
         var r = http("DELETE", "$base/rest/v1/$table?$query", authHeaders())

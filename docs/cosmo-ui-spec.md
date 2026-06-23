@@ -159,3 +159,34 @@ adb shell dumpsys display | grep -i 'density\|mBaseDisplayInfo'
 
 If `wm density` ≠ 400, update the dp table above and re-check that the 760 dp
 cap and the rail/tile sizes still look right.
+
+## Cosmo-only features (added 2026-06-23)
+
+### USB HotSync (`Routes.HOTSYNC`, launcher tile ⇄, Cosmo-only)
+Connect a docked Palm/CLIE to the Cosmo's USB-C port (via USB-OTG) and sync its
+Memo Pad + To Do databases with the cloud — no desktop. The HotSync protocol
+stack is a from-scratch Kotlin port living in `data/hotsync/`:
+
+- `PalmUsbTransport` — Android USB host: find by vendor id, claim the bulk
+  IN/OUT endpoint pair, best-effort vendor init. `UsbPermission` bridges the
+  runtime permission to a suspend call. Manifest declares `usb.host`
+  (`required=false`) + a `USB_DEVICE_ATTACHED` filter (`res/xml/usb_device_filter.xml`).
+- `Slp` / `Padp` / `Cmp` / `Dlp` — the SLP→PADP→CMP→DLP stack over the byte pipe.
+- `HotSyncSession` — handshake + DB read/write via DLP.
+- `HotSyncConduit` + `PalmCloud` — the cloud merge: a faithful Kotlin port of
+  `packages/palm-engine/sync/sync.go` (device_id `memo:<hex>`/`todo:<hex>`,
+  last-write-wins). Reuses the existing `PalmPdb`/`PalmCharset` + new
+  `MemoDb`/`ToDoDb` codecs (ports of the Go engine).
+
+**Status:** compiles; codec + SLP layers have offline unit tests
+(`HotSyncCodecTest`). **The live USB/DLP path is UNTESTED on hardware** — the
+USB vendor-init control numbers and DLP arg layouts are the documented
+pilot-link/coldsync ones and are the first thing to check against a real device
+(see `cross-platform-desktop-sync-feasibility.md`). Date Book / Address / Mail
+codecs are the next databases to port (their Go codecs already exist).
+
+### Physical keyboard shortcuts
+`MainActivity.dispatchKeyEvent` (Cosmo-gated) forwards to a handler installed by
+`PalmVellumRoot`: **Ctrl+1..7** jump to Date Book / To Do / Address / Memo /
+Note Pad / Expense / Mail; **Ctrl+0 or Ctrl+H** go Home; **Esc** goes back.
+Ctrl-combos + Esc never collide with text entry, so fields keep every key.

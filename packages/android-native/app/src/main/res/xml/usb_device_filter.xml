@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- USB vendor ids of the AAA-era handhelds PalmVellum HotSyncs with.
+     Vendor ids are decimal: Palm 0x0830, Sony 0x054C, Handspring 0x082D,
+     Aceeca 0x4766. -->
+<resources>
+    <usb-device vendor-id="2096" />  <!-- Palm -->
+    <usb-device vendor-id="1356" />  <!-- Sony (CLIE) -->
+    <usb-device vendor-id="2093" />  <!-- Handspring -->
+    <usb-device vendor-id="18278" /> <!-- Aceeca -->
+</resources>

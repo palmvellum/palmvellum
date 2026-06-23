@@ -49,8 +49,10 @@ export async function listMemos(): Promise<MemoRow[]> {
         (r.type === 'thought' || r.type === 'aiquery') && r.deleted_at === null,
     )
     .sort(
+      // Order by creation time, not updated_at: a HotSync re-stamps updated_at
+      // on every record, which would otherwise reshuffle the whole list.
       (a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     ) as MemoRow[];
 }
 

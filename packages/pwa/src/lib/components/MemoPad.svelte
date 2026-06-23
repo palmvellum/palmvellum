@@ -448,7 +448,7 @@
               {:else if m.ai_status === 'error'}
                 <span class="errored">[err] AI error</span>
               {/if}
-              <time>{fmtTime(m.updated_at)}</time>
+              <time>{fmtTime(m.created_at)}</time>
               <button class="link" onclick={() => startEdit(m)}>edit</button>
               <button
                 type="button"

@@ -93,7 +93,7 @@ func (g *gui) run() {
 	g.app = fyneapp.NewWithID("dev.tatliving.palmvellum")
 	g.app.Settings().SetTheme(ui.PalmTheme{}) // retro Palm organizer look
 	g.win = g.app.NewWindow("PalmVellum on Mac")
-	g.win.Resize(fyne.NewSize(880, 520)) // landscape: controls left, log right
+	g.win.Resize(fyne.NewSize(654, 609)) // controls left, log right (user-tuned)
 
 	// Stay logged in across restarts: if a session is saved in the
 	// Keychain at all, go straight to the main view (it refreshes the

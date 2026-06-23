@@ -139,7 +139,9 @@ It ships in two flavors that install side by side:
 - **Standard** — portrait, any phone.
 - **Cosmo edition** — built specifically for the **Planet Cosmo Communicator** (landscape clamshell + physical QWERTY): landscape‑locked for the 2160×1080 main display, a left icon rail, two‑pane master/detail layouts, and inline title‑bar filters/search. UI spec: [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md). On a Cosmo stuck on firmware V19, see the companion [**Cosmo V19→V23 upgrade & standby‑battery‑fix guide**](https://github.com/tathome2025/cosmo-standby-battery-fix).
 
-**Download:** [Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0) — or build from `packages/android-native/` with `./gradlew :app:assembleStandardDebug` / `:app:assembleCosmoDebug`.
+**USB HotSync (Cosmo edition).** Dock a vintage Palm/CLIE to the Cosmo's USB‑C port (via a USB‑OTG adapter), press HotSync on the Palm, and the app syncs Memo Pad, To Do, Date Book, Address and Mail straight to your PalmVellum cloud — no desktop needed. It can also **install `.prc`/`.pdb` files** (apps and databases) onto the Palm, like the classic Palm Install Tool. A from‑scratch Kotlin HotSync stack (NetSync + DLP, driven over the cable) powers it; verified on a Sony CLIE.
+
+**Download:** [Releases → `android-v0.1.8`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.8) — or build from `packages/android-native/` with `./gradlew :app:assembleStandardDebug` / `:app:assembleCosmoDebug`.
 
 > ⚠️ **Not on the Play Store.** These are sideload (debug‑signed) APKs, not Play‑reviewed. You'll need to allow "Install unknown apps", then open the APK. **No warranty of any kind — use at your own risk.**
 
@@ -207,7 +209,9 @@ The Supabase project this repo targets is at `jrkwncplngmznfzzqwee.supabase.co`.
 - **Standard** — 直屏，任何手機。
 - **Cosmo 版** — 專為 **Planet Cosmo Communicator**（橫向翻蓋 + 實體 QWERTY）設計：橫屏鎖定（2160×1080）、左側圖示 rail、兩欄 master/detail、標題列 inline 篩選/搜尋。UI 規格見 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。部 Cosmo 仲喺 firmware V19？睇埋 [**Cosmo V19→V23 升級＋待機省電指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
 
-**下載：**[Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0)。
+**USB HotSync（Cosmo 版）。** 用 USB‑OTG 線將舊 Palm/CLIE 駁上 Cosmo 嘅 USB‑C 口，喺 Palm 撳 HotSync，app 就會將 Memo Pad、To Do、Date Book、聯絡人同 Mail 直接同 PalmVellum 雲端同步 — 唔使電腦。仲可以將 `.prc`/`.pdb` 檔（app 同資料庫）**安裝**落 Palm，似經典 Palm Install Tool。背後係由零用 Kotlin 寫嘅 HotSync 協議堆疊（NetSync + DLP，經 cable 驅動），喺 Sony CLIE 真機驗證過。
+
+**下載：**[Releases → `android-v0.1.8`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.8)。
 
 > ⚠️ **冇喺 Play Store 上架。** 呢啲係 sideload（debug 簽署）APK，未經 Play 審查，要先允許「安裝未知來源 app」先裝到。**冇任何保養，使用風險自負。**
 
@@ -265,7 +269,9 @@ _喺真 Cosmo Communicator（2160×1080）影：應用程式啟動器、Date Boo
 - **Standard** — 竖屏，任何手机。
 - **Cosmo 版** — 专为 **Planet Cosmo Communicator**（横向翻盖 + 实体 QWERTY）设计：横屏锁定（2160×1080）、左侧图标 rail、两栏 master/detail、标题栏 inline 筛选/搜索。UI 规格见 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。设备仍在 firmware V19？另见 [**Cosmo V19→V23 升级＋待机省电指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
 
-**下载：**[Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0)。
+**USB HotSync（Cosmo 版）。** 用 USB‑OTG 线将旧 Palm/CLIE 接上 Cosmo 的 USB‑C 口，在 Palm 按 HotSync，app 就会将 Memo Pad、To Do、Date Book、联系人和 Mail 直接与 PalmVellum 云端同步 — 不用电脑。还可以将 `.prc`/`.pdb` 文件（app 和数据库）**安装**到 Palm，类似经典 Palm Install Tool。背后是从零用 Kotlin 写的 HotSync 协议栈（NetSync + DLP，经 cable 驱动），在 Sony CLIE 真机验证过。
+
+**下载：**[Releases → `android-v0.1.8`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.8)。
 
 > ⚠️ **未在 Play Store 上架。** 这些是 sideload（debug 签名）APK，未经 Play 审查，需先允许「安装未知来源应用」才能安装。**不提供任何保修，使用风险自负。**
 
@@ -329,7 +335,9 @@ Palm とプラットフォームの両方で、**ユーザーごとに 1 つの�
 - **Standard** — 縦向き、どの端末でも。
 - **Cosmo 版** — **Planet Cosmo Communicator**（横向きクラムシェル + 物理 QWERTY）向け：横向き固定（2160×1080）、左のアイコンレール、2 ペインのマスター/詳細、タイトルバーのインライン絞り込み/検索。UI 仕様は [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。Cosmo がファームウェア V19 のまま？ [**Cosmo V19→V23 アップグレード＋待機電力対策ガイド**](https://github.com/tathome2025/cosmo-standby-battery-fix) も参照。
 
-**ダウンロード：**[Releases → `android-v0.1.0`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.0)。
+**USB HotSync（Cosmo エディション）。** USB‑OTG アダプタで往年の Palm/CLIE を Cosmo の USB‑C ポートに接続し、Palm で HotSync を押すと、Memo Pad・To Do・Date Book・アドレス・Mail を PalmVellum クラウドへ直接同期します — パソコン不要。さらに `.prc`/`.pdb` ファイル（アプリやデータベース）を Palm へ**インストール**できます（往年の Palm Install Tool と同様）。ゼロから Kotlin で書いた HotSync スタック（NetSync + DLP、ケーブル経由）が駆動し、Sony CLIE 実機で検証済み。
+
+**ダウンロード：**[Releases → `android-v0.1.8`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.8)。
 
 > ⚠️ **Play ストアにはありません。** これらはサイドロード（debug 署名）の APK で、Play の審査を受けていません。「提供元不明のアプリ」を許可してからインストールしてください。**いかなる保証もなく、自己責任でご利用ください。**
 

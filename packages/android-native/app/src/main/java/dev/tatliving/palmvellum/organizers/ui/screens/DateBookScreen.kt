@@ -68,7 +68,6 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
-import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
 import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmDarkRed
@@ -149,7 +148,6 @@ fun DateBookScreen(navController: NavHostController) {
     }
     // null = list; otherwise the event being edited (id="" => new)
     var editing by remember { mutableStateOf<EventEntity?>(null) }
-    var aiText by remember { mutableStateOf("") }
     // agenda | week | month. Both builds open on the month calendar.
     var mode by remember { mutableStateOf("month") }
     // anchor day the week/month views revolve around; selectedDay = tapped cell
@@ -164,9 +162,14 @@ fun DateBookScreen(navController: NavHostController) {
         EventEditor(
             initial = target,
             isNew = target.id.isEmpty(),
+            signedIn = vm.signedIn,
             onCancel = { editing = null },
             onSave = { vm.save(it); editing = null },
             onDelete = { vm.delete(target.id); editing = null },
+            // Plan-with-AI lives inside the new-event editor: hand the text to
+            // the server parser and leave the editor — the parsed events get
+            // added automatically and show up on the calendar.
+            onPlanWithAi = { vm.planWithAi(it); editing = null },
         )
         return
     }
@@ -188,28 +191,10 @@ fun DateBookScreen(navController: NavHostController) {
             }
             TitleAction(I18n.t("common.new")) { editing = newEvent(selectedDay) }
         },
-        // Cosmo: the agenda/week/month switcher rides in the title bar, with the
-        // "plan with AI" input filling the grey space beside it.
+        // Cosmo: the agenda/month switcher rides in the title bar. (Plan-with-AI
+        // now lives inside the "new" event editor.)
         titleCenter = if (BuildConfig.COSMO) {
-            {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    TitleCategory(modeOptions, mode) { mode = it }
-                    if (vm.signedIn) {
-                        TitleSearch(
-                            value = aiText,
-                            onValueChange = { aiText = it },
-                            placeholder = I18n.t("datebook.planWithAiPlaceholder"),
-                            modifier = Modifier.weight(1f),
-                            onSubmit = {
-                                if (aiText.isNotBlank()) { vm.planWithAi(aiText); aiText = "" }
-                            },
-                        )
-                    }
-                }
-            }
+            { TitleCategory(modeOptions, mode) { mode = it } }
         } else {
             null
         },
@@ -221,35 +206,12 @@ fun DateBookScreen(navController: NavHostController) {
                     selected = mode,
                     onSelect = { mode = it },
                 )
-                // Keep "plan with AI" reachable from every standard view (the
-                // month calendar is now the default), with its pending/parsed
-                // drafts surfaced just below — capped so they never crowd out
-                // the calendar.
-                StandardAiPlanSection(
-                    vm = vm,
-                    aiText = aiText,
-                    onAiText = { aiText = it },
-                    drafts = drafts,
-                )
-            } else if (drafts.isNotEmpty()) {
-                // The plan-with-AI input now lives in the title bar, so surface its
-                // pending/parsed results across every Cosmo view — capped in height
-                // so they never crowd out the calendar.
-                Column(
-                    Modifier.fillMaxWidth().heightIn(max = 150.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                ) {
-                    drafts.forEach { d ->
-                        DraftCard(
-                            draft = d,
-                            parsed = vm.parsedEventsOf(d),
-                            onAccept = { vm.acceptDraft(d) },
-                            onReject = { vm.rejectDraft(d) },
-                        )
-                        Spacer(Modifier.height(6.dp))
-                    }
-                }
+            }
+            // Plan-with-AI now lives inside the "new" event editor; surface its
+            // pending/parsed drafts here (both flavors) so the calendar reflects
+            // progress and results — capped so they never crowd it out.
+            if (drafts.isNotEmpty()) {
+                DraftStrip(vm = vm, drafts = drafts)
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (mode) {
@@ -685,41 +647,26 @@ private fun NavChip(glyph: String, onClick: () -> Unit) {
 }
 
 /**
- * Standard (portrait) plan-with-AI entry, shown above the agenda/month content
- * so it stays reachable now that the month calendar is the default view. The
- * pending/parsed drafts sit just below the input, capped in height so a backlog
- * of drafts can't push the calendar off-screen.
+ * The pending/parsed plan-with-AI drafts, surfaced above the calendar on both
+ * flavors. Capped in height (and scrollable) so a backlog of drafts can't push
+ * the calendar off-screen. The drafts auto-accept once parsed, so this is
+ * mostly a brief "AI thinking…" / error indicator.
  */
 @Composable
-private fun StandardAiPlanSection(
-    vm: DateBookViewModel,
-    aiText: String,
-    onAiText: (String) -> Unit,
-    drafts: List<EventDraftEntity>,
-) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)) {
-        AiPlanCard(
-            signedIn = vm.signedIn,
-            text = aiText,
-            onText = onAiText,
-            onSubmit = { if (aiText.isNotBlank()) { vm.planWithAi(aiText); onAiText("") } },
-        )
-        if (drafts.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 150.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                drafts.forEach { d ->
-                    DraftCard(
-                        draft = d,
-                        parsed = vm.parsedEventsOf(d),
-                        onAccept = { vm.acceptDraft(d) },
-                        onReject = { vm.rejectDraft(d) },
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
+private fun DraftStrip(vm: DateBookViewModel, drafts: List<EventDraftEntity>) {
+    Column(
+        Modifier.fillMaxWidth().heightIn(max = 150.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        drafts.forEach { d ->
+            DraftCard(
+                draft = d,
+                parsed = vm.parsedEventsOf(d),
+                onAccept = { vm.acceptDraft(d) },
+                onReject = { vm.rejectDraft(d) },
+            )
+            Spacer(Modifier.height(6.dp))
         }
     }
 }
@@ -798,8 +745,11 @@ private fun EventEditor(
     onCancel: () -> Unit,
     onSave: (EventEntity) -> Unit,
     onDelete: () -> Unit,
+    signedIn: Boolean = false,
+    onPlanWithAi: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
+    var aiText by remember { mutableStateOf("") }
     var title by remember { mutableStateOf(initial.title) }
     var date by remember { mutableStateOf(DT.dateOf(initial.startAt)) }
     var time by remember { mutableStateOf(DT.timeOf(initial.startAt)) }
@@ -834,6 +784,18 @@ private fun EventEditor(
         },
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            // New events can be planned with AI (free text → server-parsed
+            // events) instead of, or before, filling the fields by hand.
+            if (isNew) {
+                AiPlanCard(
+                    signedIn = signedIn,
+                    text = aiText,
+                    onText = { aiText = it },
+                    onSubmit = { if (aiText.isNotBlank()) onPlanWithAi(aiText.trim()) },
+                )
+                PalmDivider()
+                Spacer(Modifier.height(8.dp))
+            }
             PalmField(I18n.t("datebook.fieldTitle"), title, { title = it })
             DateTimeRow(
                 label = I18n.t("datebook.date"),

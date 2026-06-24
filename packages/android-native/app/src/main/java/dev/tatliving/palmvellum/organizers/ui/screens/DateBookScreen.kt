@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -151,8 +150,8 @@ fun DateBookScreen(navController: NavHostController) {
     // null = list; otherwise the event being edited (id="" => new)
     var editing by remember { mutableStateOf<EventEntity?>(null) }
     var aiText by remember { mutableStateOf("") }
-    // agenda | week | month. The Cosmo build opens on the month calendar.
-    var mode by remember { mutableStateOf(if (BuildConfig.COSMO) "month" else "agenda") }
+    // agenda | week | month. Both builds open on the month calendar.
+    var mode by remember { mutableStateOf("month") }
     // anchor day the week/month views revolve around; selectedDay = tapped cell
     var anchor by remember { mutableStateOf(DT.nowDate()) }
     var selectedDay by remember { mutableStateOf(DT.nowDate()) }
@@ -222,6 +221,16 @@ fun DateBookScreen(navController: NavHostController) {
                     selected = mode,
                     onSelect = { mode = it },
                 )
+                // Keep "plan with AI" reachable from every standard view (the
+                // month calendar is now the default), with its pending/parsed
+                // drafts surfaced just below — capped so they never crowd out
+                // the calendar.
+                StandardAiPlanSection(
+                    vm = vm,
+                    aiText = aiText,
+                    onAiText = { aiText = it },
+                    drafts = drafts,
+                )
             } else if (drafts.isNotEmpty()) {
                 // The plan-with-AI input now lives in the title bar, so surface its
                 // pending/parsed results across every Cosmo view — capped in height
@@ -270,11 +279,7 @@ fun DateBookScreen(navController: NavHostController) {
                         )
                     } else {
                         AgendaView(
-                            vm = vm,
                             events = events,
-                            drafts = drafts,
-                            aiText = aiText,
-                            onAiText = { aiText = it },
                             onEdit = { editing = it },
                             jumpToToday = jumpToToday,
                         )
@@ -344,28 +349,23 @@ private fun expandByDay(
 // ── Agenda (the upcoming-events list + AI planning) ─────────────────────
 @Composable
 private fun AgendaView(
-    vm: DateBookViewModel,
     events: List<EventEntity>,
-    drafts: List<EventDraftEntity>,
-    aiText: String,
-    onAiText: (String) -> Unit,
     onEdit: (EventEntity) -> Unit,
     jumpToToday: Int,
 ) {
     val grouped = events.groupBy { DT.dateOf(it.startAt) }.toSortedMap()
     val listState = rememberLazyListState()
 
-    // The list starts at the ai card, then one item per draft, then one item
-    // per day (oldest first). Find today's row — or the next upcoming day if
-    // today has no events — and scroll there on load and whenever Today is tapped.
+    // One item per day (oldest first). Find today's row — or the next upcoming
+    // day if today has no events — and scroll there on load and whenever Today
+    // is tapped. (Plan-with-AI now lives above this list, at screen level.)
     val dayKeys = grouped.keys.toList()
-    val headerOffset = 1 + drafts.size
     val today = DT.nowDate()
     val targetIndex = if (dayKeys.isEmpty()) {
         0
     } else {
         val i = dayKeys.indexOfFirst { !it.isBefore(today) }
-        headerOffset + (if (i >= 0) i else dayKeys.size - 1)
+        if (i >= 0) i else dayKeys.size - 1
     }
     LaunchedEffect(jumpToToday, dayKeys.size) {
         if (dayKeys.isNotEmpty()) listState.scrollToItem(targetIndex.coerceAtLeast(0))
@@ -376,22 +376,6 @@ private fun AgendaView(
         modifier = Modifier.fillMaxSize().padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(key = "ai") {
-            AiPlanCard(
-                signedIn = vm.signedIn,
-                text = aiText,
-                onText = onAiText,
-                onSubmit = { if (aiText.isNotBlank()) { vm.planWithAi(aiText); onAiText("") } },
-            )
-        }
-        items(drafts, key = { it.id }) { d ->
-            DraftCard(
-                draft = d,
-                parsed = vm.parsedEventsOf(d),
-                onAccept = { vm.acceptDraft(d) },
-                onReject = { vm.rejectDraft(d) },
-            )
-        }
         if (events.isEmpty()) {
             item(key = "empty") {
                 Text(
@@ -698,6 +682,46 @@ private fun NavChip(glyph: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(top = 6.dp),
     )
+}
+
+/**
+ * Standard (portrait) plan-with-AI entry, shown above the agenda/month content
+ * so it stays reachable now that the month calendar is the default view. The
+ * pending/parsed drafts sit just below the input, capped in height so a backlog
+ * of drafts can't push the calendar off-screen.
+ */
+@Composable
+private fun StandardAiPlanSection(
+    vm: DateBookViewModel,
+    aiText: String,
+    onAiText: (String) -> Unit,
+    drafts: List<EventDraftEntity>,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)) {
+        AiPlanCard(
+            signedIn = vm.signedIn,
+            text = aiText,
+            onText = onAiText,
+            onSubmit = { if (aiText.isNotBlank()) { vm.planWithAi(aiText); onAiText("") } },
+        )
+        if (drafts.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 150.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                drafts.forEach { d ->
+                    DraftCard(
+                        draft = d,
+                        parsed = vm.parsedEventsOf(d),
+                        onAccept = { vm.acceptDraft(d) },
+                        onReject = { vm.rejectDraft(d) },
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+        }
+    }
 }
 
 @Composable

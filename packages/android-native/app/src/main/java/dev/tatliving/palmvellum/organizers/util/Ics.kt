@@ -5,6 +5,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** One parsed VEVENT. [startIso]/[endIso] are ISO-8601 instants (UTC, "…Z"). */
 data class IcsEvent(
@@ -111,8 +112,19 @@ object Ics {
         val tzid = Regex("TZID=([^;]+)", RegexOption.IGNORE_CASE).find(params)?.groupValues?.get(1)
         return runCatching {
             if (isDate) {
+                // An all-day DATE is timezone-independent, so pin it to UTC
+                // midnight (NOT the device zone). Storing local midnight would
+                // shift the UTC date back a day for positive-offset zones like
+                // HK and make Apple Calendar show every all-day event one day
+                // early — and would disagree with the PWA / mac clients, which
+                // pin to UTC midnight, causing the same subscribed event to
+                // flip-flop its date each time a different client syncs.
+                // Canonical string MUST byte-match the other clients:
+                // "YYYY-MM-DDT00:00:00.000Z".
                 val d = LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
-                d.atStartOfDay(ZoneId.systemDefault()).toInstant().toString() to true
+                // Locale.ROOT → guaranteed ASCII digits, byte-identical on every
+                // device locale (some locales would render non-ASCII digits).
+                String.format(Locale.ROOT, "%04d-%02d-%02dT00:00:00.000Z", d.year, d.monthValue, d.dayOfMonth) to true
             } else {
                 val basic = value.removeSuffix("Z")
                 val ldt = LocalDateTime.parse(basic, basicDateTime)

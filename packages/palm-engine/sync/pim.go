@@ -62,7 +62,12 @@ func DatebookPush(c Cloud, userID string, data []byte, tz *time.Location) (PushR
 		}
 		if a.Untimed {
 			ev.AllDay = true
-			ev.StartAt = time.Date(a.Year, time.Month(a.Month), a.Day, 0, 0, 0, 0, tz)
+			// An all-day event is timezone-independent: pin it to UTC midnight
+			// (NOT the device tz). Local midnight would shift the UTC date back
+			// a day for positive-offset zones like HK (Apple shows it one day
+			// early) and disagree with the PWA / Android / mac clients, making
+			// the same event flip-flop its date on each cross-client sync.
+			ev.StartAt = time.Date(a.Year, time.Month(a.Month), a.Day, 0, 0, 0, 0, time.UTC)
 		} else {
 			ev.StartAt = time.Date(a.Year, time.Month(a.Month), a.Day, int(a.StartHour), int(a.StartMin), 0, 0, tz)
 			end := time.Date(a.Year, time.Month(a.Month), a.Day, int(a.EndHour), int(a.EndMin), 0, 0, tz)
@@ -143,8 +148,16 @@ func DatebookPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Loca
 			backfills = append(backfills, backfill{e.ID, fmt.Sprintf("date:%06x", uid)})
 		}
 		st := e.StartAt.In(tz)
+		// All-day events are timezone-independent (pinned to UTC midnight):
+		// take their calendar date from UTC so the Palm shows the same day as
+		// every other client. Timed events use the device tz for both the date
+		// and the wall-clock time below.
+		dt := st
+		if e.AllDay {
+			dt = e.StartAt.UTC()
+		}
 		a := datebookdb.Appointment{
-			UniqueID: uid, Year: st.Year(), Month: int(st.Month()), Day: st.Day(),
+			UniqueID: uid, Year: dt.Year(), Month: int(dt.Month()), Day: dt.Day(),
 			Description: e.Title,
 		}
 		if e.Notes != nil {

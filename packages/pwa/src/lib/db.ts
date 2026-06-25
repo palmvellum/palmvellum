@@ -61,6 +61,7 @@ export interface LocalEvent {
   start_at: string;
   end_at: string | null;
   all_day: boolean;
+  tz: string | null; // IANA zone for timed events; null for all-day/legacy
   location: string | null;
   notes: string | null;
   alarm_minutes: number | null;

@@ -25,12 +25,19 @@
     monthGridDays,
     monthLabel,
     shortDayLabel,
-    hhmm,
     ymd,
     sameDay,
-    bucketByDay,
-    localInputToISO,
-    isoToLocalInput,
+    bucketByDayTz,
+    hhmmInZone,
+    ymdInZone,
+    zonedInputToISO,
+    isoToZonedInput,
+    allDayYmdToISO,
+    allDayIsoToYmd,
+    partsInZone,
+    deviceTz,
+    DEFAULT_TZ,
+    tzChoices,
   } from '$lib/calendar';
 
   // ── Calendar state ─────────────────────────────────────
@@ -40,6 +47,16 @@
   let loading = $state(false);
   let cloudError = $state<string | null>(null);
 
+  // Date Book view timezone — the lens the grid + agenda are read
+  // through. Seeded from the user's saved preference (falling back to
+  // Hong Kong, the app default) and changeable via the header picker.
+  function initialTz(): string {
+    const s = authState.settings?.timezone;
+    return s && s !== 'UTC' ? s : DEFAULT_TZ;
+  }
+  let viewTz = $state(initialTz());
+  let tzSaving = $state(false);
+
   // Manual create / edit form
   let editing = $state<CalendarEvent | null>(null);
   let showManualForm = $state(false);
@@ -47,6 +64,7 @@
   let formStart = $state('');
   let formEnd = $state('');
   let formAllDay = $state(false);
+  let formTz = $state(DEFAULT_TZ);
   let formLocation = $state('');
   let formNotes = $state('');
   let formAlarm = $state<string>('');
@@ -81,10 +99,25 @@
   let aiError = $state<string | null>(null);
   let drafts = $state<EventDraft[]>([]);
 
-  const byDay = $derived(bucketByDay(events));
+  const byDay = $derived(bucketByDayTz(events, viewTz));
   const grid = $derived(monthGridDays(viewMonth));
   const selectedDayKey = $derived(ymd(selectedDay));
   const selectedEvents = $derived(byDay.get(selectedDayKey) ?? []);
+  const tzList = $derived(tzChoices(viewTz));
+
+  // Persist the chosen view timezone so it sticks across sessions and
+  // is also picked up by the AI relative-date parser. Bucketing is
+  // reactive on `viewTz`, so no reload is needed for the grid itself.
+  async function onViewTzChange() {
+    if (!authState.userId) return;
+    tzSaving = true;
+    const { error } = await supabase
+      .from('user_settings')
+      .update({ timezone: viewTz })
+      .eq('user_id', authState.userId);
+    tzSaving = false;
+    if (!error) await authState.refreshSettings();
+  }
 
   let now = $state(new Date());
   onMount(() => {
@@ -152,10 +185,10 @@
         const md = r.metadata ?? {};
         const due = (md.palm_due_date ?? '').trim();
         if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return null;
-        // All-day at local midnight of the due date.
-        const [y, m, d] = due.split('-').map(Number);
-        const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
-        const ms = dt.getTime();
+        // All-day, timezone-independent: pinned to UTC midnight of the
+        // due date so it lands on the same calendar day everywhere.
+        const startIso = allDayYmdToISO(due);
+        const ms = new Date(startIso).getTime();
         if (ms < fromMs || ms >= toMs) return null;
         // BUG FIX (2026-06-07): completed to-dos were still rendering on the
         // calendar because we only set the todo_completed flag instead of
@@ -166,9 +199,10 @@
           id: `todo-${r.id}`,
           user_id: r.user_id,
           title: (r.body ?? '').trim() || '(untitled to-do)',
-          start_at: dt.toISOString(),
+          start_at: startIso,
           end_at: null,
           all_day: true,
+          tz: null,
           location: null,
           notes: md.palm_notes ?? null,
           alarm_minutes: null,
@@ -280,22 +314,40 @@
   }
 
   // ── Manual form ───────────────────────────────────────
-  function defaultStart(): string {
-    const d = new Date(selectedDay);
-    const h = new Date().getHours();
-    d.setHours(h + 1, 0, 0, 0);
-    return isoToLocalInput(d.toISOString());
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+
+  // "Asia/Hong_Kong" → "Hong Kong" for compact zone labels.
+  function tzShort(tz: string): string {
+    const seg = tz.split('/').pop() ?? tz;
+    return seg.replace(/_/g, ' ');
   }
+
+  // datetime-local string for the selected day at the next whole hour,
+  // expressed as a wall-clock in the form's timezone.
+  function defaultStart(): string {
+    const y = selectedDay.getFullYear();
+    const mo = selectedDay.getMonth() + 1;
+    const d = selectedDay.getDate();
+    const h = Math.min(partsInZone(new Date().toISOString(), formTz).hour + 1, 23);
+    return `${y}-${pad2(mo)}-${pad2(d)}T${pad2(h)}:00`;
+  }
+  // One hour after `start`, interpreted in the form's timezone.
   function defaultEnd(start: string): string {
     if (!start) return '';
-    const d = new Date(start);
-    d.setHours(d.getHours() + 1);
-    return isoToLocalInput(d.toISOString());
+    const iso = zonedInputToISO(start, formTz);
+    const plus = new Date(new Date(iso).getTime() + 3_600_000).toISOString();
+    return isoToZonedInput(plus, formTz);
+  }
+  // All-day instant → "YYYY-MM-DDT00:00" for the datetime-local field.
+  function allDayInput(iso: string | null): string {
+    if (!iso) return '';
+    return `${allDayIsoToYmd(iso)}T00:00`;
   }
 
   function openCreate() {
     editing = null;
     formTitle = '';
+    formTz = viewTz;
     formStart = defaultStart();
     formEnd = defaultEnd(formStart);
     formAllDay = false;
@@ -309,8 +361,14 @@
   function openEdit(e: CalendarEvent) {
     editing = e;
     formTitle = e.title;
-    formStart = isoToLocalInput(e.start_at);
-    formEnd = isoToLocalInput(e.end_at);
+    formTz = e.tz || viewTz;
+    if (e.all_day) {
+      formStart = allDayInput(e.start_at);
+      formEnd = allDayInput(e.end_at);
+    } else {
+      formStart = isoToZonedInput(e.start_at, formTz);
+      formEnd = isoToZonedInput(e.end_at, formTz);
+    }
     formAllDay = e.all_day;
     formLocation = e.location ?? '';
     formNotes = e.notes ?? '';
@@ -336,11 +394,25 @@
 
     const alarm =
       formAlarm.trim() === '' ? null : Math.max(0, Number.parseInt(formAlarm, 10));
+
+    // All-day events are timezone-independent dates pinned to UTC
+    // midnight; timed events store a true UTC instant plus the zone
+    // their wall-clock is anchored to.
+    let startAt: string;
+    let endAt: string | null;
+    if (formAllDay) {
+      startAt = allDayYmdToISO(formStart.slice(0, 10));
+      endAt = formEnd ? allDayYmdToISO(formEnd.slice(0, 10)) : null;
+    } else {
+      startAt = zonedInputToISO(formStart, formTz);
+      endAt = formEnd ? zonedInputToISO(formEnd, formTz) : null;
+    }
     const payload = {
       title: formTitle.trim(),
-      start_at: localInputToISO(formStart),
-      end_at: formEnd ? localInputToISO(formEnd) : null,
+      start_at: startAt,
+      end_at: endAt,
       all_day: formAllDay,
+      tz: formAllDay ? null : formTz,
       location: formLocation.trim() || null,
       notes: formNotes.trim() || null,
       alarm_minutes: alarm,
@@ -416,18 +488,34 @@
     // Realtime will surface the draft as it parses.
   }
 
+  // Normalise an AI-parsed event into our storage convention: all-day
+  // → UTC-midnight-pinned date (tz-independent); timed → keep the
+  // instant and anchor it to the draft's timezone.
+  function draftRow(e: ParsedDraftEvent, userTz: string) {
+    if (e.all_day) {
+      return {
+        start_at: allDayYmdToISO(ymdInZone(e.start_at, userTz)),
+        end_at: e.end_at ? allDayYmdToISO(ymdInZone(e.end_at, userTz)) : null,
+        tz: null as string | null,
+      };
+    }
+    return { start_at: e.start_at, end_at: e.end_at, tz: userTz as string | null };
+  }
+
   async function acceptOneDraftEvent(draft: EventDraft, idx: number) {
     if (!authState.userId) return;
     const e = draft.parsed_events[idx];
     if (!e) return;
+    const times = draftRow(e, draft.user_tz);
     const { error } = await supabase.from('events').insert({
       id: newUlid(),
       user_id: authState.userId,
       source: 'ai',
       title: e.title,
-      start_at: e.start_at,
-      end_at: e.end_at,
+      start_at: times.start_at,
+      end_at: times.end_at,
       all_day: e.all_day,
+      tz: times.tz,
       location: e.location,
       notes: e.notes,
       alarm_minutes: e.alarm_minutes,
@@ -451,18 +539,22 @@
 
   async function acceptAllDrafts(draft: EventDraft) {
     if (!authState.userId || draft.parsed_events.length === 0) return;
-    const rows = draft.parsed_events.map((e) => ({
-      id: newUlid(),
-      user_id: authState.userId,
-      source: 'ai',
-      title: e.title,
-      start_at: e.start_at,
-      end_at: e.end_at,
-      all_day: e.all_day,
-      location: e.location,
-      notes: e.notes,
-      alarm_minutes: e.alarm_minutes,
-    }));
+    const rows = draft.parsed_events.map((e) => {
+      const times = draftRow(e, draft.user_tz);
+      return {
+        id: newUlid(),
+        user_id: authState.userId,
+        source: 'ai',
+        title: e.title,
+        start_at: times.start_at,
+        end_at: times.end_at,
+        all_day: e.all_day,
+        tz: times.tz,
+        location: e.location,
+        notes: e.notes,
+        alarm_minutes: e.alarm_minutes,
+      };
+    });
     const { error } = await supabase.from('events').insert(rows);
     if (error) {
       alert(`Bulk insert failed: ${error.message}`);
@@ -500,9 +592,9 @@
 
   function draftEventTimeLabel(e: ParsedDraftEvent): string {
     if (e.all_day) return 'all-day';
-    const start = hhmm(e.start_at);
+    const start = hhmmInZone(e.start_at, viewTz);
     if (!e.end_at) return start;
-    return `${start}–${hhmm(e.end_at)}`;
+    return `${start}–${hhmmInZone(e.end_at, viewTz)}`;
   }
 
   function draftEventDateLabel(e: ParsedDraftEvent): string {
@@ -593,7 +685,8 @@
                 {:else if e.all_day}
                   all-day
                 {:else}
-                  {hhmm(e.start_at)}{#if e.end_at}–{hhmm(e.end_at)}{/if}
+                  {hhmmInZone(e.start_at, e.tz || viewTz)}{#if e.end_at}–{hhmmInZone(e.end_at, e.tz || viewTz)}{/if}
+                  {#if e.tz && e.tz !== viewTz}<span class="tz-badge">{tzShort(e.tz)}</span>{/if}
                 {/if}
               </div>
               <div class="ev-body">
@@ -701,6 +794,14 @@
         </div>
         <div class="nav-r">
           {#if loading}<span class="muted">syncing…</span>{/if}
+          <label class="tz-picker" title="Date Book timezone">
+            <span class="tz-globe" aria-hidden="true">🌐</span>
+            <select bind:value={viewTz} onchange={onViewTzChange} disabled={tzSaving} aria-label="Date Book timezone">
+              {#each tzList as z (z)}
+                <option value={z}>{tzShort(z)}</option>
+              {/each}
+            </select>
+          </label>
         </div>
       </header>
 
@@ -797,6 +898,16 @@
               <input type="checkbox" bind:checked={formAllDay} />
               all-day
             </label>
+            {#if !formAllDay}
+              <label>
+                timezone
+                <select bind:value={formTz}>
+                  {#each tzChoices(formTz, viewTz) as z (z)}
+                    <option value={z}>{tzShort(z)}</option>
+                  {/each}
+                </select>
+              </label>
+            {/if}
             <label>
               location <span class="optional">(optional)</span>
               <input type="text" bind:value={formLocation} maxlength="256" />
@@ -875,6 +986,31 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+  }
+  .tz-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+  }
+  .tz-picker select {
+    font-size: 0.8rem;
+    padding: 0.15rem 0.3rem;
+    max-width: 9rem;
+  }
+  .tz-globe {
+    opacity: 0.7;
+  }
+  .tz-badge {
+    display: inline-block;
+    margin-left: 0.3rem;
+    padding: 0 0.3rem;
+    font-size: 0.62rem;
+    line-height: 1.4;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.12);
+    vertical-align: middle;
+    white-space: nowrap;
   }
   h1 {
     font-size: 1.2rem;

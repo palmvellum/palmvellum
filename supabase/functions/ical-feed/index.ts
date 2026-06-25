@@ -250,10 +250,16 @@ function buildIcs(events: EventRow[], todos: TodoRow[]): string {
 function formatDate(iso: string, allDay: boolean): string {
   const d = new Date(iso);
   if (allDay) {
-    // YYYYMMDD in UTC; for Apple this is fine since all-day events
-    // are stored at 00:00 UTC by the platform.
+    // All-day events are timezone-independent dates pinned to UTC
+    // midnight (`YYYY-MM-DDT00:00:00Z`) by the app and the v0.10
+    // migration, so the UTC date IS the intended calendar date.
+    // (Before v0.10 they were stored at *local* midnight, which made
+    // this read one day early for positive-offset zones like HK.)
     return d.toISOString().slice(0, 10).replace(/-/g, '');
   }
+  // Timed events: emit the true UTC instant. The subscriber's calendar
+  // app renders it in its own device zone — always the correct moment.
+  // (The event's `tz` column governs in-app display, not the feed.)
   return utc(iso);
 }
 

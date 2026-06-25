@@ -37,6 +37,10 @@
     localInputToISO,
     isoToLocalInput,
     shortDayLabel,
+    allDayYmdToISO,
+    allDayIsoToYmd,
+    ymdInZone,
+    deviceTz,
   } from '$lib/calendar';
   import PalmList from './PalmList.svelte';
   import PalmCell from './PalmCell.svelte';
@@ -221,20 +225,19 @@
         const due = (md.palm_due_date ?? '').trim();
         if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) continue;
         if (md.palm_completed === true) continue;
-        const parts = due.split('-').map(Number);
-        const y = parts[0] ?? 0;
-        const mo = parts[1] ?? 1;
-        const d = parts[2] ?? 1;
-        const dt = new Date(y, mo - 1, d, 0, 0, 0, 0);
-        const ms = dt.getTime();
+        // All-day, timezone-independent: pinned to UTC midnight of the
+        // due date so it lands on the same calendar day everywhere.
+        const startIso = allDayYmdToISO(due);
+        const ms = new Date(startIso).getTime();
         if (ms < fromMs || ms >= toMs) continue;
         todoEvs.push({
           id: `todo-${r.id}`,
           user_id: r.user_id,
           title: (r.body ?? '').trim() || t('datebook.todoUntitled'),
-          start_at: dt.toISOString(),
+          start_at: startIso,
           end_at: null,
           all_day: true,
+          tz: null,
           location: null,
           notes: md.palm_notes ?? null,
           alarm_minutes: null,
@@ -437,18 +440,30 @@
       return;
     }
     acceptedDrafts.add(draft.id);
-    const rows = list.map((e) => ({
-      id: newUlid(),
-      user_id: authState.userId!,
-      source: 'ai',
-      title: e.title,
-      start_at: e.start_at,
-      end_at: e.end_at,
-      all_day: e.all_day,
-      location: e.location,
-      notes: e.notes,
-      alarm_minutes: e.alarm_minutes,
-    }));
+    const userTz = deviceTz();
+    const rows = list.map((e) => {
+      // Normalise to our storage convention: all-day → UTC-midnight pin
+      // (tz-independent); timed → keep the instant, anchored to userTz.
+      const startAt = e.all_day
+        ? allDayYmdToISO(ymdInZone(e.start_at, userTz))
+        : e.start_at;
+      const endAt = e.all_day
+        ? (e.end_at ? allDayYmdToISO(ymdInZone(e.end_at, userTz)) : null)
+        : e.end_at;
+      return {
+        id: newUlid(),
+        user_id: authState.userId!,
+        source: 'ai',
+        title: e.title,
+        start_at: startAt,
+        end_at: endAt,
+        all_day: e.all_day,
+        tz: e.all_day ? null : userTz,
+        location: e.location,
+        notes: e.notes,
+        alarm_minutes: e.alarm_minutes,
+      };
+    });
     const insertRes = await supabase.from('events').insert(rows);
     if (insertRes.error) {
       aiError = insertRes.error.message;
@@ -505,8 +520,15 @@
   function openEdit(e: CalendarEvent) {
     editing = e;
     fTitle = e.title;
-    fStart = isoToLocalInput(e.start_at);
-    fEnd = isoToLocalInput(e.end_at);
+    if (e.all_day) {
+      // All-day events are UTC-midnight-pinned dates; read the date via
+      // UTC so the picker shows the intended day in any timezone.
+      fStart = `${allDayIsoToYmd(e.start_at)}T00:00`;
+      fEnd = e.end_at ? `${allDayIsoToYmd(e.end_at)}T00:00` : '';
+    } else {
+      fStart = isoToLocalInput(e.start_at);
+      fEnd = isoToLocalInput(e.end_at);
+    }
     fAllDay = e.all_day;
     fLocation = e.location ?? '';
     fNotes = e.notes ?? '';
@@ -528,8 +550,17 @@
     if (!authState.userId || !fTitle.trim() || !fStart) return;
     saving = true;
     try {
-      const startIso = localInputToISO(fStart);
-      const endIso = fEnd ? localInputToISO(fEnd) : null;
+      // All-day events are timezone-independent dates pinned to UTC
+      // midnight; timed events store a true UTC instant anchored to this
+      // device's zone.
+      const startIso = fAllDay
+        ? allDayYmdToISO(fStart.slice(0, 10))
+        : localInputToISO(fStart);
+      const endIso = fAllDay
+        ? null
+        : fEnd
+          ? localInputToISO(fEnd)
+          : null;
       const payload: Partial<CalendarEvent> = {
         title: fTitle.trim(),
         start_at: startIso,
@@ -538,6 +569,7 @@
         // rejected save would leave this sheet stuck open.
         end_at: !fAllDay && endIso && endIso >= startIso ? endIso : null,
         all_day: fAllDay,
+        tz: fAllDay ? null : deviceTz(),
         location: fLocation.trim() || null,
         notes: fNotes.trim() || null,
       };
@@ -549,6 +581,7 @@
           start_at: payload.start_at!,
           end_at: payload.end_at ?? null,
           all_day: !!payload.all_day,
+          tz: payload.tz ?? null,
           location: payload.location ?? null,
           notes: payload.notes ?? null,
         });

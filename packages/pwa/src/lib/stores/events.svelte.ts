@@ -23,6 +23,7 @@ export interface NewEvent {
   start_at: string;
   end_at?: string | null;
   all_day?: boolean;
+  tz?: string | null;
   location?: string | null;
   notes?: string | null;
   alarm_minutes?: number | null;
@@ -76,6 +77,7 @@ export async function createEvent(e: NewEvent): Promise<EventRow> {
     start_at: e.start_at,
     end_at: e.end_at ?? null,
     all_day: e.all_day ?? false,
+    tz: e.tz ?? null,
     location: e.location ?? null,
     notes: e.notes ?? null,
     alarm_minutes: e.alarm_minutes ?? null,

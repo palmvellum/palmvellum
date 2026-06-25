@@ -126,13 +126,16 @@ function parseDt(
   const tzid = /TZID=([^;]+)/i.exec(params)?.[1];
   try {
     if (isDate) {
-      // yyyymmdd — treat as local midnight, store the instant.
-      const y = +value.slice(0, 4);
-      const m = +value.slice(4, 6);
-      const d = +value.slice(6, 8);
-      const dt = new Date(y, m - 1, d, 0, 0, 0);
-      if (isNaN(dt.getTime())) return null;
-      return { iso: dt.toISOString(), allDay: true };
+      // yyyymmdd — an all-day DATE is timezone-independent, so pin it to
+      // UTC midnight (NOT local midnight). Storing local midnight would
+      // shift the UTC date back a day for positive-offset zones like HK
+      // and make Apple Calendar show every all-day event one day early.
+      const yyyy = value.slice(0, 4);
+      const mm = value.slice(4, 6);
+      const dd = value.slice(6, 8);
+      const stamp = Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0);
+      if (isNaN(stamp)) return null;
+      return { iso: `${yyyy}-${mm}-${dd}T00:00:00.000Z`, allDay: true };
     }
     // yyyymmddThhmmss(Z)
     const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/.exec(value);

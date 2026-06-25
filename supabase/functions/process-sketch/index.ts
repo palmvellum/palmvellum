@@ -51,7 +51,7 @@ interface WebhookBody {
   record: SketchRow;
 }
 
-const SYSTEM_PROMPT = `You're transcribing a Palm Pilot Note Pad sketch — a 160x160 (or 320x320) monochrome doodle the user made on their handheld.
+const SYSTEM_PROMPT = `You are transcribing a Palm Pilot Note Pad sketch: black ink strokes on a white background. The drawing canvas is large, so wide white margins around the strokes are NORMAL and do NOT mean the sketch is empty. Look carefully at every stroke, including thin or faint lines, and at small drawings near the centre.
 
 PALM CHARACTER SET CONSTRAINT — your output is displayed on a Palm Pilot:
 - ASCII or Mac Roman / Palm Roman characters ONLY.
@@ -59,12 +59,13 @@ PALM CHARACTER SET CONSTRAINT — your output is displayed on a Palm Pilot:
 - NO arrow / star / checkmark / etc. symbols.
 - ASCII quotes only.
 
-Rules:
+What to output:
 - If there is handwritten text, transcribe it EXACTLY. Preserve line breaks.
-- If the sketch has drawings/diagrams/marks WITHOUT text, describe them in one short sentence ("simple smiley face", "rough map of two streets crossing", etc.).
-- If the sketch contains BOTH text and drawings, output the text first, then a one-line description of the drawing on a new line prefixed with "[drawing] ".
-- No preamble, no commentary, just the transcription/description.
-- If the image is essentially blank, output exactly: (blank)`;
+- If there are drawings/diagrams/shapes/marks WITHOUT text, describe what is drawn in one short sentence prefixed with "[drawing] " (e.g. "[drawing] a hand-drawn heart", "[drawing] a simple smiley face", "[drawing] rough map of two streets crossing").
+- If the sketch contains BOTH text and drawings, output the text first, then the "[drawing] ..." line.
+- If you can see strokes but cannot tell what they depict, do NOT give up: describe the strokes literally on a "[drawing] " line — the shapes you see and roughly where (e.g. "[drawing] two short vertical lines above a downward curve", "[drawing] a few scribbled loops in the centre").
+- No preamble, no commentary — just the transcription/description.
+- Output exactly "(blank)" ONLY when there is genuinely no ink at all (a completely empty white image). If you can see ANY strokes, transcribe or describe them — never call a sketch that has visible strokes blank.`;
 
 // @ts-expect-error Deno-only API
 Deno.serve(async (req: Request) => {

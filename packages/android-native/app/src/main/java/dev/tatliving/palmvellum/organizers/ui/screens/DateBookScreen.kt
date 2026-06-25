@@ -68,6 +68,7 @@ import dev.tatliving.palmvellum.organizers.ui.components.PalmListCard
 import dev.tatliving.palmvellum.organizers.ui.components.PalmRow
 import dev.tatliving.palmvellum.organizers.ui.components.TitleAction
 import dev.tatliving.palmvellum.organizers.ui.components.TitleCategory
+import dev.tatliving.palmvellum.organizers.ui.components.TitleSearch
 import dev.tatliving.palmvellum.organizers.ui.i18n.I18n
 import dev.tatliving.palmvellum.organizers.ui.nav.Routes
 import dev.tatliving.palmvellum.organizers.ui.theme.PalmDarkRed
@@ -148,6 +149,9 @@ fun DateBookScreen(navController: NavHostController) {
     }
     // null = list; otherwise the event being edited (id="" => new)
     var editing by remember { mutableStateOf<EventEntity?>(null) }
+    // Cosmo's plan-with-AI input lives in the title bar (standard puts it inside
+    // the new-event editor instead).
+    var aiText by remember { mutableStateOf("") }
     // agenda | week | month. Both builds open on the month calendar.
     var mode by remember { mutableStateOf("month") }
     // anchor day the week/month views revolve around; selectedDay = tapped cell
@@ -191,10 +195,29 @@ fun DateBookScreen(navController: NavHostController) {
             }
             TitleAction(I18n.t("common.new")) { editing = newEvent(selectedDay) }
         },
-        // Cosmo: the agenda/month switcher rides in the title bar. (Plan-with-AI
-        // now lives inside the "new" event editor.)
+        // Cosmo: the agenda/month switcher rides in the title bar, with the
+        // "plan with AI" input filling the grey space beside it. (Standard puts
+        // plan-with-AI inside the new-event editor instead.)
         titleCenter = if (BuildConfig.COSMO) {
-            { TitleCategory(modeOptions, mode) { mode = it } }
+            {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TitleCategory(modeOptions, mode) { mode = it }
+                    if (vm.signedIn) {
+                        TitleSearch(
+                            value = aiText,
+                            onValueChange = { aiText = it },
+                            placeholder = I18n.t("datebook.planWithAiPlaceholder"),
+                            modifier = Modifier.weight(1f),
+                            onSubmit = {
+                                if (aiText.isNotBlank()) { vm.planWithAi(aiText); aiText = "" }
+                            },
+                        )
+                    }
+                }
+            }
         } else {
             null
         },
@@ -785,8 +808,9 @@ private fun EventEditor(
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // New events can be planned with AI (free text → server-parsed
-            // events) instead of, or before, filling the fields by hand.
-            if (isNew) {
+            // events) instead of, or before, filling the fields by hand. Cosmo
+            // keeps plan-with-AI in the title bar, so only standard shows it here.
+            if (isNew && !BuildConfig.COSMO) {
                 AiPlanCard(
                     signedIn = signedIn,
                     text = aiText,

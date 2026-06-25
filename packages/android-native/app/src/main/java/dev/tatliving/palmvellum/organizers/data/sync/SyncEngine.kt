@@ -28,9 +28,10 @@ enum class SyncStatus { IDLE, SYNCING, SUCCESS, ERROR }
 
 /**
  * Opt-in cloud sync against Supabase (PostgREST). Local Room is the source
- * of truth; this pushes dirty rows up and pulls remote changes down, with
- * conflict detection (both sides changed since last sync -> a ConflictEntity
- * the user resolves on the Conflicts screen).
+ * of truth; this pushes dirty rows up and pulls remote changes down. When both
+ * sides changed the same row since the last sync, we keep both versions (the
+ * id adopts the cloud copy; the local copy is forked to a new row) and let the
+ * user delete whichever they don't want — no manual conflict resolution.
  */
 class SyncEngine(
     private val eventDao: EventDao,
@@ -135,8 +136,15 @@ class SyncEngine(
                 if (local.remoteUpdatedAt != remoteEntity.updatedAt) eventDao.upsert(remoteEntity)
             }
             local.remoteUpdatedAt == remoteEntity.updatedAt -> Unit // only local changed -> push later
-            else -> recordConflict("events", local.id, "event", local.title, remote, local.updatedAt, remoteEntity.updatedAt)
-                .also { eventDao.upsert(local.copy(syncState = "conflict")) }
+            else -> {
+                // Both sides changed since the last sync. Rather than ask the
+                // user to pick a winner, keep both: the existing id adopts the
+                // remote (cloud) copy, and our local copy is re-inserted as a
+                // brand-new event that pushes up as a separate row. The user
+                // deletes whichever they don't want.
+                eventDao.upsert(forkEvent(local))
+                eventDao.upsert(remoteEntity)
+            }
         }
     }
 
@@ -149,35 +157,30 @@ class SyncEngine(
                 if (local.remoteUpdatedAt != remoteEntity.updatedAt) recordDao.upsert(remoteEntity)
             }
             local.remoteUpdatedAt == remoteEntity.updatedAt -> Unit
-            else -> recordConflict("records", local.id, local.type, local.body ?: "(record)", remote, local.updatedAt, remoteEntity.updatedAt)
-                .also { recordDao.upsert(local.copy(syncState = "conflict")) }
+            else -> {
+                // Both sides changed: keep both versions (see mergeEvent).
+                recordDao.upsert(forkRecord(local))
+                recordDao.upsert(remoteEntity)
+            }
         }
     }
 
-    private suspend fun recordConflict(
-        table: String, entityId: String, type: String?, titleHint: String,
-        remote: JsonObject, localUpdatedAt: String, remoteUpdatedAt: String,
-    ) {
-        val localJson = when (table) {
-            "events" -> eventDao.getById(entityId)?.let { eventToJson(it, it.userId ?: "").toString() } ?: "{}"
-            else -> recordDao.getById(entityId)?.let { recordToJson(it, it.userId ?: "").toString() } ?: "{}"
-        }
-        val existing = conflictDao.forEntity(table, entityId)
-        conflictDao.upsert(
-            ConflictEntity(
-                id = existing?.id ?: Ulid.new(),
-                entityTable = table,
-                entityId = entityId,
-                entityType = type,
-                titleHint = titleHint,
-                localJson = localJson,
-                remoteJson = remote.toString(),
-                localUpdatedAt = localUpdatedAt,
-                remoteUpdatedAt = remoteUpdatedAt,
-                detectedAt = Clock.nowIso(),
-            ),
-        )
-    }
+    /** A fresh-id, dirty copy of a conflicting local row, pushed as a new row. */
+    private fun forkEvent(local: EventEntity): EventEntity = local.copy(
+        id = Ulid.new(),
+        isDirty = true,
+        syncState = "local",
+        remoteUpdatedAt = null,
+        updatedAt = Clock.nowIso(),
+    )
+
+    private fun forkRecord(local: RecordEntity): RecordEntity = local.copy(
+        id = Ulid.new(),
+        isDirty = true,
+        syncState = "local",
+        remoteUpdatedAt = null,
+        updatedAt = Clock.nowIso(),
+    )
 
     // ── PUSH ────────────────────────────────────────────────────
     private suspend fun push(uid: String) {

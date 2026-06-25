@@ -242,6 +242,9 @@ class CalSubsState {
         start_at: e.startIso,
         end_at: e.endIso ?? null,
         all_day: e.allDay,
+        // Subscribed events are tz-independent all-day dates or true UTC
+        // instants — no per-event zone to anchor.
+        tz: null,
         location: e.location ?? null,
         notes: e.description ?? null,
         alarm_minutes: null,

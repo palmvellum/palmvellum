@@ -33,6 +33,7 @@ export default {
   "settings.payNotCompleted": "Payment was not completed — you have not been charged.",
   "settings.subsHead": "Subscribed calendars",
   "settings.subsSub": "Pull an external calendar into your date book (read-only). Paste a Google Calendar “secret address in iCal format”, or an .ics URL — or import an .ics file. Events refresh when you open the app.",
+  "settings.subManageOnWeb": "Add, import or remove calendars in the web app. The packaged apps stay in sync automatically and are read-only here.",
   "settings.subRemove": "Remove",
   "settings.subRefreshing": "refreshing…",
   "settings.subRefreshNow": "refresh now",

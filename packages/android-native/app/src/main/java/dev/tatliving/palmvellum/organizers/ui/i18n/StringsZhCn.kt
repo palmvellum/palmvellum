@@ -76,7 +76,8 @@ val STR_ZH_CN: Map<String, String> = mapOf(
     "settings.languageSub" to "选择应用语言 — 与网页版支持的语言相同。",
     // Calendar subscriptions
     "settings.calSubs" to "日历订阅",
-    "settings.calSubsSub" to "只读 iCal 订阅源 — 例如 Google 日历的\"iCal 格式的私密地址\"。事件会被拉取并同步。添加后请点刷新。",
+    "settings.calSubsSub" to "只读 iCal 订阅源 — 例如 Google 日历的\"iCal 格式的私密地址\"。事件会被拉取并同步。",
+    "settings.subManageOnWeb" to "新增、导入或移除日历只能在网页版进行；这个 app 会自动同步，这里只读。",
     "settings.name" to "名称",
     "settings.icalUrl" to "iCal 链接",
     "settings.refreshNow" to "立即刷新",

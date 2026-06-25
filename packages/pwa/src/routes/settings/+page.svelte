@@ -7,6 +7,7 @@
   import { t, currentLang, setLang, SUPPORTED_LANGUAGES, type Lang } from '$lib/i18n.svelte';
   import { prefs } from '$lib/prefs.svelte';
   import { calsubs } from '$lib/stores/calsubs.svelte';
+  import { isCapacitor } from '$lib/capacitor.svelte';
   import PalmAppShell from '$lib/components/palm/PalmAppShell.svelte';
 
   type Provider = 'openai' | 'anthropic' | 'gemini';
@@ -650,9 +651,11 @@
               <span class="sub-name">{s.name}</span>
               <span class="sub-url">{s.url}</span>
             </div>
-            <button type="button" class="secondary" onclick={() => calsubs.remove(s.url)} disabled={subBusy}>
-              {t('settings.subRemove')}
-            </button>
+            {#if !isCapacitor}
+              <button type="button" class="secondary" onclick={() => calsubs.remove(s.url)} disabled={subBusy}>
+                {t('settings.subRemove')}
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -675,34 +678,41 @@
       </div>
     {/if}
 
-    <form class="sub-form" onsubmit={addSub}>
-      <label>
-        {t('settings.subNameLabel')}
-        <input bind:value={subName} placeholder={t('settings.subNamePh')} maxlength="80" />
-      </label>
-      <label>
-        {t('settings.subUrlLabel')}
-        <input
-          bind:value={subUrl}
-          placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
-          inputmode="url"
-        />
-      </label>
-      <button type="submit" disabled={subBusy || !subUrl.trim()}>{t('settings.subAdd')}</button>
-    </form>
+    {#if isCapacitor}
+      <!-- PWA is the single source of truth for the calendar list: adding /
+           importing / removing feeds happens only in the web app. The
+           packaged apps stay read-only consumers (they still sync + refresh). -->
+      <p class="sub manage-on-web">{t('settings.subManageOnWeb')}</p>
+    {:else}
+      <form class="sub-form" onsubmit={addSub}>
+        <label>
+          {t('settings.subNameLabel')}
+          <input bind:value={subName} placeholder={t('settings.subNamePh')} maxlength="80" />
+        </label>
+        <label>
+          {t('settings.subUrlLabel')}
+          <input
+            bind:value={subUrl}
+            placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+            inputmode="url"
+          />
+        </label>
+        <button type="submit" disabled={subBusy || !subUrl.trim()}>{t('settings.subAdd')}</button>
+      </form>
 
-    <div class="ics-import">
-      <button type="button" class="secondary" onclick={() => icsFileInput?.click()} disabled={subBusy}>
-        {t('settings.subImport')}
-      </button>
-      <input
-        bind:this={icsFileInput}
-        type="file"
-        accept=".ics,text/calendar"
-        onchange={importIcsFile}
-        hidden
-      />
-    </div>
+      <div class="ics-import">
+        <button type="button" class="secondary" onclick={() => icsFileInput?.click()} disabled={subBusy}>
+          {t('settings.subImport')}
+        </button>
+        <input
+          bind:this={icsFileInput}
+          type="file"
+          accept=".ics,text/calendar"
+          onchange={importIcsFile}
+          hidden
+        />
+      </div>
+    {/if}
 
     {#if subMsg}<p class="ok">{subMsg}</p>{/if}
     {#if subError}<p class="error">{subError}</p>{/if}

@@ -105,7 +105,8 @@ val STR_EN: Map<String, String> = mapOf(
     "settings.languageSub" to "Choose the app language — the same languages the web app supports.",
     // Calendar subscriptions
     "settings.calSubs" to "Calendar subscriptions",
-    "settings.calSubsSub" to "Read-only iCal feeds — e.g. a Google Calendar's \"Secret address in iCal format\". Events are pulled in and synced. Tap Refresh after adding.",
+    "settings.calSubsSub" to "Read-only iCal feeds — e.g. a Google Calendar's \"Secret address in iCal format\". Events are pulled in and synced.",
+    "settings.subManageOnWeb" to "Add, import or remove calendars in the web app. This app stays in sync automatically and is read-only here.",
     "settings.name" to "Name",
     "settings.icalUrl" to "iCal URL",
     "settings.refreshNow" to "Refresh now",

@@ -76,7 +76,8 @@ val STR_RU: Map<String, String> = mapOf(
     "settings.languageSub" to "Выберите язык приложения — те же языки, что поддерживает веб-приложение.",
     // Calendar subscriptions
     "settings.calSubs" to "Подписки на календари",
-    "settings.calSubsSub" to "Календарные фиды iCal только для чтения — например, «Секретный адрес в формате iCal» из Google Calendar. События загружаются и синхронизируются. После добавления нажмите «Обновить».",
+    "settings.calSubsSub" to "Календарные фиды iCal только для чтения — например, «Секретный адрес в формате iCal» из Google Calendar. События загружаются и синхронизируются.",
+    "settings.subManageOnWeb" to "Добавлять, импортировать и удалять календари можно только в веб-приложении. Это приложение синхронизируется автоматически и доступно здесь только для чтения.",
     "settings.name" to "Название",
     "settings.icalUrl" to "URL iCal",
     "settings.refreshNow" to "Обновить сейчас",

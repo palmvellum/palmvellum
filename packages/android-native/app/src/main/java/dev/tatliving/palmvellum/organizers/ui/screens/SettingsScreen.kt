@@ -2,8 +2,6 @@ package dev.tatliving.palmvellum.organizers.ui.screens
 
 import android.content.Intent
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -46,7 +44,6 @@ import dev.tatliving.palmvellum.organizers.data.CalSubStore
 import dev.tatliving.palmvellum.organizers.data.CalSubs
 import dev.tatliving.palmvellum.organizers.data.CalendarSync
 import dev.tatliving.palmvellum.organizers.data.Graph
-import dev.tatliving.palmvellum.organizers.data.IcsImport
 import dev.tatliving.palmvellum.organizers.data.sync.SyncStatus
 import dev.tatliving.palmvellum.organizers.ui.PalmScaffold
 import dev.tatliving.palmvellum.organizers.ui.components.PalmCategoryStrip
@@ -329,24 +326,10 @@ private fun CalendarSubscriptionsSection() {
     // The subscription list is a synced record now, so it streams in (and
     // reflects feeds added on the web or another device).
     val subs by CalSubs.observe().collectAsState(initial = emptyList())
-    var name by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf<String?>(null) }
     var interval by remember { mutableStateOf(store.intervalHours()) }
-    var importMsg by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val text = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-        }.getOrNull()
-        if (text == null) {
-            importMsg = I18n.t("settings.importErr")
-        } else {
-            scope.launch { importMsg = I18n.t("settings.importOk", IcsImport.importText(text)) }
-        }
-    }
 
     Text(
         I18n.t("settings.calSubs"),
@@ -369,32 +352,21 @@ private fun CalendarSubscriptionsSection() {
                 Text(sub.name.ifBlank { sub.url }, color = PalmInk, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(sub.url, color = PalmInkMute, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(
-                I18n.t("common.remove"),
-                color = PalmRed, fontSize = 13.sp,
-                modifier = Modifier.clickable { scope.launch { CalSubs.remove(sub.url) } }.padding(6.dp),
-            )
         }
     }
 
-    PalmField(I18n.t("settings.name"), name, { name = it })
-    PalmField(I18n.t("settings.icalUrl"), url, { url = it })
+    // Adding / importing / removing feeds lives in the web app — the PWA is
+    // the single source of truth for the calendar list. Here we only show the
+    // synced list and let this device pull the latest events.
+    Text(
+        I18n.t("settings.subManageOnWeb"),
+        color = PalmInkMute, fontSize = 13.sp,
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+    )
     msg?.let {
         Text(it, color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
     }
     Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
-        Button(
-            onClick = {
-                if (url.isNotBlank()) {
-                    val n = name.trim(); val u = url.trim()
-                    scope.launch { CalSubs.add(n.ifBlank { u }, u) }
-                    name = ""; url = ""; msg = null
-                }
-            },
-            enabled = url.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(containerColor = PalmTitleBar),
-        ) { Text(I18n.t("common.add")) }
-        Spacer(Modifier.width(8.dp))
         OutlinedButton(
             enabled = !busy,
             onClick = {
@@ -425,23 +397,4 @@ private fun CalendarSubscriptionsSection() {
         },
     )
 
-    Spacer(Modifier.height(12.dp))
-    PalmDivider()
-    Spacer(Modifier.height(8.dp))
-    Text(I18n.t("settings.importHeading"), color = PalmInk, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
-    Text(
-        I18n.t("settings.importSub"),
-        color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp),
-    )
-    Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
-        OutlinedButton(
-            onClick = {
-                importMsg = null
-                icsPicker.launch(arrayOf("text/calendar", "application/octet-stream", "*/*"))
-            },
-        ) { Text(I18n.t("settings.importBtn")) }
-    }
-    importMsg?.let {
-        Text(it, color = PalmInkMute, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
-    }
 }

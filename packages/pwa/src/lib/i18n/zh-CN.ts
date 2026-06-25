@@ -33,6 +33,7 @@ export default {
   "settings.payNotCompleted": "付款未完成 —— 你没有被扣费。",
   "settings.subsHead": "订阅的日历",
   "settings.subsSub": "把外部日历拉进你的日历本（只读）。粘贴 Google Calendar 的“iCal 格式私密地址”，或一条 .ics URL —— 或导入一个 .ics 文件。打开 app 时事项会自动刷新。",
+  "settings.subManageOnWeb": "新增、导入或移除日历只能在网页版进行；这个 app 会自动同步，这里只读。",
   "settings.subRemove": "移除",
   "settings.subRefreshing": "刷新中…",
   "settings.subRefreshNow": "立即刷新",

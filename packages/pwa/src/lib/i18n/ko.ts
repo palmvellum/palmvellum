@@ -33,6 +33,7 @@ export default {
   "settings.payNotCompleted": "결제가 완료되지 않았습니다 — 요금이 청구되지 않았습니다.",
   "settings.subsHead": "구독 캘린더",
   "settings.subsSub": "외부 캘린더를 Date Book으로 가져옵니다(읽기 전용). Google Calendar의 “iCal 형식 비공개 주소”나 .ics URL을 붙여넣거나 — .ics 파일을 가져오세요. 앱을 열 때 일정이 새로 고쳐집니다.",
+  "settings.subManageOnWeb": "캘린더 추가·가져오기·삭제는 웹 앱에서만 할 수 있습니다. 이 앱은 자동으로 동기화되며 여기서는 읽기 전용입니다.",
   "settings.subRemove": "제거",
   "settings.subRefreshing": "새로 고치는 중…",
   "settings.subRefreshNow": "지금 새로 고침",

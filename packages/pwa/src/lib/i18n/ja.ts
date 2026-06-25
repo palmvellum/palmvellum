@@ -33,6 +33,7 @@ export default {
   "settings.payNotCompleted": "決済は完了していません — 請求は発生していません。",
   "settings.subsHead": "購読カレンダー",
   "settings.subsSub": "外部カレンダーを Date Book に取り込みます（読み取り専用）。Google Calendar の「iCal 形式の非公開アドレス」や .ics URL を貼り付けるか、.ics ファイルをインポートしてください。アプリを開くとイベントが更新されます。",
+  "settings.subManageOnWeb": "カレンダーの追加・インポート・削除はウェブ版でのみ行えます。このアプリは自動同期され、ここでは読み取り専用です。",
   "settings.subRemove": "削除",
   "settings.subRefreshing": "更新中…",
   "settings.subRefreshNow": "今すぐ更新",

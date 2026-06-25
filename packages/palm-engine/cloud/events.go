@@ -27,11 +27,17 @@ type Event struct {
 	PalmRecordUID *int       `json:"palm_record_uid,omitempty"`
 }
 
-// ListEventsForUser returns active events ordered by start.
+// ListEventsForUser returns the user's own active events ordered by start.
+// Calendar-feed events (ics-sub / ics-import) are excluded server-side so a
+// large subscribed calendar isn't downloaded on every HotSync — it is never
+// written to the device anyway (see DatebookPull). The or-clause keeps rows
+// whose source is null (legacy / device-origin events).
 func (c *Client) ListEventsForUser(userID string) ([]Event, error) {
 	u := fmt.Sprintf("%s/rest/v1/events"+
 		"?select=id,title,start_at,end_at,all_day,location,notes,alarm_minutes,repeat_rule,source,device_id,palm_record_uid"+
-		"&user_id=eq.%s&deleted_at=is.null&order=start_at.asc", c.Endpoint, userID)
+		"&user_id=eq.%s&deleted_at=is.null"+
+		"&or=(source.is.null,source.not.in.(ics-sub,ics-import))"+
+		"&order=start_at.asc", c.Endpoint, userID)
 	req, _ := http.NewRequest("GET", u, nil)
 	c.auth(req)
 	resp, err := c.HTTP.Do(req)

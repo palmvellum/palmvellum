@@ -126,9 +126,15 @@ class HotSyncConduit(
         if (dateDev == null) { log("(no Date Book on device)"); return }
         log("Date Book: read ${dateDev.records.size} record(s)")
         val palmDb = session.asPalmDb(dateDev, "date")
-        val pushed = datebookPush(palmDb)
-        log("Date Book -> cloud: +${pushed.inserted} new, ~${pushed.updated} updated, ${pushed.skipped} skipped")
-        val appts = datebookPull()
+        // Fetch the user's own (non-feed) events ONCE and reuse for both the push
+        // existence check and the pull. Avoids a per-record findEventByDevice GET
+        // and a second full download. listEventsForUser already excludes feed.
+        val cloudEvents = runBlockingCloud { cloud.listEventsForUser() }
+        val byDevice = HashMap<String, PalmCloud.Event>(cloudEvents.size)
+        for (e in cloudEvents) e.deviceId?.let { if (it.startsWith("date:")) byDevice[it] = e }
+        val pushed = datebookPush(palmDb, byDevice)
+        log("Date Book -> cloud: +${pushed.inserted} new, ~${pushed.updated} updated, ${pushed.unchanged} unchanged, ${pushed.skipped} skipped")
+        val appts = datebookPull(cloudEvents)
         // Date Book categories aren't modelled; keep the device's AppInfo as-is.
         session.writeBack("DatebookDB", DatebookDb.encode(appts), null)
         log("Date Book <- cloud: wrote ${appts.size} appointment(s)")
@@ -161,7 +167,7 @@ class HotSyncConduit(
         log("Mail <- cloud: wrote ${mails.size} digest(s) to Inbox")
     }
 
-    class PushResult(var inserted: Int = 0, var updated: Int = 0, var skipped: Int = 0)
+    class PushResult(var inserted: Int = 0, var updated: Int = 0, var skipped: Int = 0, var unchanged: Int = 0)
 
     // ─── Memo ────────────────────────────────────────────────────────────
 
@@ -298,7 +304,7 @@ class HotSyncConduit(
 
     // ─── Date Book (events table) ──────────────────────────────────────────
 
-    private fun datebookPush(db: PalmDb): PushResult {
+    private fun datebookPush(db: PalmDb, byDevice: Map<String, PalmCloud.Event>): PushResult {
         val res = PushResult()
         for (a in DatebookDb.decode(db)) {
             val title = a.description.trim()
@@ -312,7 +318,7 @@ class HotSyncConduit(
             val endIso: JsonElement = if (timed && (a.endHour > a.startHour || (a.endHour == a.startHour && a.endMin >= a.startMin)))
                 JsonPrimitive(isoTimed(a.year, a.month, a.day, a.endHour, a.endMin)) else JsonNull
 
-            val existing = runBlockingCloud { cloud.findEventByDevice(deviceId) }
+            val existing = byDevice[deviceId]
             if (existing == null) {
                 val patch = mutableMapOf<String, JsonElement>(
                     "device_id" to JsonPrimitive(deviceId),
@@ -325,6 +331,9 @@ class HotSyncConduit(
                 )
                 runBlockingCloud { cloud.insertEvent(patch) }
                 res.inserted++
+            } else if (datebookUnchanged(existing, title, notes, alarm, timed, startIso, endIso)) {
+                // Identical to the cloud copy — skip the network write entirely.
+                res.unchanged++
             } else {
                 // Don't let an untimed Palm record flatten a richer cloud time.
                 val patch = mutableMapOf<String, JsonElement>(
@@ -337,14 +346,49 @@ class HotSyncConduit(
                     patch["end_at"] = endIso
                     patch["all_day"] = JsonPrimitive(false)
                 }
-                runBlockingCloud { cloud.updateEvent(existing, patch) }
+                runBlockingCloud { cloud.updateEvent(existing.id, patch) }
                 res.updated++
             }
         }
         return res
     }
 
-    private fun datebookPull(): List<Appointment> {
+    /**
+     * True when a device appointment already matches its cloud event, so the
+     * push can skip the network write. Conservative: any parse failure or doubt
+     * returns false (→ update). Untimed records only compare title/notes/alarm
+     * because the update path never rewrites time for them.
+     */
+    private fun datebookUnchanged(
+        e: PalmCloud.Event,
+        title: String,
+        notes: JsonElement,
+        alarm: JsonElement,
+        timed: Boolean,
+        startIso: String,
+        endIso: JsonElement,
+    ): Boolean {
+        if (clip(title, 256) != e.title) return false
+        val devNotes = (notes as? JsonPrimitive)?.contentOrNull
+        if (devNotes != e.notes?.ifEmpty { null }) return false
+        val devAlarm = (alarm as? JsonPrimitive)?.intOrNull
+        if (devAlarm != e.alarmMinutes) return false
+        if (timed) {
+            if (e.allDay) return false
+            if (!instantEq(startIso, e.startAt)) return false
+            val devEnd = (endIso as? JsonPrimitive)?.contentOrNull
+            if (devEnd == null) { if (e.endAt != null) return false } else if (!instantEq(devEnd, e.endAt)) return false
+        }
+        return true
+    }
+
+    private fun instantEq(a: String?, b: String?): Boolean {
+        val ia = parseInstant(a) ?: return false
+        val ib = parseInstant(b) ?: return false
+        return ia == ib
+    }
+
+    private fun datebookPull(cloudEvents: List<PalmCloud.Event>): List<Appointment> {
         // Calendar-feed events (a subscribed .ics calendar or one-off import) are
         // read-only and must NEVER be written onto a Palm: a single feed can hold
         // thousands of events and would inflate DatebookDB past what the vintage
@@ -362,8 +406,8 @@ class HotSyncConduit(
         val nowZ = java.time.ZonedDateTime.now(zone)
         val windowLo = nowZ.minusMonths(1).toInstant()
         val windowHi = nowZ.plusYears(1).toInstant()
-        val events = runBlockingCloud { cloud.listEventsForUser() }
-            .filterNot { it.source == "ics-sub" || it.source == "ics-import" }
+        val events = cloudEvents
+            .filterNot { it.source == "ics-sub" || it.source == "ics-import" } // backstop; query already excludes feed
             .filter { e ->
                 val st = parseInstant(e.startAt) ?: return@filter false
                 !st.isBefore(windowLo) && !st.isAfter(windowHi)

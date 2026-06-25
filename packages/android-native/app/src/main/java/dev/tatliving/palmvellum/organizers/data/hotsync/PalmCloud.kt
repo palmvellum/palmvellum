@@ -132,10 +132,17 @@ class PalmCloud(private val rest: SupabaseRest, private val userId: String) {
         return arr.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
     }
 
+    /**
+     * The user's own Date Book events. Calendar-feed events (ics-sub / ics-import)
+     * are excluded server-side so a large subscribed calendar isn't downloaded on
+     * every HotSync (it would never be written to the device anyway). The `or`
+     * keeps rows whose source is null (legacy / device-origin events).
+     */
     suspend fun listEventsForUser(): List<Event> {
         val arr = rest.select(
             "events",
             "user_id=eq.$userId&deleted_at=is.null" +
+                "&or=(source.is.null,source.not.in.(ics-sub,ics-import))" +
                 "&select=id,title,start_at,end_at,all_day,notes,alarm_minutes,device_id,source&limit=20000",
         ).getOrThrow()
         return arr.map { el ->

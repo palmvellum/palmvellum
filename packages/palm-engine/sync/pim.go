@@ -37,6 +37,24 @@ func isFeedEventSource(source string) bool {
 	return source == "ics-sub" || source == "ics-import"
 }
 
+// Date Book sync window: only events starting within [now-1mo, now+1yr] are
+// written onto the Palm. The cloud keeps the full history; the vintage device
+// (limited RAM) only carries a rolling window so it can't be inflated by a
+// large back-catalogue of past/far-future appointments. Events outside the
+// window stay in the cloud and re-appear on-device once they enter the window.
+const (
+	datebookWindowPastMonths = 1
+	datebookWindowFutureYear = 1
+)
+
+// inDatebookWindow reports whether an event start time falls inside the
+// device sync window relative to now.
+func inDatebookWindow(start, now time.Time) bool {
+	lo := now.AddDate(0, -datebookWindowPastMonths, 0)
+	hi := now.AddDate(datebookWindowFutureYear, 0, 0)
+	return !start.Before(lo) && !start.After(hi)
+}
+
 // DatebookPush upserts a DatebookDB's appointments into the events table.
 // Palm times are local; tz converts them to the absolute timestamps the
 // cloud stores. Repeating appointments sync as their base occurrence only
@@ -141,10 +159,18 @@ func DatebookPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Loca
 		}
 	}
 
+	now := time.Now()
 	type backfill struct{ id, dev string }
 	var backfills []backfill
 	appts := make([]datebookdb.Appointment, 0, len(events))
 	for _, e := range events {
+		// Only carry a rolling [now-1mo, now+1yr] window on the device; the
+		// cloud keeps everything. Skip before back-fill so out-of-window events
+		// aren't assigned a date: UID and re-appear naturally when they enter
+		// the window. See inDatebookWindow.
+		if !inDatebookWindow(e.StartAt, now) {
+			continue
+		}
 		// Calendar-feed events (a subscribed .ics calendar, or a one-off
 		// .ics import) live in the cloud / PWA only — they are read-only
 		// consumers' data and must NEVER be written onto a vintage Palm.

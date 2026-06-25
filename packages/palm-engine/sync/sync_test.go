@@ -224,7 +224,7 @@ func TestDatebookPullExcludesFeedEvents(t *testing.T) {
 	f := newFake()
 	dir := t.TempDir()
 
-	start := time.Date(2026, 6, 25, 9, 0, 0, 0, time.UTC)
+	start := time.Now().AddDate(0, 0, 1) // tomorrow → inside the sync window
 	f.events["e-web"] = &cloud.Event{ID: "e-web", UserID: uid, Title: "Web meeting", StartAt: start, Source: "web"}
 	f.events["e-sub"] = &cloud.Event{ID: "e-sub", UserID: uid, Title: "Subscribed holiday", StartAt: start, AllDay: true, Source: "ics-sub"}
 	f.events["e-imp"] = &cloud.Event{ID: "e-imp", UserID: uid, Title: "Imported event", StartAt: start, AllDay: true, Source: "ics-import"}
@@ -247,6 +247,36 @@ func TestDatebookPullExcludesFeedEvents(t *testing.T) {
 	if f.events["e-sub"].DeviceID != nil || f.events["e-imp"].DeviceID != nil {
 		t.Fatalf("feed events were back-filled with a device_id: sub=%v imp=%v",
 			f.events["e-sub"].DeviceID, f.events["e-imp"].DeviceID)
+	}
+}
+
+// The device only carries a rolling [now-1mo, now+1yr] window; events outside
+// it stay in the cloud (and are not back-filled) so the vintage Palm can't be
+// inflated by a large back-catalogue.
+func TestDatebookPullDateWindow(t *testing.T) {
+	const uid = "u-win"
+	f := newFake()
+	dir := t.TempDir()
+	now := time.Now()
+
+	f.events["e-old"] = &cloud.Event{ID: "e-old", UserID: uid, Title: "Too old", StartAt: now.AddDate(0, -3, 0), Source: "web"}
+	f.events["e-now"] = &cloud.Event{ID: "e-now", UserID: uid, Title: "In window", StartAt: now.AddDate(0, 0, 7), Source: "web"}
+	f.events["e-far"] = &cloud.Event{ID: "e-far", UserID: uid, Title: "Too far", StartAt: now.AddDate(2, 0, 0), Source: "web"}
+
+	out := filepath.Join(dir, "DatebookDB.pdb")
+	if _, err := DatebookPull(f, uid, out, nil, time.UTC); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(out)
+	db, _ := pdb.Read(raw)
+	appts := datebookdb.DecodeAppointments(db)
+	if len(appts) != 1 || appts[0].Description != "In window" {
+		t.Fatalf("want only the in-window event on card, got %d: %+v", len(appts), appts)
+	}
+	// Out-of-window events must not be back-filled with a device_id.
+	if f.events["e-old"].DeviceID != nil || f.events["e-far"].DeviceID != nil {
+		t.Fatalf("out-of-window events were back-filled: old=%v far=%v",
+			f.events["e-old"].DeviceID, f.events["e-far"].DeviceID)
 	}
 }
 

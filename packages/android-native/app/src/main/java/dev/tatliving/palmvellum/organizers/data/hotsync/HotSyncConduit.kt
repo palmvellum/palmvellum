@@ -353,8 +353,21 @@ class HotSyncConduit(
         // fresh date: UID, push it to the device, and persist the date: id back to
         // the cloud. Mirrors the Go engine guard (palm-engine/sync/pim.go
         // isFeedEventSource).
+        // Only carry a rolling [now-1mo, now+1yr] window on the device; the cloud
+        // keeps the full history. The vintage Palm has limited RAM, so a large
+        // back-catalogue of past/far-future events would inflate DatebookDB and
+        // hang HotSync. Out-of-window events stay in the cloud (and are not
+        // back-filled) and re-appear on-device once they enter the window.
+        // Mirrors the Go engine (palm-engine/sync/pim.go inDatebookWindow).
+        val nowZ = java.time.ZonedDateTime.now(zone)
+        val windowLo = nowZ.minusMonths(1).toInstant()
+        val windowHi = nowZ.plusYears(1).toInstant()
         val events = runBlockingCloud { cloud.listEventsForUser() }
             .filterNot { it.source == "ics-sub" || it.source == "ics-import" }
+            .filter { e ->
+                val st = parseInstant(e.startAt) ?: return@filter false
+                !st.isBefore(windowLo) && !st.isAfter(windowHi)
+            }
         var maxUid = 0
         for (e in events) {
             val d = e.deviceId ?: continue

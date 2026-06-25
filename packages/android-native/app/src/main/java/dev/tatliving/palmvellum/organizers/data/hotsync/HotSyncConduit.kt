@@ -345,7 +345,16 @@ class HotSyncConduit(
     }
 
     private fun datebookPull(): List<Appointment> {
+        // Calendar-feed events (a subscribed .ics calendar or one-off import) are
+        // read-only and must NEVER be written onto a Palm: a single feed can hold
+        // thousands of events and would inflate DatebookDB past what the vintage
+        // device can hold, hanging the next HotSync. Feed events carry no
+        // device_id, so without this guard the backfill below would assign each a
+        // fresh date: UID, push it to the device, and persist the date: id back to
+        // the cloud. Mirrors the Go engine guard (palm-engine/sync/pim.go
+        // isFeedEventSource).
         val events = runBlockingCloud { cloud.listEventsForUser() }
+            .filterNot { it.source == "ics-sub" || it.source == "ics-import" }
         var maxUid = 0
         for (e in events) {
             val d = e.deviceId ?: continue

@@ -124,6 +124,7 @@ class PalmCloud(private val rest: SupabaseRest, private val userId: String) {
         val notes: String?,
         val alarmMinutes: Int?,
         val deviceId: String?,
+        val source: String?,
     )
 
     suspend fun findEventByDevice(deviceId: String): String? {
@@ -135,7 +136,7 @@ class PalmCloud(private val rest: SupabaseRest, private val userId: String) {
         val arr = rest.select(
             "events",
             "user_id=eq.$userId&deleted_at=is.null" +
-                "&select=id,title,start_at,end_at,all_day,notes,alarm_minutes,device_id&limit=20000",
+                "&select=id,title,start_at,end_at,all_day,notes,alarm_minutes,device_id,source&limit=20000",
         ).getOrThrow()
         return arr.map { el ->
             val o = el.jsonObject
@@ -147,6 +148,7 @@ class PalmCloud(private val rest: SupabaseRest, private val userId: String) {
                 notes = s("notes"),
                 alarmMinutes = o["alarm_minutes"]?.jsonPrimitive?.intOrNull,
                 deviceId = s("device_id"),
+                source = s("source"),
             )
         }
     }

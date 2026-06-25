@@ -215,6 +215,41 @@ func TestSyncCardDatebookAndAddress(t *testing.T) {
 	}
 }
 
+// A subscribed-calendar / .ics-import event (no device_id, feed source) must
+// never be written onto the Palm: those feeds can hold thousands of VEVENTs
+// and would inflate DatebookDB until the next HotSync hangs reading it back.
+// User-owned web events still flow through.
+func TestDatebookPullExcludesFeedEvents(t *testing.T) {
+	const uid = "u-feed"
+	f := newFake()
+	dir := t.TempDir()
+
+	start := time.Date(2026, 6, 25, 9, 0, 0, 0, time.UTC)
+	f.events["e-web"] = &cloud.Event{ID: "e-web", UserID: uid, Title: "Web meeting", StartAt: start, Source: "web"}
+	f.events["e-sub"] = &cloud.Event{ID: "e-sub", UserID: uid, Title: "Subscribed holiday", StartAt: start, AllDay: true, Source: "ics-sub"}
+	f.events["e-imp"] = &cloud.Event{ID: "e-imp", UserID: uid, Title: "Imported event", StartAt: start, AllDay: true, Source: "ics-import"}
+
+	out := filepath.Join(dir, "DatebookDB.pdb")
+	if _, err := DatebookPull(f, uid, out, nil, time.UTC); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, _ := os.ReadFile(out)
+	db, _ := pdb.Read(raw)
+	appts := datebookdb.DecodeAppointments(db)
+	if len(appts) != 1 {
+		t.Fatalf("want only the web event on card, got %d: %+v", len(appts), appts)
+	}
+	if appts[0].Description != "Web meeting" {
+		t.Fatalf("unexpected appointment written to card: %q", appts[0].Description)
+	}
+	// Feed events must not be back-filled with a date: device_id either.
+	if f.events["e-sub"].DeviceID != nil || f.events["e-imp"].DeviceID != nil {
+		t.Fatalf("feed events were back-filled with a device_id: sub=%v imp=%v",
+			f.events["e-sub"].DeviceID, f.events["e-imp"].DeviceID)
+	}
+}
+
 func TestWaitForAI(t *testing.T) {
 	const uid = "u"
 	dev := "memo:000abc"

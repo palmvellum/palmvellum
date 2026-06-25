@@ -28,6 +28,15 @@ func alarmUnitMinutes(unit uint8) int {
 	}
 }
 
+// isFeedEventSource reports whether an event came from a calendar feed
+// (a subscribed .ics calendar or a one-off .ics import) rather than from a
+// user-owned client. Feed events are read-only and must never be pushed onto
+// a Palm device — see DatebookPull. Sources are defined by the PWA:
+// 'palm', 'web', 'ai' are user-owned; 'ics-sub' / 'ics-import' are feeds.
+func isFeedEventSource(source string) bool {
+	return source == "ics-sub" || source == "ics-import"
+}
+
 // DatebookPush upserts a DatebookDB's appointments into the events table.
 // Palm times are local; tz converts them to the absolute timestamps the
 // cloud stores. Repeating appointments sync as their base occurrence only
@@ -136,6 +145,18 @@ func DatebookPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Loca
 	var backfills []backfill
 	appts := make([]datebookdb.Appointment, 0, len(events))
 	for _, e := range events {
+		// Calendar-feed events (a subscribed .ics calendar, or a one-off
+		// .ics import) live in the cloud / PWA only — they are read-only
+		// consumers' data and must NEVER be written onto a vintage Palm.
+		// A single subscribed calendar can hold thousands of VEVENTs; pushing
+		// them inflates DatebookDB past what the device can hold, and the next
+		// HotSync hangs partway through reading the bloated database back.
+		// Feed events carry no device_id, so without this guard they would
+		// fall through the date:-prefix check below, get a fresh date: UID,
+		// and be materialised on-device (and back-filled in the cloud).
+		if isFeedEventSource(e.Source) {
+			continue
+		}
 		if e.DeviceID != nil && !strings.HasPrefix(*e.DeviceID, "date:") {
 			continue
 		}

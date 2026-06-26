@@ -229,73 +229,73 @@ PalmVellum 由一位在香港生活的人，利用晚上與週末的時間，一
 
 ## PalmVellum 简体中文
 
-**PalmVellum 是一个开源平台，为 1996–2003 年的 Palm Pilot 原生应用程序加上 AI 助理及云端同步 — 而 Palm 本身完全不用改动。**
+**PalmVellum 是一个开源平台，为 1996 至 2003 年间的 Palm Pilot 原生应用程序提供 AI 协助与云端同步，同时维持 Palm 设备原有的使用方式。**
 
-你在 Palm 上写东西，是因为它很安静。两节 AAA 电池。160×160 单色屏幕。没有常开的无线电。没有相机。没有无限滚动。你拿起它、写下东西、放回口袋。平台默默看着云端那份副本，需要时才出手相助。
+你使用 Palm，不是因为它能做得比今天的手机更多。恰恰相反，是因为它做得刚刚好。两节 AAA 电池。一块单色屏幕。没有永远亮着的网络、没有相机、没有无限滑动，也没有一个个等着你回应的红点。你拿起它，记下一件事，然后放回口袋、书桌或床边。事情会留在那里——不会立刻变成提醒、不会被推送到更多地方，也不必马上被处理。PalmVellum 所做的，是在你主动需要时，协助处理云端上的副本：整理自然语言、识别手写内容、汇整研究资料，或建立行程与待办事项。Palm 保持安静；平台则在你呼叫它的时候，才开始工作。
 
 | 2× AAA | 160×160 | 0 | 1996–2003 |
 |---|---|---|---|
-| 便利店买到的电池 | 单色屏幕 | 无线电模组 | 参考硬件所处的年代 |
+| 日常可取得的电力来源 | 只留下足够清楚的信息 | 没有持续连线或后台推送 | 参考硬件所处的年代 |
 
-### 「retro computing（复古计算）」在这里的意思
+### 在这里，Retro Computing 是什么意思？
 
-不是质量差。不是为怀旧而怀旧。**retro computing（复古计算）＝刻意用旧机、刻意有限制。** 更少像素、更少通知、更少分心拿起手机的借口。平台只在真正有用的位置引入 AI 和云端 — 自然语言输入解析、手写涂鸦转录、每日研究摘要、agentic 事项/任务创建 — 然后止步于此。我们不会建立你的 profile。我们不展示广告。根本没有所谓 profile。
+不是低规格，也不是把过去当成滤镜。对我们来说，**复古计算是一种有意识的选择**：选择少一点像素、少一点通知、少一点让人忍不住再次拿起设备的理由。不是拒绝科技，而是重新决定哪些科技值得进入生活，哪些不必。PalmVellum 将 AI 与云端保留在真正有用的地方——把自然语言整理成行程与待办、把手写笔记与涂鸦转为可阅读内容、汇整网站与研究资料、协助建立事件与摘要——除此之外，它应该保持安静。我们不建立用户画像、不投放广告、不把你的生活变成可被贩售或推荐的数据。你写下的记录，应该属于你。
 
-### 宣言
+### 理念
 
-1. **Palm 硬件是信任根。** 没有无线电。它不会泄露。所有重要的东西都可以留在设备上；你 sync 到云端的内容由你决定。
-2. **复古计算是刻意设计。** 2026 年仍在运作的 Palm IIIe 是 1999 年造的，买一次就用一辈子，每年只需要两节 AAA 电池。我们尊重你抽屉里已有的东西。
-3. **社区拥有基础。** Toolchain、daemon、schema、HotSync engine、sync conduits — 全部 Apache 2.0 放在 GitHub。
-4. **BYOK 或平台点数 — 由你选择。** 自备 OpenAI、Anthropic 或 Google Gemini 密钥，平台不会收费。或者通过 Airwallex 购买平台点数。两个方案同样是一等公民，没有任何一个是必选的。
-5. **无社交、无分析、无 email 营销。** 你写的记录属于你。我们不会聚合、出售、或推荐。
-6. **Palm 仍然是 Palm。** 我们永远不会推送自定义固件。平台只跟现有的 HotSync 协议及 Palm OS 应用程序沟通。我们的参考目标及设计重点是 AAA 电池家族（1996–2003）— 那是我们相信的、会亲自测试的设备。但平台本身只说 HotSync，所以其他不在我们目标内的 Palm OS 设备同样可以使用，只是我们不会替它们做测试。
+1. **Palm 是信任的起点。** Palm 设备本身没有常驻无线连线。重要资料可以保留在设备内；是否同步至云端，始终由你决定。不是所有事情都要立刻上传，也不是所有记录都必须离开你的手中。
+2. **复古，是一种有意识的节奏。** 一台仍可正常使用的 Palm IIIe，在 1999 年被制造、被购买，如今仍能依靠两节 AAA 电池继续工作。它提醒我们：不是每一件工具，都必须很快被淘汰。有些东西之所以值得留下，不只是因为旧，而是因为它仍然忠实地完成它原本的工作。我们尊重那些还在抽屉里、仍然可以使用的物件。
+3. **基础设施应属于社区。** PalmVellum 的工具链、同步程序、数据结构、HotSync 引擎与同步 conduit，皆以 Apache 2.0 授权发布于 GitHub。这不是把旧设备带进另一个封闭服务，而是让任何有兴趣的人，都能理解、检视、修改与延续它。一个工具若真的值得被留下，它不应只属于某一间公司。
+4. **使用自己的密钥，或使用平台点数。** 你可以使用自己的 OpenAI、Anthropic 或 Google Gemini API 密钥；也可以通过 Airwallex 购买平台点数。两种方式皆可完整使用对应功能，不强制绑定任何一种使用方式。
+5. **没有社交墙，没有追踪，没有营销轰炸。** 你写下记录，你拥有记录。PalmVellum 不汇整、不贩售、不推荐，也不会把你的生活变成一张等待被分析的报表。不是每一个人，都需要成为内容；不是每一段生活，都需要被看见。
+6. **Palm 仍然是 Palm。** PalmVellum 不会推送自定义固件，也不会改写 Palm 的使用本质。平台通过既有的 HotSync 机制，与既有的 Palm OS 应用程序进行同步。目前的参考目标与界面设计，主要针对使用 AAA 电池的 Palm 系列设备；其他 Palm OS 设备同样可以使用相关同步功能，但不保证已完成兼容性测试。
 
-### 平台做什么
+### 平台功能
 
-每个 Palm OS 原生应用程序，在平台「Organizers」仪表板里都有对应界面。两边共享同一份数据。同一个家庭内多台 Palm 读写同一组记录。
+每一个原生 Palm OS 应用程序，都会在 PalmVellum 的 Organizers 后台中有对应界面。资料可同时存在于 Palm、电脑与云端副本中；同一个家庭中的多台 Palm，也可以读取与写入相同记录。
 
-| Palm 原生 app | 说明 | AI 助理 |
+| Palm 原生 app | 说明 | AI 协助 |
 |---|---|---|
-| **日历 Date Book** | 可手动新增/编辑事件 | 贴入任何 rough text — 例如「星期五下午 3 点和 May 喝咖啡」— AI 会解析成结构化事件 |
-| **待办 To Do List** | 支持优先级及到期日 | 在前面加上 `(AI)`，agent 会执行该 prompt 并把结果写回 Memo |
-| **备忘 Memo Pad** | 备忘双向同步；可上传 PDF、DOCX 或图片 | 以 `(AI)` 开头的备忘会触发 agent，创建事件/任务并附加摘要；上传文件 AI 替你写成摘要备忘 |
-| **通讯录 Address Book** | 丰富字段及分类的联系人 | — |
-| **涂鸦 Note Pad** | 来自 Palm 的涂鸦 | 视觉 AI 替你转录手写文字并描述图画 |
-| **邮件 Mail** | 逐个来源的 AI 网页摘要 | 或主题模式 — AI 通过网络搜索，以你指定的语言撰写一篇引用来源的 10–20 分钟研究文章 |
-| **开支 Expense** | 多币种记录，含分类总计 | — |
+| **Date Book｜日历** | 可手动新增与编辑事件 | 可直接输入自然语言，例如「这周五下午三点，和 May 在咖啡店见面。」AI 可将内容解析为结构化行程 |
+| **To Do List｜待办事项** | 建立附有优先顺序与截止日期的待办事项 | 在内容前加上 `(AI)`，系统可执行指令，并将结果写回 Memo |
+| **Memo Pad｜备忘录** | 支持双向同步笔记；可上传 PDF、DOCX 或图片 | 以 `(AI)` 开头的 Memo，可触发 AI 协助建立行程、待办事项并加入摘要；上传文件由 AI 整理为 Memo |
+| **Address Book｜联系人** | 管理联系人资料、分类与扩展字段 | — |
+| **Note Pad｜手写笔记与涂鸦** | 来自 Palm 的手写笔记与涂鸦 | 通过 Vision AI 转录手写文字，并生成图像描述 |
+| **Mail｜阅读与研究摘要** | 每日 digest 收件箱 | 可依指定网站来源建立 AI 摘要；主题模式由 AI 搜索网络并撰写约 10 至 20 分钟可读完的研究文章，附引用来源并支持选择阅读语言 |
+| **Expense｜支出记录** | 支持多币种记账、分类与统计 | — |
 
-### 目标
+### 想慢慢累积的，不只是数据
 
-帮你慢慢累积一份刻意、深思熟虑的个人记录 — 日历、联系人、备忘、涂鸦、研究摘要、开支 — 同时不会被自己的工具打断。Palm 用 AAA 电池作冷存。平台保存云端副本，需要时跑 AI 助理。
+PalmVellum 希望帮你留下的，是一份可以慢慢长大的个人记录：日历、联系人、备忘录、手写笔记、研究摘要、支出记录。它们不必都很重要——有些只是某天下午想到的一句话，一间想再去的店，一件拖了很久却终于完成的小事。但当它们被安静地留存下来，日子就不再只是一连串被滑过的画面。Palm 用两节 AAA 电池，把数据留在一个不会催促你的地方；平台则保存云端副本，并在你需要时提供 AI 协助。**慢一点记录。久一点保存。让生活不只存在于通知里。**
 
 ### 下载并同步你的 Palm
 
-用这个云端同步真正的 Palm —— 通过 USB HotSync，或使用记忆棒存储卡。Palm 本身不会改动。免费、开源，**不提供任何保修 —— 风险自负**。使用前请备份重要数据。
+让你的 Palm，重新成为生活的一部分。PalmVellum 可将实体 Palm 设备与云端资料同步。Palm 本身不需修改；你可以在设备上保留备份、在电脑端同步资料，并于需要时还原。本项目为免费开源软件，不提供保固，使用前请自行备份重要资料。
 
-**PalmVellum for Mac。** 用 USB 连接 Sony Clié，点一下 **Sync over USB**，再按 Palm 上的 HotSync 键 —— 即把 Memo Pad、To Do、Date Book、Address 及 Mail 与你的云端同步。拖放 `.prc`/`.pdb` 文件即可把程序安装到设备。也保留记忆棒存储卡同步方式。
+**PalmVellum for Mac。** 使用 USB 连接 Sony Clié 后，于应用程序中点选「通过 USB 同步」，再按下 Palm 上的 HotSync 按钮。系统可同步 Memo Pad、To Do、Date Book、Address、Mail。也可直接拖放 `.prc` 或 `.pdb` 文件至安装区，将应用程序安装至设备。另提供 Memory Stick 卡片路径支持。
 
-> ⚠️ 仅在 Sony Clié 通过 USB 测试。其他 USB Palm 及 SD 卡设备尚未验证。每次写回前都会先保存还原点。未签名 —— 首次启动请右键 → 打开。
+> ⚠️ 目前仅针对 Sony Clié 的 USB 同步进行测试。其他 USB Palm 与 SD 卡设备尚未完成验证。每次写回设备前，系统会建立还原点。此 App 尚未签署，首次开启时请在 App 图标上按右键，选择「打开」。
 
-**下载：**[Releases → 最新 `.dmg`](https://github.com/palmvellum/palmvellum/releases/latest)。
+**下载：**[Releases → 最新 `.dmg`](https://github.com/palmvellum/palmvellum/releases/latest)。使用说明见 [`docs/USAGE.md`](docs/USAGE.md)。
 
-**Palm Organizers（Android，原生）。** 在 Android 原生运行的 organizer（本地优先 + 可选云端同步及 AI）。源码见 [`packages/android-native/`](packages/android-native/)。两个版本可并存安装，以 sideload APK 发布 —— 不在 Play Store：
+**Palm Organizers（Android，原生）。** 可原生运行于 Android 的个人整理工具，采本地优先设计，并提供可选的云端同步与 AI 功能。源码见 [`packages/android-native/`](packages/android-native/)。目前提供两个可并存安装的版本，以 APK 形式发布，尚未上架 Google Play：
 
-- **Standard** — 任何手机、竖向。
-- **Cosmo 版** — Planet Cosmo Communicator（横向 2160×1080 + 实体键盘）；左侧图标 rail、两栏 master/detail、标题栏 inline 筛选/搜索。UI 规格见 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。设备仍在 firmware V19？另见 [**Cosmo V19→V23 升级＋待机省电指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
+- **标准版** — 适用一般 Android 手机，竖向操作界面。
+- **Cosmo 版** — 适用 **Planet Cosmo Communicator**，支持横向界面（2160×1080）与实体 QWERTY 键盘；左侧图标 rail、两栏 master/detail、标题栏 inline 筛选/搜索。UI 规格见 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。设备仍在 firmware V19？另见 [**Cosmo V19→V23 升级＋待机省电指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
 
 **USB HotSync（Cosmo 版）。** 用 USB-OTG 线将旧 Palm/CLIE 接上 Cosmo 的 USB-C 口，在 Palm 按 HotSync，app 就会将 Memo Pad、To Do、Date Book、联系人和 Mail 直接与 PalmVellum 云端同步 — 不用电脑。还可以将 `.prc`/`.pdb` 文件安装到 Palm。背后是从零用 Kotlin 写的 HotSync 协议栈（NetSync + DLP），在 Sony CLIE 真机验证过。
 
-> ⚠️ 请允许「安装未知来源应用」，再打开 APK 安装。这些是 sideload（debug 签名）APK，未经 Play 审查。**不提供任何保修，使用风险自负。**
+> ⚠️ 下载后请允许「安装未知来源应用」，再打开 APK 完成安装。这些是 sideload（debug 签名）APK，未经 Play 审查。**不提供任何保固，使用风险自负。**
 
 **下载：**[Releases → `android-v0.1.8`](https://github.com/palmvellum/palmvellum/releases/tag/android-v0.1.8)。
 
 开发说明、项目架构（pnpm + Go monorepo）与参考硬件清单，见上方 [English](#english) 章节与 [`docs/`](docs/)。
 
-### 参与贡献
+### 一起参与
 
-PalmVellum 处于 pre-1.0 阶段。我们正在寻找：硬件测试者、译者（繁中 / 简中 / 日本語 / 한국어 / Русский / Español）、logo 设计师、文档贡献者。
+PalmVellum 仍在 1.0 之前。它还有很多地方需要被测试、被翻译、被修正。目前正在寻找：硬件测试者；繁体中文、简体中文、日文、韩文、俄文、西班牙文翻译协作者；Logo 与视觉设计协作者；文档撰写者与技术贡献者。这不是一个只想把过去复刻一次的项目，而是一个想重新讨论：未来的工具，能不能更少打扰、更容易理解，也更愿意把主导权交还给使用者。
 
-PalmVellum 由香港一个人在晚上和周末研究、设计、实作 —— 无公司、无 sponsor、无 VC。如果这份工作对你有意义，[支持研究](https://tatliving.dev/palmvellum/)就足以撑起多一个晚上。
+PalmVellum 由一位在香港生活的人，利用晚上与周末的时间，一点一点研究、设计与制作——没有公司、没有赞助商、没有创投资金。如果它对你有意义，[支持这份研究](https://tatliving.dev/palmvellum/)能让它多走一个晚上。
 
 ---
 

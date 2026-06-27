@@ -20,11 +20,28 @@ import (
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/store"
 )
 
+// StatusInfo is the device/account snapshot returned by GET /v1/status,
+// consumed by the native PalmVellum macOS app to show HotSync state.
+type StatusInfo struct {
+	OK          bool   `json:"ok"`
+	Version     string `json:"version"`
+	User        string `json:"user,omitempty"`   // signed-in email
+	PalmPresent bool   `json:"palm_present"`     // a Palm is on USB
+	Card        string `json:"card,omitempty"`   // mounted backup-card volume
+}
+
 // Server is the HTTP API.
 type Server struct {
 	cfg *config.Config
 	db  *store.DB
 	mux *http.ServeMux
+
+	// Optional capabilities wired by the caller (main package) so the api
+	// package stays free of auth/hotsync/cardwatch imports. Nil → the
+	// endpoint reports unavailable.
+	Version    string
+	StatusFn   func(ctx context.Context) StatusInfo
+	CardSyncFn func(ctx context.Context) (string, error)
 }
 
 // New builds a Server but does not start it.
@@ -38,6 +55,29 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /v1/records", s.handleListRecords)
 	s.mux.HandleFunc("POST /v1/sync", s.handleSync)
+	s.mux.HandleFunc("GET /v1/status", s.handleStatus)
+	s.mux.HandleFunc("POST /v1/card-sync", s.handleCardSync)
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if s.StatusFn == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": s.Version})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.StatusFn(r.Context()))
+}
+
+func (s *Server) handleCardSync(w http.ResponseWriter, r *http.Request) {
+	if s.CardSyncFn == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "message": "card sync unavailable"})
+		return
+	}
+	msg, err := s.CardSyncFn(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "message": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": msg})
 }
 
 // ListenAndServe runs the HTTP server until ctx is cancelled.

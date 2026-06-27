@@ -35,7 +35,7 @@ import (
 
 // version is the single source of truth for the app version, shown in the
 // app's corner and used for the .app bundle / .dmg. Bump it on every change.
-var version = "1.1.3"
+var version = "1.1.7"
 
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
@@ -66,6 +66,7 @@ localhost HTTP API for the PWA / system tray UI.`,
 		whoamiCmd(),
 		cardSyncCmd(),
 		hotsyncMergeCmd(),
+		datebookExportCmd(),
 		appCmd(),
 		versionCmd(),
 	)
@@ -125,6 +126,7 @@ func serveCmd() *cobra.Command {
 			worker := aiworker.New(sb, platform, cfg.DeviceID)
 
 			srv := api.New(cfg, db)
+			wireAPI(srv, cfg) // status + card-sync for the native macOS app
 
 			log.Info().
 				Str("version", version).

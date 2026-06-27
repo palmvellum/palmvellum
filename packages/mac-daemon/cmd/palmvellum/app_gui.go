@@ -18,12 +18,15 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/api"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/auth"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/cardwatch"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/config"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/hotsync"
+	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/store"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/ui"
 	"github.com/palmvellum/palmvellum/packages/palm-engine/cloud"
 	palmsync "github.com/palmvellum/palmvellum/packages/palm-engine/sync"
@@ -92,7 +95,7 @@ func newGUI(ctx context.Context) *gui {
 func (g *gui) run() {
 	g.app = fyneapp.NewWithID("dev.tatliving.palmvellum")
 	g.app.Settings().SetTheme(ui.PalmTheme{}) // retro Palm organizer look
-	g.win = g.app.NewWindow("PalmVellum on Mac")
+	g.win = g.app.NewWindow("PalmVellum Sync on Mac")
 	g.win.Resize(fyne.NewSize(654, 609)) // controls left, log right (user-tuned)
 
 	// Stay logged in across restarts: if a session is saved in the
@@ -104,7 +107,27 @@ func (g *gui) run() {
 	} else {
 		g.showLogin()
 	}
+	g.startLocalAPI() // expose :7733 so the native macOS app can drive HotSync
 	g.win.ShowAndRun()
+}
+
+// startLocalAPI brings up the localhost HTTP API alongside the window, so the
+// native PalmVellum macOS app can read HotSync status and trigger a card sync
+// whenever "PalmVellum Sync on Mac" is open (the API otherwise only runs under the
+// `serve` launchd agent).
+func (g *gui) startLocalAPI() {
+	db, err := store.Open(g.cfg.SQLitePath)
+	if err != nil {
+		log.Warn().Err(err).Msg("local API: open sqlite failed; HotSync control surface unavailable")
+		return
+	}
+	srv := api.New(g.cfg, db)
+	wireAPI(srv, g.cfg)
+	go func() {
+		if err := srv.ListenAndServe(g.ctx); err != nil {
+			log.Warn().Err(err).Msg("local API stopped")
+		}
+	}()
 }
 
 // ─────────────────────────── login view ───────────────────────────
@@ -274,7 +297,7 @@ func (g *gui) showMain() {
 	split.SetOffset(0.75) // log column ≈ 1/4 of the width
 
 	// Version stamp in the bottom-right corner.
-	verLbl := widget.NewLabelWithStyle("PalmVellum on Mac · v"+version,
+	verLbl := widget.NewLabelWithStyle("PalmVellum Sync on Mac · v"+version,
 		fyne.TextAlignTrailing, fyne.TextStyle{Italic: true})
 	footer := container.NewHBox(layout.NewSpacer(), verLbl)
 
@@ -613,7 +636,7 @@ func (g *gui) showAbout() {
 	)
 	scroll := container.NewScroll(body)
 	scroll.SetMinSize(fyne.NewSize(440, 420))
-	dialog.ShowCustom("About PalmVellum on Mac · v"+version, "Close", scroll, g.win)
+	dialog.ShowCustom("About PalmVellum Sync on Mac · v"+version, "Close", scroll, g.win)
 }
 
 // appendLog prepends a timestamped line so the newest entry sits at the

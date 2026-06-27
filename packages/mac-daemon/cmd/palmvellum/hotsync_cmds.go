@@ -51,3 +51,37 @@ func hotsyncMergeCmd() *cobra.Command {
 		"wait up to this long for AI to answer (AI) memos before writing back (default 0: answers arrive next sync)")
 	return cmd
 }
+
+// datebookExportCmd regenerates a clean DatebookDB.pdb from the cloud
+// (subscribed/imported calendar-feed events are excluded by DatebookPull),
+// without touching the device. Recovery tool: when a device's Date Book has
+// been inflated past what it can hold, drop the exported .pdb on the app's
+// install zone to overwrite the bloated on-device database in one shot —
+// bypassing the record-by-record pull that otherwise hangs.
+func datebookExportCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "datebook-export <out.pdb>",
+		Short: "Write a clean DatebookDB.pdb from the cloud (excludes calendar-feed events)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ac, cfg, err := authClient()
+			if err != nil {
+				return err
+			}
+			s, err := ac.Current(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("not logged in: %w", err)
+			}
+			c := cloud.New(cfg.SupabaseURL, cfg.SupabasePublishableKey, s.AccessToken)
+
+			// nil appInfo → DatebookDB uses its default display prefs (the
+			// device's own prefs are restored on the next normal HotSync).
+			res, err := palmsync.DatebookPull(c, s.UserID, args[0], nil, time.Local)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("wrote %d appointment(s) to %s\n", res.Written, args[0])
+			return nil
+		},
+	}
+}

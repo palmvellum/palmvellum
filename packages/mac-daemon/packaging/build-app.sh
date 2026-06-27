@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."                       # packages/mac-daemon
 # change). An explicit arg still overrides for one-off builds.
 VERSION="${1:-$(grep -oE 'var version = "[^"]+"' cmd/palmvellum/main.go | sed -E 's/.*"([^"]+)".*/\1/')}"
 VERSION="${VERSION:-dev}"
-APP="dist/PalmVellum on Mac.app"
+APP="dist/PalmVellum Sync on Mac.app"
 MACOS="$APP/Contents/MacOS"
 RES="$APP/Contents/Resources"
 
@@ -93,7 +93,7 @@ fi
 # the app can be shared; signing/notarization is layered on when creds
 # are present.
 echo "→ building dmg"
-DMG="dist/PalmVellum-on-Mac-$VERSION.dmg"
+DMG="dist/PalmVellum-Sync-on-Mac-$VERSION.dmg"
 STAGE="dist/dmg"
 rm -rf "$STAGE" "$DMG"
 mkdir -p "$STAGE"
@@ -101,7 +101,7 @@ cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 # Usage guide alongside the app (Markdown reads fine as plain text).
 [ -f ../../docs/USAGE.md ] && cp ../../docs/USAGE.md "$STAGE/Usage & Read Me.txt"
-hdiutil create -volname "PalmVellum on Mac" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+hdiutil create -volname "PalmVellum Sync on Mac" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
 
 if [ -n "${DEVELOPER_ID:-}" ] && [ -n "${AC_KEYCHAIN_PROFILE:-}" ]; then

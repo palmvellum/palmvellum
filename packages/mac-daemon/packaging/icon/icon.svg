@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- PalmVellum macOS app icon. Adapts the Android launcher motif (a cream
-     "vellum" organizer card with a lowercase Palm-orange "palm" wordmark,
-     orange ruled lines and a dog-ear fold) onto a Big Sur-style rounded
-     tile with the soft Palm-OS silver "desk" gradient. Master is 1024px;
-     build_icns.sh rasterises this and derives every iconset size. -->
+<!-- PalmVellum Sync on Mac app icon. Same silver-desk tile family as the
+     organizer icon, but the hero is a Palm-orange circular two-arrow HotSync
+     ring (Palm ⇄ cloud) wrapped around a small cream vellum card. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Silver desk gradient (tile fill), from the Android background. -->
     <linearGradient id="desk" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ECECE7"/>
       <stop offset="1" stop-color="#C2C4BE"/>
@@ -15,24 +12,20 @@
       <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
-    <!-- Vellum card gradients, from the Android foreground. -->
     <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FBFAF4"/>
       <stop offset="1" stop-color="#ECEADE"/>
     </linearGradient>
-    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#E6E3D4"/>
-      <stop offset="1" stop-color="#CBC7B5"/>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4892F"/>
+      <stop offset="1" stop-color="#C9531A"/>
     </linearGradient>
-    <!-- Soft outer shadow under the whole tile (macOS convention). -->
     <filter id="tileShadow" x="-20%" y="-20%" width="140%" height="145%">
       <feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#2B2B28" flood-opacity="0.34"/>
     </filter>
-    <!-- Card lift shadow. -->
-    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="170%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#2C2C2A" flood-opacity="0.30"/>
+    <filter id="ringShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#7A3410" flood-opacity="0.35"/>
     </filter>
-    <!-- Top sheen to give the tile a glassy macOS finish. -->
     <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.30"/>
       <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.04"/>
@@ -40,37 +33,37 @@
     </linearGradient>
   </defs>
 
-  <!-- Rounded tile: 824×824 centred in the 1024 canvas, ~185px corner. -->
+  <!-- Rounded silver tile. -->
   <g filter="url(#tileShadow)">
     <rect x="100" y="86" width="824" height="824" rx="185" ry="185" fill="url(#desk)"/>
   </g>
   <rect x="100" y="86" width="824" height="824" rx="185" ry="185" fill="url(#glow)"/>
 
-  <!-- Vellum card motif (Android foreground, scaled into the tile). -->
-  <g transform="translate(130,150) scale(1.72)">
-    <!-- Card body with a cut bottom-right corner (the dog-ear crease). -->
-    <path filter="url(#cardShadow)" fill="url(#card)" stroke="#C9C7B8" stroke-width="1.5"
-          d="M122,84 H310 a18,18 0 0 1 18,18 V292 L274,346 H122 a18,18 0 0 1 -18,-18 V102 a18,18 0 0 1 18,-18 Z"/>
-    <!-- Folded corner flap (back of the sheet). -->
-    <path fill="url(#fold)" stroke="#BCB8A6" stroke-width="1"
-          d="M328,292 L274,346 L328,346 Z"/>
-    <path fill="none" stroke="#B7B097" stroke-width="2.5" stroke-opacity="0.55"
-          d="M328,292 L274,346"/>
-    <!-- Left margin rule (Palm orange, light). -->
-    <rect x="150" y="160" width="3" height="158" rx="1.5" fill="#F2A571" fill-opacity="0.9"/>
-    <!-- "palm" wordmark heading (lowercase, rounded, Palm orange). -->
-    <text x="148" y="146" fill="#EE6A1F"
-          font-family="'Arial Rounded MT Bold','Arial Rounded Bold',Arial,sans-serif"
-          font-size="52" font-weight="700" letter-spacing="-1.5">palm</text>
-    <!-- Ruled organizer lines (orange). -->
-    <g fill="#C9621F" fill-opacity="0.8">
-      <rect x="166" y="180" width="134" height="7" rx="3.5"/>
-      <rect x="166" y="210" width="134" height="7" rx="3.5"/>
-      <rect x="166" y="240" width="128" height="7" rx="3.5"/>
-      <rect x="166" y="270" width="120" height="7" rx="3.5"/>
+  <!-- Small vellum card behind the ring (PalmVellum identity hint). -->
+  <g transform="translate(512,512)">
+    <rect x="-120" y="-150" width="240" height="300" rx="22" fill="url(#card)" stroke="#C9C7B8" stroke-width="2"/>
+    <path d="M84,150 L120,114 L120,150 Z" fill="#DAD7C8"/>
+    <g fill="#E79A66" fill-opacity="0.85">
+      <rect x="-86" y="-104" width="150" height="10" rx="5"/>
+      <rect x="-86" y="-64" width="150" height="10" rx="5"/>
+      <rect x="-86" y="-24" width="120" height="10" rx="5"/>
     </g>
   </g>
 
-  <!-- Glassy top sheen, clipped to the tile. -->
+  <!-- HotSync ring: two orange arcs + arrowheads, around the card. -->
+  <g filter="url(#ringShadow)">
+    <!-- Top arc: just-below-west → over the top → just-below-east. -->
+    <path d="M 345,482 A 170,170 0 0 1 679,482"
+          fill="none" stroke="url(#ring)" stroke-width="54" stroke-linecap="round"/>
+    <!-- Bottom arc: just-below-east → under the bottom → just-below-west. -->
+    <path d="M 679,542 A 170,170 0 0 1 345,542"
+          fill="none" stroke="url(#ring)" stroke-width="54" stroke-linecap="round"/>
+    <!-- Arrowhead at top-arc end (right side), pointing down. -->
+    <path d="M 679,430 L 727,486 L 631,486 Z" fill="url(#ring)"/>
+    <!-- Arrowhead at bottom-arc end (left side), pointing up. -->
+    <path d="M 345,594 L 297,538 L 393,538 Z" fill="url(#ring)"/>
+  </g>
+
+  <!-- Glassy top sheen. -->
   <rect x="100" y="86" width="824" height="412" rx="185" ry="185" fill="url(#sheen)"/>
 </svg>

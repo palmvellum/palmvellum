@@ -32,6 +32,48 @@ const SERVICE_KEY  = env('SUPABASE_SERVICE_ROLE_KEY');
 
 const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
+// PostgREST caps each response at db.max_rows (1000 here), so we page
+// with .range(). These are overall bounds on how much we'll assemble
+// into one feed, not per-request page sizes.
+const PAGE = 1000;        // matches the project's PostgREST max_rows
+const MAX_EVENTS = 5000;  // ~1.2 MB ICS; Apple/Google handle this fine
+const MAX_TODOS  = 5000;
+
+// Feed window: emit "recent + future" only. Events that start before
+// this many days ago are dropped from the feed (they remain in the DB).
+// Future events are unbounded (still capped by MAX_EVENTS). Bump this
+// to widen how far back the subscription shows.
+const WINDOW_PAST_DAYS = 365;
+
+/** ISO instant for (now − days), used as the feed's lower bound. */
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+/**
+ * Fetch every row a query would yield, paging past PostgREST's
+ * per-response row cap with .range(). `build()` must return a fresh
+ * filtered+ordered query each call (range is applied here). Stops at
+ * `max` rows or when a short page signals the end. The order applied
+ * in build() is preserved across pages because each page is a window
+ * into the same ordered result set.
+ */
+async function fetchAllRange<T>(
+  build: () => any,
+  max: number,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const out: T[] = [];
+  for (let from = 0; from < max; from += PAGE) {
+    const to = Math.min(from + PAGE, max) - 1;
+    const { data, error } = await build().range(from, to);
+    if (error) return { data: out, error };
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < to - from + 1) break; // short page => no more rows
+  }
+  return { data: out, error: null };
+}
+
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Headers': 'content-type, authorization, apikey',
@@ -87,15 +129,31 @@ Deno.serve(async (req: Request) => {
   if (tokErr) return text(500, `token lookup: ${tokErr.message}`);
   if (!uid)   return text(404, 'token not found');
 
-  // 3a. Pull this user's active events (Apple Calendar handles ~5k
-  //     events without issue; cap at 2000 for safety).
-  const { data: events, error: evErr } = await supa
-    .from('events')
-    .select('id, title, start_at, end_at, all_day, location, notes, alarm_minutes, created_at, updated_at')
-    .eq('user_id', String(uid))
-    .is('deleted_at', null)
-    .order('start_at', { ascending: true })
-    .limit(2000);
+  // 3a. Pull this user's active events within the feed window:
+  //     "recent + future" = anything from WINDOW_PAST_DAYS ago onward,
+  //     plus all future events. A subscription calendar is about what's
+  //     coming up (and a little recent history), not a decade of
+  //     archived appointments — so we drop old events from the feed.
+  //     They stay in the database untouched; only the feed is windowed.
+  //
+  //     This window also sidesteps PostgREST's 1000-row response cap
+  //     (db.max_rows), which a bare .limit() can't raise: ordered
+  //     ascending by start_at, the oldest 1000 rows would otherwise
+  //     eat the whole quota and push every recent/future event out of
+  //     the feed. We still page with .range() (MAX_EVENTS guard) so a
+  //     user with >1000 future events is also served in full.
+  const windowStartIso = isoDaysAgo(WINDOW_PAST_DAYS);
+  const { data: events, error: evErr } = await fetchAllRange<EventRow>(
+    () =>
+      supa
+        .from('events')
+        .select('id, title, start_at, end_at, all_day, location, notes, alarm_minutes, created_at, updated_at')
+        .eq('user_id', String(uid))
+        .is('deleted_at', null)
+        .gte('start_at', windowStartIso)
+        .order('start_at', { ascending: true }),
+    MAX_EVENTS,
+  );
 
   if (evErr) return text(500, `events: ${evErr.message}`);
 
@@ -105,14 +163,17 @@ Deno.serve(async (req: Request) => {
   //     VTODOs from the main grid). Completed todos and todos with no
   //     due date are excluded — when the user marks one done it
   //     simply stops appearing on the next refresh.
-  const { data: todosRaw, error: tdErr } = await supa
-    .from('records')
-    .select('id, body, metadata, created_at, updated_at')
-    .eq('user_id', String(uid))
-    .eq('type', 'todo')
-    .is('deleted_at', null)
-    .order('updated_at', { ascending: false })
-    .limit(2000);
+  const { data: todosRaw, error: tdErr } = await fetchAllRange<TodoRow>(
+    () =>
+      supa
+        .from('records')
+        .select('id, body, metadata, created_at, updated_at')
+        .eq('user_id', String(uid))
+        .eq('type', 'todo')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false }),
+    MAX_TODOS,
+  );
 
   if (tdErr) return text(500, `todos: ${tdErr.message}`);
 

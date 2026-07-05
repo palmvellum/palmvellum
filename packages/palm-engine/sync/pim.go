@@ -30,28 +30,42 @@ func alarmUnitMinutes(unit uint8) int {
 
 // isFeedEventSource reports whether an event came from a calendar feed
 // (a subscribed .ics calendar or a one-off .ics import) rather than from a
-// user-owned client. Feed events are read-only and must never be pushed onto
-// a Palm device — see DatebookPull. Sources are defined by the PWA:
-// 'palm', 'web', 'ai' are user-owned; 'ics-sub' / 'ics-import' are feeds.
+// user-owned client. Feed events ARE carried onto the Palm now, but only
+// within a shorter window (see inFeedWindow) so recurring subscribed events
+// (bills, birthdays) show up without pushing the whole multi-thousand-event
+// subscription. Sources are defined by the PWA: 'palm', 'web', 'ai' are
+// user-owned; 'ics-sub' / 'ics-import' are feeds.
 func isFeedEventSource(source string) bool {
 	return source == "ics-sub" || source == "ics-import"
 }
 
-// Date Book sync window: only events starting within [now-1mo, now+1yr] are
-// written onto the Palm. The cloud keeps the full history; the vintage device
-// (limited RAM) only carries a rolling window so it can't be inflated by a
-// large back-catalogue of past/far-future appointments. Events outside the
-// window stay in the cloud and re-appear on-device once they enter the window.
+// Date Book sync window: user-owned events starting within [now-1mo, now+1yr]
+// are written onto the Palm. The cloud keeps the full history; the vintage
+// device (limited RAM) only carries a rolling window so it can't be inflated
+// by a large back-catalogue. Feed events use the tighter feedWindow below.
 const (
 	datebookWindowPastMonths = 1
 	datebookWindowFutureYear = 1
+	// Feed (subscribed / imported) events are capped to a 360-day window so
+	// the subscription's full multi-thousand-event history can never clog the
+	// device — only the near past + coming year reaches the Palm.
+	feedWindowPastDays   = 30
+	feedWindowFutureDays = 330
 )
 
-// inDatebookWindow reports whether an event start time falls inside the
-// device sync window relative to now.
+// inDatebookWindow reports whether a user-owned event start time falls inside
+// the device sync window relative to now.
 func inDatebookWindow(start, now time.Time) bool {
 	lo := now.AddDate(0, -datebookWindowPastMonths, 0)
 	hi := now.AddDate(datebookWindowFutureYear, 0, 0)
+	return !start.Before(lo) && !start.After(hi)
+}
+
+// inFeedWindow reports whether a feed (subscribed / imported) event falls in
+// the tighter 360-day window carried onto the Palm.
+func inFeedWindow(start, now time.Time) bool {
+	lo := now.AddDate(0, 0, -feedWindowPastDays)
+	hi := now.AddDate(0, 0, feedWindowFutureDays)
 	return !start.Before(lo) && !start.After(hi)
 }
 
@@ -164,23 +178,20 @@ func DatebookPull(c Cloud, userID, outPath string, appInfo []byte, tz *time.Loca
 	var backfills []backfill
 	appts := make([]datebookdb.Appointment, 0, len(events))
 	for _, e := range events {
-		// Only carry a rolling [now-1mo, now+1yr] window on the device; the
-		// cloud keeps everything. Skip before back-fill so out-of-window events
-		// aren't assigned a date: UID and re-appear naturally when they enter
-		// the window. See inDatebookWindow.
-		if !inDatebookWindow(e.StartAt, now) {
-			continue
-		}
-		// Calendar-feed events (a subscribed .ics calendar, or a one-off
-		// .ics import) live in the cloud / PWA only — they are read-only
-		// consumers' data and must NEVER be written onto a vintage Palm.
-		// A single subscribed calendar can hold thousands of VEVENTs; pushing
-		// them inflates DatebookDB past what the device can hold, and the next
-		// HotSync hangs partway through reading the bloated database back.
-		// Feed events carry no device_id, so without this guard they would
-		// fall through the date:-prefix check below, get a fresh date: UID,
-		// and be materialised on-device (and back-filled in the cloud).
+		// Only carry a rolling window on the device; the cloud keeps
+		// everything. Skip before back-fill so out-of-window events aren't
+		// assigned a date: UID and re-appear naturally when they enter the
+		// window. Feed events (a subscribed .ics calendar or one-off import)
+		// use the tighter 360-day feedWindow: a subscription can hold thousands
+		// of VEVENTs and pushing them all would inflate DatebookDB until the
+		// next HotSync hangs reading it back — the window keeps only the near
+		// past + coming year (recurring bills/birthdays) so the device stays
+		// small. User-owned events use the wider datebookWindow.
+		inWindow := inDatebookWindow(e.StartAt, now)
 		if isFeedEventSource(e.Source) {
+			inWindow = inFeedWindow(e.StartAt, now)
+		}
+		if !inWindow {
 			continue
 		}
 		if e.DeviceID != nil && !strings.HasPrefix(*e.DeviceID, "date:") {

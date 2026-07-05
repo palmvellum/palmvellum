@@ -39,13 +39,16 @@ func (c *Client) ListEventsForUser(userID string) ([]Event, error) {
 	// the physical Palm would stop receiving the overflow. Page size stays
 	// below the cap so a short page reliably means "done". Mirrors the PWA
 	// (fetchAllForUser) and native (SupabaseRest.selectAll).
+	// NOTE: feed events (ics-sub / ics-import) are intentionally included —
+	// DatebookPull windows them to a shorter horizon so recurring subscribed
+	// events (bills, birthdays) appear on the Palm without pushing the whole
+	// multi-thousand-event subscription. The caller decides what to keep.
 	const pageSize = 500
 	var all []Event
 	for offset := 0; ; offset += pageSize {
 		u := fmt.Sprintf("%s/rest/v1/events"+
 			"?select=id,title,start_at,end_at,all_day,location,notes,alarm_minutes,repeat_rule,source,device_id,palm_record_uid"+
 			"&user_id=eq.%s&deleted_at=is.null"+
-			"&or=(source.is.null,source.not.in.(ics-sub,ics-import))"+
 			"&order=id.asc&limit=%d&offset=%d", c.Endpoint, userID, pageSize, offset)
 		req, _ := http.NewRequest("GET", u, nil)
 		c.auth(req)

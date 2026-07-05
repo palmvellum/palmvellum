@@ -133,19 +133,18 @@ class PalmCloud(private val rest: SupabaseRest, private val userId: String) {
     }
 
     /**
-     * The user's own Date Book events. Calendar-feed events (ics-sub / ics-import)
-     * are excluded server-side so a large subscribed calendar isn't downloaded on
-     * every HotSync (it would never be written to the device anyway). The `or`
-     * keeps rows whose source is null (legacy / device-origin events).
+     * All the user's active Date Book events, including calendar-feed events
+     * (ics-sub / ics-import) — datebookPull windows the feed ones to a tight
+     * 360-day horizon so recurring subscribed events reach the Palm without the
+     * whole multi-thousand-event subscription clogging it.
      */
     suspend fun listEventsForUser(): List<Event> {
         // selectAll pages past PostgREST's 1000-row cap; a bare limit=20000
-        // is silently clamped to db.max_rows (1000), which would drop the
-        // user's own events once they exceed 1000.
+        // is silently clamped to db.max_rows (1000), which would drop events
+        // once they exceed 1000.
         val arr = rest.selectAll(
             "events",
             "user_id=eq.$userId&deleted_at=is.null" +
-                "&or=(source.is.null,source.not.in.(ics-sub,ics-import))" +
                 "&select=id,title,start_at,end_at,all_day,notes,alarm_minutes,device_id,source",
         ).getOrThrow()
         return arr.map { el ->

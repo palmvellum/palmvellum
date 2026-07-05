@@ -219,15 +219,23 @@ func TestSyncCardDatebookAndAddress(t *testing.T) {
 // never be written onto the Palm: those feeds can hold thousands of VEVENTs
 // and would inflate DatebookDB until the next HotSync hangs reading it back.
 // User-owned web events still flow through.
-func TestDatebookPullExcludesFeedEvents(t *testing.T) {
+// Feed events (subscribed / imported) are now carried onto the Palm, but only
+// within the tighter 360-day feedWindow — so recurring subscribed events show
+// up while the subscription's full multi-thousand-event history can't clog the
+// device. In-window feed events are written and back-filled; out-of-window ones
+// are skipped and left untouched in the cloud.
+func TestDatebookPullFeedEventsWindowed(t *testing.T) {
 	const uid = "u-feed"
 	f := newFake()
 	dir := t.TempDir()
 
-	start := time.Now().AddDate(0, 0, 1) // tomorrow → inside the sync window
-	f.events["e-web"] = &cloud.Event{ID: "e-web", UserID: uid, Title: "Web meeting", StartAt: start, Source: "web"}
-	f.events["e-sub"] = &cloud.Event{ID: "e-sub", UserID: uid, Title: "Subscribed holiday", StartAt: start, AllDay: true, Source: "ics-sub"}
-	f.events["e-imp"] = &cloud.Event{ID: "e-imp", UserID: uid, Title: "Imported event", StartAt: start, AllDay: true, Source: "ics-import"}
+	now := time.Now()
+	inWin := now.AddDate(0, 0, 1)    // tomorrow → inside the feed window
+	outWin := now.AddDate(0, 0, 360) // beyond feedWindowFutureDays (330) → excluded
+	f.events["e-web"] = &cloud.Event{ID: "e-web", UserID: uid, Title: "Web meeting", StartAt: inWin, Source: "web"}
+	f.events["e-sub"] = &cloud.Event{ID: "e-sub", UserID: uid, Title: "Subscribed holiday", StartAt: inWin, AllDay: true, Source: "ics-sub"}
+	f.events["e-imp"] = &cloud.Event{ID: "e-imp", UserID: uid, Title: "Imported event", StartAt: inWin, AllDay: true, Source: "ics-import"}
+	f.events["e-far"] = &cloud.Event{ID: "e-far", UserID: uid, Title: "Far subscribed", StartAt: outWin, AllDay: true, Source: "ics-sub"}
 
 	out := filepath.Join(dir, "DatebookDB.pdb")
 	if _, err := DatebookPull(f, uid, out, nil, time.UTC); err != nil {
@@ -237,16 +245,27 @@ func TestDatebookPullExcludesFeedEvents(t *testing.T) {
 	raw, _ := os.ReadFile(out)
 	db, _ := pdb.Read(raw)
 	appts := datebookdb.DecodeAppointments(db)
-	if len(appts) != 1 {
-		t.Fatalf("want only the web event on card, got %d: %+v", len(appts), appts)
+	got := map[string]bool{}
+	for _, a := range appts {
+		got[a.Description] = true
 	}
-	if appts[0].Description != "Web meeting" {
-		t.Fatalf("unexpected appointment written to card: %q", appts[0].Description)
+	// In-window: web + both feed events present. Out-of-window feed absent.
+	for _, want := range []string{"Web meeting", "Subscribed holiday", "Imported event"} {
+		if !got[want] {
+			t.Fatalf("want %q on card, got %+v", want, appts)
+		}
 	}
-	// Feed events must not be back-filled with a date: device_id either.
-	if f.events["e-sub"].DeviceID != nil || f.events["e-imp"].DeviceID != nil {
-		t.Fatalf("feed events were back-filled with a device_id: sub=%v imp=%v",
+	if got["Far subscribed"] {
+		t.Fatalf("out-of-window feed event was written to the card: %+v", appts)
+	}
+	// In-window feed events get a date: device_id back-filled (so the Palm owns
+	// a stable UID); the out-of-window one stays untouched.
+	if f.events["e-sub"].DeviceID == nil || f.events["e-imp"].DeviceID == nil {
+		t.Fatalf("in-window feed events were not back-filled: sub=%v imp=%v",
 			f.events["e-sub"].DeviceID, f.events["e-imp"].DeviceID)
+	}
+	if f.events["e-far"].DeviceID != nil {
+		t.Fatalf("out-of-window feed event was back-filled: %v", f.events["e-far"].DeviceID)
 	}
 }
 

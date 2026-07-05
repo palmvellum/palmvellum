@@ -126,9 +126,9 @@ class HotSyncConduit(
         if (dateDev == null) { log("(no Date Book on device)"); return }
         log("Date Book: read ${dateDev.records.size} record(s)")
         val palmDb = session.asPalmDb(dateDev, "date")
-        // Fetch the user's own (non-feed) events ONCE and reuse for both the push
-        // existence check and the pull. Avoids a per-record findEventByDevice GET
-        // and a second full download. listEventsForUser already excludes feed.
+        // Fetch all active events ONCE and reuse for both the push existence
+        // check and the pull. Avoids a per-record findEventByDevice GET and a
+        // second full download. datebookPull windows feed events down.
         val cloudEvents = runBlockingCloud { cloud.listEventsForUser() }
         val byDevice = HashMap<String, PalmCloud.Event>(cloudEvents.size)
         for (e in cloudEvents) e.deviceId?.let { if (it.startsWith("date:")) byDevice[it] = e }
@@ -389,29 +389,30 @@ class HotSyncConduit(
     }
 
     private fun datebookPull(cloudEvents: List<PalmCloud.Event>): List<Appointment> {
-        // Calendar-feed events (a subscribed .ics calendar or one-off import) are
-        // read-only and must NEVER be written onto a Palm: a single feed can hold
-        // thousands of events and would inflate DatebookDB past what the vintage
-        // device can hold, hanging the next HotSync. Feed events carry no
-        // device_id, so without this guard the backfill below would assign each a
-        // fresh date: UID, push it to the device, and persist the date: id back to
-        // the cloud. Mirrors the Go engine guard (palm-engine/sync/pim.go
-        // isFeedEventSource).
-        // Only carry a rolling [now-1mo, now+1yr] window on the device; the cloud
-        // keeps the full history. The vintage Palm has limited RAM, so a large
-        // back-catalogue of past/far-future events would inflate DatebookDB and
-        // hang HotSync. Out-of-window events stay in the cloud (and are not
-        // back-filled) and re-appear on-device once they enter the window.
-        // Mirrors the Go engine (palm-engine/sync/pim.go inDatebookWindow).
+        // Only carry a rolling window on the device; the cloud keeps the full
+        // history. The vintage Palm has limited RAM, so a large back-catalogue
+        // would inflate DatebookDB and hang the next HotSync.
+        //  - User-owned events: [now-1mo, now+1yr].
+        //  - Feed events (subscribed .ics / one-off import): the tighter 360-day
+        //    window [now-30d, now+330d]. A subscription can hold thousands of
+        //    events; the window lets recurring bills/birthdays reach the Palm
+        //    while keeping the device small. Out-of-window events stay in the
+        //    cloud (not back-filled) and re-appear once they enter the window.
+        // Mirrors the Go engine (palm-engine/sync/pim.go inDatebookWindow /
+        // inFeedWindow).
         val nowZ = java.time.ZonedDateTime.now(zone)
         val windowLo = nowZ.minusMonths(1).toInstant()
         val windowHi = nowZ.plusYears(1).toInstant()
-        val events = cloudEvents
-            .filterNot { it.source == "ics-sub" || it.source == "ics-import" } // backstop; query already excludes feed
-            .filter { e ->
-                val st = parseInstant(e.startAt) ?: return@filter false
+        val feedLo = nowZ.minusDays(30).toInstant()
+        val feedHi = nowZ.plusDays(330).toInstant()
+        val events = cloudEvents.filter { e ->
+            val st = parseInstant(e.startAt) ?: return@filter false
+            if (e.source == "ics-sub" || e.source == "ics-import") {
+                !st.isBefore(feedLo) && !st.isAfter(feedHi)
+            } else {
                 !st.isBefore(windowLo) && !st.isAfter(windowHi)
             }
+        }
         var maxUid = 0
         for (e in events) {
             val d = e.deviceId ?: continue

@@ -51,6 +51,43 @@ interface NetworkPlugin {
   getStatus: () => Promise<NetworkStatus>;
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Paginated fetch — PostgREST enforces a hard `db.max_rows` cap
+// (1000 on Supabase) that silently overrides `.limit()`. A plain
+// `.select('*')` therefore returns AT MOST 1000 rows, dropping the
+// rest with no error. Users with >1000 events would never receive the
+// overflow on the device (invisible in the Date Book even though the
+// cloud has them). Page through with `.range()` on a stable `id`
+// order until a short page signals the end. Same class of bug that
+// hit the `ical-feed` Edge Function (fixed 2026-06-27).
+// ──────────────────────────────────────────────────────────────────
+
+// Kept below the server cap (Supabase db.max_rows = 1000) so a short
+// page reliably means "no more rows" regardless of the cap's value.
+const PULL_PAGE_SIZE = 500;
+
+async function fetchAllForUser<T>(
+  table: 'events' | 'event_drafts' | 'records' | 'mail_sources',
+  userId: string,
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  const rows: T[] = [];
+  for (let page = 0; ; page++) {
+    const from = page * PULL_PAGE_SIZE;
+    const to = from + PULL_PAGE_SIZE - 1;
+    const res = await supabase
+      .from(table)
+      .select('*')
+      .eq('user_id', userId)
+      .order('id', { ascending: true })
+      .range(from, to);
+    if (res.error) return { data: null, error: res.error };
+    const batch = (res.data ?? []) as T[];
+    rows.push(...batch);
+    if (batch.length < PULL_PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
+}
+
 async function loadNetworkPlugin(): Promise<NetworkPlugin | null> {
   if (!browser) return null;
   // Check Capacitor at runtime — the import only works inside the
@@ -180,16 +217,10 @@ export class SyncEngine {
       // Fan-out the four selects. Each runs under RLS so it sees
       // only the signed-in user's rows.
       const [evRes, drRes, rcRes, msRes] = await Promise.all([
-        supabase.from('events').select('*').eq('user_id', this.userId),
-        supabase
-          .from('event_drafts')
-          .select('*')
-          .eq('user_id', this.userId),
-        supabase.from('records').select('*').eq('user_id', this.userId),
-        supabase
-          .from('mail_sources')
-          .select('*')
-          .eq('user_id', this.userId),
+        fetchAllForUser<Record<string, unknown>>('events', this.userId),
+        fetchAllForUser<Record<string, unknown>>('event_drafts', this.userId),
+        fetchAllForUser<Record<string, unknown>>('records', this.userId),
+        fetchAllForUser<Record<string, unknown>>('mail_sources', this.userId),
       ]);
 
       if (evRes.error) {

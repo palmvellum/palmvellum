@@ -139,11 +139,14 @@ class PalmCloud(private val rest: SupabaseRest, private val userId: String) {
      * keeps rows whose source is null (legacy / device-origin events).
      */
     suspend fun listEventsForUser(): List<Event> {
-        val arr = rest.select(
+        // selectAll pages past PostgREST's 1000-row cap; a bare limit=20000
+        // is silently clamped to db.max_rows (1000), which would drop the
+        // user's own events once they exceed 1000.
+        val arr = rest.selectAll(
             "events",
             "user_id=eq.$userId&deleted_at=is.null" +
                 "&or=(source.is.null,source.not.in.(ics-sub,ics-import))" +
-                "&select=id,title,start_at,end_at,all_day,notes,alarm_minutes,device_id,source&limit=20000",
+                "&select=id,title,start_at,end_at,all_day,notes,alarm_minutes,device_id,source",
         ).getOrThrow()
         return arr.map { el ->
             val o = el.jsonObject

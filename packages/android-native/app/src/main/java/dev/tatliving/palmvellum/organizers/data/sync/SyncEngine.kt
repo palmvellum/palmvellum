@@ -108,13 +108,16 @@ class SyncEngine(
 
     // ── PULL ────────────────────────────────────────────────────
     private suspend fun pull(uid: String) {
-        rest.select("events", "user_id=eq.$uid&select=*").getOrThrow().forEach { el ->
+        // selectAll pages past PostgREST's 1000-row cap — otherwise a
+        // user with >1000 events only ever pulls the first 1000 and the
+        // rest are invisible in the on-device Date Book.
+        rest.selectAll("events", "user_id=eq.$uid&select=*").getOrThrow().forEach { el ->
             mergeEvent(el.jsonObject)
         }
-        rest.select("records", "user_id=eq.$uid&select=*").getOrThrow().forEach { el ->
+        rest.selectAll("records", "user_id=eq.$uid&select=*").getOrThrow().forEach { el ->
             mergeRecord(el.jsonObject)
         }
-        rest.select("event_drafts", "user_id=eq.$uid&select=*").getOrThrow().forEach { el ->
+        rest.selectAll("event_drafts", "user_id=eq.$uid&select=*").getOrThrow().forEach { el ->
             mergeDraft(el.jsonObject)
         }
     }

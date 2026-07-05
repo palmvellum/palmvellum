@@ -119,6 +119,30 @@ class SupabaseRest(private val session: SessionStore) {
             .fold({ Result.success(it) }, { Result.failure(it) })
     }
 
+    /**
+     * Like [select] but pages past PostgREST's hard `db.max_rows` cap
+     * (1000 on Supabase), which silently overrides any `limit` in the
+     * query. A plain unpaged select returns AT MOST 1000 rows, dropping
+     * the rest with no error — so a user with >1000 events would only
+     * ever see the first 1000 on-device. Page with `order=id.asc` +
+     * `limit`/`offset` until a short page signals the end. Page size is
+     * kept below the server cap so a short page reliably means "done"
+     * regardless of the project's `db.max_rows` setting.
+     */
+    suspend fun selectAll(table: String, query: String, pageSize: Int = 500): Result<JsonArray> =
+        withContext(Dispatchers.IO) {
+            val out = ArrayList<kotlinx.serialization.json.JsonElement>()
+            var offset = 0
+            while (true) {
+                val paged = "$query&order=id.asc&limit=$pageSize&offset=$offset"
+                val arr = select(table, paged).getOrElse { return@withContext Result.failure(it) }
+                out.addAll(arr)
+                if (arr.size < pageSize) break
+                offset += pageSize
+            }
+            Result.success(JsonArray(out))
+        }
+
     /** Upsert (merge on PK) a batch of rows; returns the stored representation. */
     suspend fun upsert(table: String, rows: List<JsonObject>): Result<JsonArray> = withContext(Dispatchers.IO) {
         val payload = JsonArray(rows).toString()

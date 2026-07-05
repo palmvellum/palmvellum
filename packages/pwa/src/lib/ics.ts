@@ -1,9 +1,17 @@
 /**
  * Minimal iCalendar (RFC 5545) reader — a TypeScript port of the native
  * app's `util/Ics.kt`. Enough to import VEVENTs from a .ics file or a
- * subscribed feed. Ignores recurrence (RRULE) and VTIMEZONE blocks;
- * TZID values are resolved against the JS Intl tz database when the
- * browser supports it, else fall back to the local zone.
+ * subscribed feed. Ignores VTIMEZONE blocks; TZID values are resolved
+ * against the JS Intl tz database when the browser supports it, else
+ * fall back to the local zone.
+ *
+ * Recurrence (RRULE) IS expanded: a recurring VEVENT yields one IcsEvent
+ * per occurrence (from DTSTART up to UNTIL/COUNT, open-ended rules capped
+ * at RRULE_FUTURE_CAP into the future). Each occurrence gets a distinct
+ * synthetic uid `"<uid>@<yyyymmdd>"` so the caller's deterministic id
+ * (icsEventId) is unique per occurrence and stable across refreshes —
+ * without expansion, monthly/yearly events (bills, birthdays) only ever
+ * showed on their first date. EXDATE-excluded occurrences are dropped.
  *
  * start/end are returned as ISO-8601 UTC instants ("…Z") so they drop
  * straight into the events table's `start_at` / `end_at` columns.
@@ -29,6 +37,13 @@ export function parseIcs(text: string): IcsEvent[] {
   let description: string | null = null;
   let start: { iso: string; allDay: boolean } | null = null;
   let end: { iso: string; allDay: boolean } | null = null;
+  let rrule: string | null = null;
+  let exdates: string[] = [];
+
+  const flush = (ev: IcsEvent): void => {
+    if (rrule) out.push(...expandRrule(ev, rrule, exdates));
+    else out.push(ev);
+  };
 
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') {
@@ -39,9 +54,11 @@ export function parseIcs(text: string): IcsEvent[] {
       description = null;
       start = null;
       end = null;
+      rrule = null;
+      exdates = [];
     } else if (line === 'END:VEVENT') {
       if (inEvent && start) {
-        out.push({
+        flush({
           uid,
           summary: summary.trim() || '(untitled)',
           startIso: start.iso,
@@ -75,10 +92,134 @@ export function parseIcs(text: string): IcsEvent[] {
         case 'DTEND':
           end = parseDt(params, value);
           break;
+        case 'RRULE':
+          rrule = value;
+          break;
+        case 'EXDATE':
+          // one or more comma-separated date(-times); we key exclusions
+          // by their yyyymmdd prefix (matches the occurrence's UTC date).
+          for (const v of value.split(',')) {
+            const d = v.trim().slice(0, 8);
+            if (/^\d{8}$/.test(d)) exdates.push(d);
+          }
+          break;
       }
     }
   }
   return out;
+}
+
+/** Open-ended (no UNTIL/COUNT) rules are materialised this far into the
+ *  future; past occurrences are always included from DTSTART. Kept as a
+ *  window so a client refresh doesn't emit an unbounded stream. */
+const RRULE_FUTURE_DAYS = 730;
+/** Safety cap on occurrences per event, to bound a pathological rule. */
+const RRULE_MAX_OCCURRENCES = 2000;
+
+/** Expand one recurring VEVENT into its occurrences. Handles the FREQ /
+ *  INTERVAL / COUNT / UNTIL / BYMONTHDAY subset present in real Apple /
+ *  Google feeds (DAILY, WEEKLY, MONTHLY, YEARLY). Each occurrence keeps
+ *  the base event's fields, shifts the date, and gets a per-date uid so
+ *  the deterministic event id is unique. */
+function expandRrule(
+  base: IcsEvent,
+  rrule: string,
+  exdates: string[],
+): IcsEvent[] {
+  const parts: Record<string, string> = {};
+  for (const kv of rrule.split(';')) {
+    const eq = kv.indexOf('=');
+    if (eq > 0) parts[kv.slice(0, eq).toUpperCase()] = kv.slice(eq + 1);
+  }
+  const freq = (parts.FREQ || '').toUpperCase();
+  if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq)) return [base];
+
+  const interval = Math.max(1, parseInt(parts.INTERVAL || '1', 10) || 1);
+  const count = parts.COUNT ? parseInt(parts.COUNT, 10) : null;
+  const untilMs = parts.UNTIL ? untilToMs(parts.UNTIL) : null;
+  const byMonthDay = parts.BYMONTHDAY
+    ? parseInt(parts.BYMONTHDAY, 10)
+    : null;
+
+  const baseMs = Date.parse(base.startIso);
+  if (isNaN(baseMs)) return [base];
+  const baseDate = new Date(baseMs);
+  const futureCapMs = Date.now() + RRULE_FUTURE_DAYS * 86_400_000;
+  const stopMs = untilMs !== null ? Math.min(untilMs, futureCapMs) : futureCapMs;
+  const exSet = new Set(exdates);
+
+  const out: IcsEvent[] = [];
+  for (let n = 0; n < RRULE_MAX_OCCURRENCES; n++) {
+    if (count !== null && n >= count) break;
+    const occ = advance(baseDate, freq, interval * n, byMonthDay);
+    const occMs = occ.getTime();
+    // UNTIL/future cap is inclusive of the day; add a day of slack for
+    // all-day (UTC-midnight) vs timed comparisons.
+    if (occMs > stopMs + 86_400_000) break;
+    const ymd =
+      String(occ.getUTCFullYear()).padStart(4, '0') +
+      String(occ.getUTCMonth() + 1).padStart(2, '0') +
+      String(occ.getUTCDate()).padStart(2, '0');
+    if (exSet.has(ymd)) continue;
+    const shift = occMs - baseMs;
+    out.push({
+      uid: base.uid ? `${base.uid}@${ymd}` : null,
+      summary: base.summary,
+      startIso: new Date(baseMs + shift).toISOString(),
+      endIso:
+        base.endIso !== null
+          ? new Date(Date.parse(base.endIso) + shift).toISOString()
+          : null,
+      allDay: base.allDay,
+      location: base.location,
+      description: base.description,
+    });
+  }
+  return out.length ? out : [base];
+}
+
+/** DTSTART advanced by `step` periods of `freq`, in UTC. Month/year steps
+ *  clamp an overflowing day (e.g. Jan-31 monthly → Feb-28). */
+function advance(
+  base: Date,
+  freq: string,
+  step: number,
+  byMonthDay: number | null,
+): Date {
+  const y = base.getUTCFullYear();
+  const mo = base.getUTCMonth();
+  const d = base.getUTCDate();
+  const h = base.getUTCHours();
+  const mi = base.getUTCMinutes();
+  const s = base.getUTCSeconds();
+  const ms = base.getUTCMilliseconds();
+  if (freq === 'DAILY') return new Date(Date.UTC(y, mo, d + step, h, mi, s, ms));
+  if (freq === 'WEEKLY')
+    return new Date(Date.UTC(y, mo, d + 7 * step, h, mi, s, ms));
+  if (freq === 'MONTHLY') {
+    const targetMonth = mo + step;
+    const yy = y + Math.floor(targetMonth / 12);
+    const mm = ((targetMonth % 12) + 12) % 12;
+    const day = clampDay(yy, mm, byMonthDay ?? d);
+    return new Date(Date.UTC(yy, mm, day, h, mi, s, ms));
+  }
+  // YEARLY
+  const yy = y + step;
+  const day = clampDay(yy, mo, byMonthDay ?? d);
+  return new Date(Date.UTC(yy, mo, day, h, mi, s, ms));
+}
+
+function clampDay(year: number, month0: number, day: number): number {
+  const last = new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
+  return Math.min(day, last);
+}
+
+/** UNTIL is either a DATE (yyyymmdd) or a UTC/local date-time. Return ms. */
+function untilToMs(v: string): number | null {
+  if (/^\d{8}$/.test(v)) return Date.UTC(+v.slice(0, 4), +v.slice(4, 6) - 1, +v.slice(6, 8), 23, 59, 59);
+  const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/.exec(v);
+  if (!m) return null;
+  return Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!, +m[6]!);
 }
 
 /** RFC 5545 line unfolding: a leading space/tab continues the prior line. */

@@ -32,6 +32,23 @@ import (
 // engine applies before writing to a CJKOS Palm.
 const AISeparator = "\n-- AI --\n"
 
+// hkLocation is the fixed wall-clock zone used for Palm Date Book
+// conversion. The Palm stores naive local times and the fleet lives in
+// Hong Kong (UTC+8), so we pin to Asia/Hong_Kong rather than the daemon
+// host's zone. Falls back to UTC if the tzdata lookup fails.
+var hkLocation = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Hong_Kong")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
+// HKLocation returns the fixed Hong Kong (UTC+8) location used for Date
+// Book wall-clock conversion, so callers thread the same zone the engine
+// defaults to instead of the daemon host's local zone.
+func HKLocation() *time.Location { return hkLocation }
+
 // Cloud is the subset of the Supabase client the engine needs.
 // *cloud.Client satisfies it; tests supply a fake.
 type Cloud interface {
@@ -416,9 +433,9 @@ type CardResult struct {
 }
 
 // SyncCard runs the full round-trip with no progress logging and no AI
-// wait, using the local time zone for Date Book.
+// wait, using the fixed Hong Kong time zone for Date Book.
 func SyncCard(c Cloud, userID, setDir string) (CardResult, error) {
-	return SyncCardLog(c, userID, setDir, 0, time.Local, nil)
+	return SyncCardLog(c, userID, setDir, 0, hkLocation, nil)
 }
 
 // SyncCardLog runs the full round-trip for a Sony MS Backup set directory
@@ -437,7 +454,7 @@ func SyncCard(c Cloud, userID, setDir string) (CardResult, error) {
 func SyncCardLog(c Cloud, userID, setDir string, aiWait time.Duration, tz *time.Location, logf func(string)) (CardResult, error) {
 	var out CardResult
 	if tz == nil {
-		tz = time.Local
+		tz = hkLocation
 	}
 	log := func(format string, a ...any) {
 		if logf != nil {

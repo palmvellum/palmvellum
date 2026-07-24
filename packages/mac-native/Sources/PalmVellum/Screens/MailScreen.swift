@@ -175,7 +175,7 @@ private struct AddSourceForm: View {
         let push = MailSourcePush(
             id: Ulid.new(), user_id: "", name: name,
             url: type == "url" ? url : nil, topic: type == "topic" ? topic : nil,
-            source_type: type, enabled: true, fetch_time: "07:00:00", timezone: TimeZone.current.identifier,
+            source_type: type, enabled: true, fetch_time: "07:00:00", timezone: "Asia/Hong_Kong",
             output_language: language == "auto" ? nil : language)
         onAdd(push)
         name = ""; url = ""; topic = ""

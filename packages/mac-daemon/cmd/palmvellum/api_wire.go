@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/api"
 	"github.com/palmvellum/palmvellum/packages/mac-daemon/internal/auth"
@@ -44,7 +43,7 @@ func wireAPI(srv *api.Server, cfg *config.Config) {
 			return "", fmt.Errorf("not logged in")
 		}
 		c := cloud.New(cfg.SupabaseURL, cfg.SupabasePublishableKey, s.AccessToken)
-		res, err := palmsync.SyncCardLog(c, s.UserID, cards[0].SetDir, 0, time.Local, nil)
+		res, err := palmsync.SyncCardLog(c, s.UserID, cards[0].SetDir, 0, palmsync.HKLocation(), nil)
 		if err != nil {
 			return "", err
 		}

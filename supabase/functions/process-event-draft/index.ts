@@ -185,7 +185,9 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const tz = item.user_tz || settings.timezone || 'UTC';
+  // Default to Hong Kong (never UTC/server tz) so relative phrases like
+  // "tomorrow 3pm" resolve against HK time when no explicit tz is provided.
+  const tz = item.user_tz || settings.timezone || 'Asia/Hong_Kong';
   const now = new Date();
   const userNow = formatLocal(now, tz);
 

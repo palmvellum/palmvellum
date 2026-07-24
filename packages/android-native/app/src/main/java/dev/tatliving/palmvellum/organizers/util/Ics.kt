@@ -228,8 +228,8 @@ object Ics {
                 val ldt = LocalDateTime.parse(basic, basicDateTime)
                 val zone = when {
                     value.endsWith("Z") -> ZoneOffset.UTC
-                    tzid != null -> runCatching { ZoneId.of(tzid) }.getOrDefault(ZoneId.systemDefault())
-                    else -> ZoneId.systemDefault()
+                    tzid != null -> runCatching { ZoneId.of(tzid) }.getOrDefault(ZoneId.of("Asia/Hong_Kong"))
+                    else -> ZoneId.of("Asia/Hong_Kong")
                 }
                 ldt.atZone(zone).toInstant().toString() to false
             }

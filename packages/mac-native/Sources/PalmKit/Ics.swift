@@ -122,7 +122,8 @@ public enum Ics {
             } else if let tzid, let z = TimeZone(identifier: tzid) {
                 f.timeZone = z
             } else {
-                f.timeZone = .current
+                // Floating datetime (no Z, no TZID): interpret in Hong Kong time (UTC+8).
+                f.timeZone = TimeZone(identifier: "Asia/Hong_Kong")!
             }
             guard let d = f.date(from: basic) else { return nil }
             return (Clock.nowIso(d), false)

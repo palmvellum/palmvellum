@@ -50,7 +50,7 @@ import java.time.temporal.ChronoUnit
  */
 class HotSyncConduit(
     private val cloud: PalmCloud,
-    private val zone: ZoneId = ZoneId.systemDefault(),
+    private val zone: ZoneId = ZoneId.of("Asia/Hong_Kong"),
 ) {
 
     /**

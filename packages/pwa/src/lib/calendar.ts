@@ -207,13 +207,14 @@ export function tzChoices(...extra: (string | null | undefined)[]): string[] {
   return out;
 }
 
-/** The device's own IANA timezone, or DEFAULT_TZ if unavailable. */
+/**
+ * Default timezone for all calendar operations. Locked to DEFAULT_TZ
+ * (Asia/Hong_Kong) so bookings are consistent regardless of the device's own
+ * timezone. The main Date Book still lets the user pick another zone per view /
+ * per event; this is only the fallback/default when nothing is chosen.
+ */
 export function deviceTz(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TZ;
-  } catch {
-    return DEFAULT_TZ;
-  }
+  return DEFAULT_TZ;
 }
 
 interface ZonedParts {

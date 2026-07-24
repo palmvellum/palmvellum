@@ -31,7 +31,7 @@ final class DateBookVM: ObservableObject {
     func planWithAI(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let draft = EventDraft.newPending(rawInput: trimmed, userTz: TimeZone.current.identifier)
+        let draft = EventDraft.newPending(rawInput: trimmed, userTz: "Asia/Hong_Kong")
         try? repo.saveDraft(draft)
         triggerSync()
     }

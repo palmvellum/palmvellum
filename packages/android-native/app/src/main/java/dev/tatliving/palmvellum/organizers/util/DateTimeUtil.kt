@@ -15,7 +15,9 @@ import java.time.format.DateTimeFormatter
 /** Date/time helpers. Events store an ISO-8601 UTC instant; display and
  *  editing happen in the device's local zone. */
 object DT {
-    private val zone: ZoneId get() = ZoneId.systemDefault()
+    // Bookings are pinned to Hong Kong (UTC+8) regardless of the device's
+    // timezone, so the calendar shows identical wall-clock times everywhere.
+    private val zone: ZoneId get() = ZoneId.of("Asia/Hong_Kong")
     private val dayFmt = DateTimeFormatter.ofPattern("EEE, MMM d")
     private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
     private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")

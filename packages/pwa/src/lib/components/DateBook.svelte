@@ -467,10 +467,12 @@
     }
     aiError = null;
     aiSubmitting = true;
+    // Default to Hong Kong (not the device zone) when no timezone is set, so the
+    // AI resolves "tomorrow 3pm" against HK. A picked non-HK setting still wins.
     const tz =
-      authState.settings?.timezone ||
-      Intl.DateTimeFormat().resolvedOptions().timeZone ||
-      'UTC';
+      (authState.settings?.timezone && authState.settings.timezone !== 'UTC'
+        ? authState.settings.timezone
+        : DEFAULT_TZ);
 
     const { error } = await supabase.from('event_drafts').insert({
       id: newUlid(),

@@ -7,7 +7,8 @@ import PalmKit
 enum DTU {
     static var cal: Calendar {
         var c = Calendar(identifier: .gregorian)
-        c.timeZone = .current
+        // Locked to Hong Kong time (UTC+8) for all Date Book bucketing/display.
+        c.timeZone = TimeZone(identifier: "Asia/Hong_Kong")!
         return c
     }
 
@@ -63,7 +64,8 @@ enum DTU {
     private static func fmt(_ template: String) -> DateFormatter {
         let f = DateFormatter()
         f.locale = .current
-        f.timeZone = .current
+        // Locked to Hong Kong time (UTC+8) for all Date Book labels.
+        f.timeZone = TimeZone(identifier: "Asia/Hong_Kong")!
         f.setLocalizedDateFormatFromTemplate(template)
         return f
     }

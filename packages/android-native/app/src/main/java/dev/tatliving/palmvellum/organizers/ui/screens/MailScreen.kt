@@ -217,7 +217,7 @@ private fun MailSources(vm: MailViewModel) {
     var url by remember { mutableStateOf("") }
     var topic by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("07:00") }
-    val tz = remember { runCatching { ZoneId.systemDefault().id }.getOrDefault("UTC") }
+    val tz = remember { runCatching { ZoneId.of("Asia/Hong_Kong").id }.getOrDefault("UTC") }
     var busy by remember { mutableStateOf(false) }
 
     fun reload() {

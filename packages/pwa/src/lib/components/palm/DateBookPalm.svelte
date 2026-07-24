@@ -33,15 +33,24 @@
     hhmm,
     ymd,
     sameDay,
-    bucketByDay,
-    localInputToISO,
-    isoToLocalInput,
+    bucketByDayTz,
+    zonedInputToISO,
+    isoToZonedInput,
     shortDayLabel,
     allDayYmdToISO,
     allDayIsoToYmd,
     ymdInZone,
     deviceTz,
+    DEFAULT_TZ,
   } from '$lib/calendar';
+
+  // The Palm-style Date Book has no timezone picker; it is always Hong Kong.
+  // Bind the day-bucketing and datetime-local <-> ISO conversions to DEFAULT_TZ
+  // so bookings are correct regardless of the device's own timezone.
+  const bucketByDay = (evts: Parameters<typeof bucketByDayTz>[0]) =>
+    bucketByDayTz(evts, DEFAULT_TZ);
+  const localInputToISO = (s: string) => zonedInputToISO(s, DEFAULT_TZ);
+  const isoToLocalInput = (iso: string | null) => isoToZonedInput(iso, DEFAULT_TZ);
   import PalmList from './PalmList.svelte';
   import PalmCell from './PalmCell.svelte';
   import PalmEmpty from './PalmEmpty.svelte';
@@ -392,7 +401,7 @@
     aiSubmitting = true;
     try {
       const draftId = newUlid();
-      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const userTz = deviceTz(); // locked to Asia/Hong_Kong
       const { error } = await supabase.from('event_drafts').insert({
         id: draftId,
         user_id: authState.userId,

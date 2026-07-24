@@ -108,7 +108,7 @@ class DateBookViewModel : ViewModel() {
 
     /** "Plan with AI" — create a draft the server parses into events. */
     fun planWithAi(text: String) = viewModelScope.launch {
-        repo.createDraft(text, ZoneId.systemDefault().id)
+        repo.createDraft(text, "Asia/Hong_Kong")
         if (Graph.sync.isSignedIn) Graph.sync.syncNow()
     }
 

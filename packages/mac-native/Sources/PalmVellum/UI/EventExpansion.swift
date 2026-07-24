@@ -66,7 +66,8 @@ enum EventExpansion {
 
         let dueFmt = DateFormatter()
         dueFmt.dateFormat = "yyyy-MM-dd"
-        dueFmt.timeZone = .current
+        // Locked to Hong Kong time (UTC+8) for Date Book day-bucketing.
+        dueFmt.timeZone = TimeZone(identifier: "Asia/Hong_Kong")!
         for t in todos {
             let f = TodoFields(from: t.metadata)
             guard !f.palmCompleted, !f.palmDueDate.isEmpty,

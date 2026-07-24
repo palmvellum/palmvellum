@@ -37,7 +37,7 @@ func hotsyncMergeCmd() *cobra.Command {
 			}
 			c := cloud.New(cfg.SupabaseURL, cfg.SupabasePublishableKey, s.AccessToken)
 
-			res, err := palmsync.SyncCardLog(c, s.UserID, args[0], wait, time.Local, func(line string) {
+			res, err := palmsync.SyncCardLog(c, s.UserID, args[0], wait, palmsync.HKLocation(), func(line string) {
 				fmt.Println(line)
 			})
 			if err != nil {
@@ -76,7 +76,7 @@ func datebookExportCmd() *cobra.Command {
 
 			// nil appInfo → DatebookDB uses its default display prefs (the
 			// device's own prefs are restored on the next normal HotSync).
-			res, err := palmsync.DatebookPull(c, s.UserID, args[0], nil, time.Local)
+			res, err := palmsync.DatebookPull(c, s.UserID, args[0], nil, palmsync.HKLocation())
 			if err != nil {
 				return err
 			}

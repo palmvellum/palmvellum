@@ -136,7 +136,7 @@ func cardSyncCmd() *cobra.Command {
 			}
 			c := cloud.New(cfg.SupabaseURL, cfg.SupabasePublishableKey, s.AccessToken)
 
-			res, err := palmsync.SyncCardLog(c, s.UserID, args[0], wait, time.Local, func(line string) {
+			res, err := palmsync.SyncCardLog(c, s.UserID, args[0], wait, palmsync.HKLocation(), func(line string) {
 				fmt.Println(line)
 			})
 			if err != nil {

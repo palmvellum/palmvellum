@@ -67,7 +67,7 @@
     margin: 0 0 1rem;
   }
   /* Support / donate statement — top of the page, links to the same
-     Airwallex pay page as the landing's "support the research". */
+     Stripe payment link as the landing's "support the research". */
   .support-banner {
     display: block;
     margin: 0 0 1.25rem;

@@ -113,7 +113,7 @@
   }
 
   // ── Post-checkout success lightbox ──────────────────────
-  // Airwallex redirects back to ?topup=ok|fail after the hosted page.
+  // Stripe redirects back to #topup=ok|fail after the hosted Checkout page.
   // The balance is credited by the webhook, which can lag a second or
   // two, so we poll refreshSettings() until it lands (or the user taps
   // Refresh). The modal shows the balance live.
@@ -182,7 +182,7 @@
   }
 
   async function downloadReceipt(r: Receipt) {
-    // jsPDF via esm.sh (same dynamic-import pattern as the Airwallex SDK)
+    // jsPDF via esm.sh (dynamic import, keeps it out of the main bundle)
     // so we don't carry it in the bundle.
     const mod: any = await import(/* @vite-ignore */ 'https://esm.sh/jspdf@2.5.2');
     const JsPDF = mod.jsPDF ?? mod.default;
@@ -219,7 +219,7 @@
     row('Receipt no.', r.id);
     row('Date', receiptDate(r.created_at));
     row('Billed to', authState.email ?? '—');
-    row('Payment method', 'Card via Airwallex');
+    row('Payment method', 'Card via Stripe');
     if (r.ref) row('Payment reference', r.ref);
     y += 8;
     doc.setDrawColor(220);
@@ -247,12 +247,12 @@
     try { sessionStorage.removeItem('pv_topup'); } catch { /* ignore */ }
   }
 
-  // The Airwallex success redirect is a full page load, after which auth
+  // The Stripe success redirect is a full page load, after which auth
   // re-init / routing can remount this component and wipe local $state.
   // Persist the "show success" signal in sessionStorage so it survives a
   // remount (onMount re-reads it); only Done clears it.
   onMount(() => {
-    // Airwallex returns to #topup=ok|fail (hash). Fall back to ?topup=…
+    // Stripe returns to #topup=ok|fail (hash). Fall back to ?topup=…
     // for any redirect issued before this build went live.
     const raw = location.hash.slice(1) || location.search.slice(1);
     const topup = new URLSearchParams(raw).get('topup');
@@ -283,35 +283,20 @@
     }
     topupBusy = true;
     const { data, error } = await supabase.functions.invoke('create-topup', {
-      body: { amount_usd: topupUsd },
+      body: { amount_usd: topupUsd, return_base: location.origin + base + '/settings' },
     });
-    if (error || !data?.client_secret) {
+    if (error || !data?.checkout_url) {
       topupBusy = false;
       topupError = error?.message ?? data?.error ?? t('settings.errStart');
       return;
     }
-    // Hand off to Airwallex's Hosted Payment Page (full-page redirect). The
-    // balance is credited by the airwallex-webhook on payment success — never
-    // client-side. redirectToCheckout navigates away, so topupBusy stays true.
+    // Hand off to Stripe's hosted Checkout page (full-page redirect). The
+    // balance is credited by the stripe-webhook on payment success — never
+    // client-side. Stripe sends the customer back to #topup=ok|fail (a hash,
+    // not a query string — see create-topup). Navigating away means topupBusy
+    // stays true until the page reloads.
     try {
-      const env = data.env === 'live' ? 'prod' : 'demo';
-      const awx: any = await import(/* @vite-ignore */ 'https://esm.sh/airwallex-payment-elements@1');
-      // loadAirwallex() injects the remote checkout bundle and runs init().
-      // init()/redirectToCheckout() are no-ops until this resolves — skipping
-      // it leaves the button stuck on "starting" with no error.
-      const loaded = await awx.loadAirwallex({ env, origin: location.origin });
-      if (!loaded) throw new Error(t('settings.errSdk'));
-      awx.redirectToCheckout({
-        env,
-        intent_id: data.intent_id,
-        client_secret: data.client_secret,
-        currency: 'USD',
-        // Return to a hash, not a query string: a query on the boot URL
-        // stalls Supabase's detectSessionInUrl and leaves the app stuck
-        // on the loading screen. A hash is invisible to it.
-        successUrl: location.origin + base + '/settings#topup=ok',
-        failUrl: location.origin + base + '/settings#topup=fail',
-      });
+      location.assign(String(data.checkout_url));
     } catch (e) {
       topupBusy = false;
       topupError = t('settings.errPayStart', { detail: String(e) });

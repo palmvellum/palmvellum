@@ -1,6 +1,9 @@
 # Platform credits (pay-as-you-go AI)
 
-Users top up a USD balance via Airwallex and spend it on platform AI calls.
+Users top up a USD balance via Stripe Checkout and spend it on platform AI calls.
+(Airwallex was the original processor; its account closed 2026-09-16 and the
+flow was ported to Stripe — same ledger, same RPCs, only the hosted checkout
+and the webhook changed.)
 Each call is billed at the underlying token cost plus a fixed retail markup.
 The markup multiplier is a commercial value kept out of the repo — it is read
 from the `PRICE_MARKUP` function secret at runtime (see Secrets below).
@@ -21,8 +24,8 @@ credits).
 | Balance, ledger, RPCs (`apply_topup`, `charge_usage`) | `supabase/migrations/20260619120000_v07_credits.sql` |
 | Pricing table + markup (markup from `PRICE_MARKUP` secret) | `supabase/functions/_shared/pricing.ts` (unit-tested) |
 | Per-call metering | `supabase/functions/_shared/billing.ts` → wired in `ai-agent` |
-| Start a top-up | `supabase/functions/create-topup` (auth'd; creates Airwallex intent) |
-| Credit on payment | `supabase/functions/airwallex-webhook` (verifies signature, idempotent) |
+| Start a top-up | `supabase/functions/create-topup` (auth'd; creates a Stripe Checkout Session, returns its URL) |
+| Credit on payment | `supabase/functions/stripe-webhook` (verifies Stripe signature, idempotent on the session id) |
 | Buy UI + balance | PWA `/settings` (credits section) |
 
 ## ⚠️ Secrets — never commit; never paste in chat
@@ -33,10 +36,8 @@ Set these as **Supabase Function secrets** (and rotate any key ever exposed):
 supabase secrets set \
   PRICE_MARKUP=...                          # retail markup multiplier (commercial — keep out of git) \
   PLATFORM_OPENAI_API_KEY=sk-...           # the platform's OpenAI key (rotated) \
-  AIRWALLEX_API_KEY=...                     # Airwallex DEMO key first \
-  AIRWALLEX_CLIENT_ID=... \
-  AIRWALLEX_WEBHOOK_SECRET=... \
-  AIRWALLEX_BASE_URL=https://api-demo.airwallex.com   # DEMO; live = https://api.airwallex.com
+  STRIPE_SECRET_KEY=sk_...                  # Stripe secret key (shared TAT Living Stripe account) \
+  STRIPE_WEBHOOK_SECRET=whsec_...           # signing secret of the stripe-webhook endpoint
 # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY are provided by the platform.
 ```
 
@@ -46,31 +47,29 @@ supabase secrets set \
 supabase link --project-ref jrkwncplngmznfzzqwee
 supabase db push                                   # applies the v07 migration
 supabase functions deploy create-topup
-supabase functions deploy airwallex-webhook --no-verify-jwt   # called by Airwallex, not a user
+supabase functions deploy stripe-webhook --no-verify-jwt      # called by Stripe, not a user
 supabase functions deploy ai-agent                 # now meters platform usage
 ```
 
-In the Airwallex **Demo** dashboard → Webhooks, add the endpoint
-`https://jrkwncplngmznfzzqwee.supabase.co/functions/v1/airwallex-webhook`,
-subscribe to `payment_intent.succeeded`, and copy the signing secret into
-`AIRWALLEX_WEBHOOK_SECRET`.
+In the Stripe dashboard → Developers → Webhooks, add the endpoint
+`https://jrkwncplngmznfzzqwee.supabase.co/functions/v1/stripe-webhook`,
+subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`
+and `checkout.session.expired`, and copy the signing secret into
+`STRIPE_WEBHOOK_SECRET`. The Stripe account is shared with other TAT Living
+products, so the webhook ignores any session without `metadata.pv_topup=1`.
 
-## Test (DEMO — no real money)
+## Test
 
-1. Set `AIRWALLEX_BASE_URL` to the demo host and use **demo** API creds.
-2. In the PWA, set your account to platform mode and buy $10 of credits using
-   an Airwallex [test card](https://www.airwallex.com/docs/payments__test-card-numbers).
-3. Confirm: the webhook fires → `credit_ledger` gets a `topup` row →
-   `user_settings.balance_micro_usd` increases by 10,000,000.
+1. Use a Stripe **test** key (`sk_test_…`) + a test-mode webhook endpoint for a
+   dry run, or go straight to a real US$10 top-up on the live key.
+2. In the PWA, set your account to platform mode and buy $10 of credits; you
+   land on Stripe Checkout and come back to `/settings#topup=ok`.
+3. Confirm: the webhook fires → `credit_ledger` gets a `topup` row (ref =
+   the `cs_…` session id) → `user_settings.balance_micro_usd` increases by
+   10,000,000.
 4. Trigger an `(AI)` memo. Confirm `ai_usage.cost_micro_usd > 0`, a `usage`
    ledger row appears, and the balance drops by the configured markup.
 5. Spend to zero → the next `(AI)` call is refused with "insufficient credit".
-
-## Go live
-
-Only after the DEMO flow is verified: rotate to **live** Airwallex creds +
-`AIRWALLEX_BASE_URL=https://api.airwallex.com`, re-point the webhook to the
-live dashboard, set the live (rotated) `PLATFORM_OPENAI_API_KEY`, and redeploy.
 
 ## Pricing maintenance
 

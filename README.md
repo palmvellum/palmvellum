@@ -39,7 +39,7 @@ It does not mean low-spec hardware. It does not mean treating the past as an aes
 1. **Palm Is Where Trust Begins.** Palm devices do not maintain an always-on wireless connection. Important information can remain on the device, and whether you sync anything to the cloud is always your decision. Not everything needs to be uploaded immediately. Not every thought needs to leave your hands.
 2. **Retro Is a Deliberate Rhythm.** A Palm IIIe made in 1999 can still work today on two AAA batteries. It reminds us that not every useful tool needs to disappear just because it is old. Some things are worth keeping not because they are nostalgic, but because they still do their job with quiet honesty. We respect the devices that are still sitting in drawers, still waiting, still capable of being useful.
 3. **Infrastructure Should Belong to the Community.** PalmVellum's toolchain, sync utilities, data structures, HotSync engine, and conduit are released on GitHub under the Apache 2.0 License. This is not an attempt to bring old hardware into another closed platform — it is an attempt to make the system understandable, inspectable, modifiable, and sustainable for anyone who wants to continue it. A tool worth keeping should not belong to one company alone.
-4. **Bring Your Own Key, or Use Platform Credits.** You can use your own OpenAI, Anthropic, or Google Gemini API key. You can also purchase PalmVellum platform credits through Airwallex. Both methods support the same core functions. Neither is required.
+4. **Bring Your Own Key, or Use Platform Credits.** You can use your own OpenAI, Anthropic, or Google Gemini API key. You can also purchase PalmVellum platform credits through Stripe. Both methods support the same core functions. Neither is required.
 5. **No Feed, No Tracking, No Marketing Noise.** You write the record. You own the record. PalmVellum does not aggregate, sell, recommend, or profile your personal life. Not everyone needs to become content. Not every moment needs to be seen.
 6. **Palm Should Remain Palm.** PalmVellum does not install custom firmware or change the core nature of Palm devices. The platform works through existing HotSync workflows and native Palm OS applications. Current interface and testing priorities focus on Palm devices powered by AAA batteries; other Palm OS devices may also work, but are not guaranteed to be fully tested.
 
@@ -86,7 +86,7 @@ Connect your Sony Clié through USB, select **Sync via USB** in the app, then pr
 **Palm Organizers** is a native Android personal organiser designed with a local-first approach, with optional cloud sync and AI features — Kotlin + Jetpack Compose, Room on-device. Source: [`packages/android-native/`](packages/android-native/). *(The earlier Capacitor wrapper under `packages/android/` is superseded.)* Two versions are currently available and can be installed side by side. The app is currently distributed as an APK and is not yet available on Google Play.
 
 - **Standard Edition** — for standard Android phones with a portrait interface.
-- **Cosmo Edition** — designed for the **Planet Cosmo Communicator**, with a landscape layout and physical QWERTY keyboard support: landscape-locked for the 2160×1080 main display, a left icon rail, two-pane master/detail layouts, and inline title-bar filters/search. UI spec: [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md). On a Cosmo stuck on firmware V19, see the companion [**Cosmo V19→V23 upgrade & standby-battery-fix guide**](https://github.com/tathome2025/cosmo-standby-battery-fix).
+- **Cosmo Edition** — designed for the **Planet Cosmo Communicator**, with a landscape layout and physical QWERTY keyboard support: landscape-locked for the 2160×1080 main display, a left icon rail, two-pane master/detail layouts, and inline title-bar filters/search. UI spec: [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md). On a Cosmo stuck on firmware V19, see the companion [**Cosmo V19→V23 upgrade & standby-battery-fix guide**](https://github.com/TATLivingDEV/cosmo-standby-battery-fix).
 
 **USB HotSync (Cosmo Edition).** Dock a vintage Palm/CLIE to the Cosmo's USB-C port (via a USB-OTG adapter), press HotSync on the Palm, and the app syncs Memo Pad, To Do, Date Book, Address and Mail straight to your PalmVellum cloud — no desktop needed. It can also **install `.prc`/`.pdb` files** onto the Palm, like the classic Palm Install Tool. A from-scratch Kotlin HotSync stack (NetSync + DLP, driven over the cable) powers it; verified on a Sony CLIE.
 
@@ -174,7 +174,7 @@ PalmVellum is built by one person in Hong Kong, during evenings and weekends —
 1. **Palm 是信任的起點。** Palm 裝置本身沒有常駐無線連線。重要資料可以保留在裝置內；是否同步至雲端，始終由你決定。不是所有事情都要立刻上傳，也不是所有記錄都必須離開你的手中。
 2. **復古，是一種有意識的節奏。** 一台仍可正常使用的 Palm IIIe，在 1999 年被製造、被購買，如今仍能依靠兩顆 AAA 電池繼續工作。它提醒我們：不是每一件工具，都必須很快被淘汰。有些東西之所以值得留下，不只是因為舊，而是因為它仍然忠實地完成它原本的工作。我們尊重那些還在抽屜裡、仍然可以使用的物件。
 3. **基礎設施應屬於社群。** PalmVellum 的工具鏈、同步程式、資料結構、HotSync 引擎與同步 conduit，皆以 Apache 2.0 授權發布於 GitHub。這不是把舊設備帶進另一個封閉服務，而是讓任何有興趣的人，都能理解、檢視、修改與延續它。一個工具若真的值得被留下，它不應只屬於某一間公司。
-4. **使用自己的金鑰，或使用平台點數。** 你可以使用自己的 OpenAI、Anthropic 或 Google Gemini API 金鑰；也可以透過 Airwallex 購買平台點數。兩種方式皆可完整使用對應功能，不強制綁定任何一種使用方式。
+4. **使用自己的金鑰，或使用平台點數。** 你可以使用自己的 OpenAI、Anthropic 或 Google Gemini API 金鑰；也可以透過 Stripe 購買平台點數。兩種方式皆可完整使用對應功能，不強制綁定任何一種使用方式。
 5. **沒有社群牆，沒有追蹤，沒有行銷轟炸。** 你寫下紀錄，你擁有紀錄。PalmVellum 不彙整、不販售、不推薦，也不會把你的生活變成一張等待被分析的報表。不是每一個人，都需要成為內容；不是每一段生活，都需要被看見。
 6. **Palm 仍然是 Palm。** PalmVellum 不會推送自訂韌體，也不會改寫 Palm 的使用本質。平台透過既有的 HotSync 機制，與既有的 Palm OS 應用程式進行同步。目前的參考目標與介面設計，主要針對使用 AAA 電池的 Palm 系列裝置；其他 Palm OS 裝置同樣可以使用相關同步功能，但不保證已完成相容性測試。
 
@@ -209,7 +209,7 @@ PalmVellum 希望幫你留下的，是一份可以慢慢長大的個人紀錄：
 **Palm Organizers（Android，原生）。** 可原生運行於 Android 的個人整理工具，採本機優先設計，並提供選用的雲端同步與 AI 功能。源碼見 [`packages/android-native/`](packages/android-native/)。目前提供兩個可並存安裝的版本，以 APK 形式發布，尚未上架 Google Play：
 
 - **標準版** — 適用一般 Android 手機，直向操作介面。
-- **Cosmo 版** — 適用 **Planet Cosmo Communicator**，支援橫向介面（2160×1080）與實體 QWERTY 鍵盤；左側圖示 rail、兩欄 master/detail、標題列 inline 篩選/搜尋。UI 規格見 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。部 Cosmo 仍在 firmware V19？另見 [**Cosmo V19→V23 升級＋待機省電指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
+- **Cosmo 版** — 適用 **Planet Cosmo Communicator**，支援橫向介面（2160×1080）與實體 QWERTY 鍵盤；左側圖示 rail、兩欄 master/detail、標題列 inline 篩選/搜尋。UI 規格見 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。部 Cosmo 仍在 firmware V19？另見 [**Cosmo V19→V23 升級＋待機省電指南**](https://github.com/TATLivingDEV/cosmo-standby-battery-fix)。
 
 **USB HotSync（Cosmo 版）。** 用 USB-OTG 線將舊 Palm/CLIE 駁上 Cosmo 嘅 USB-C 口，喺 Palm 撳 HotSync，app 就會將 Memo Pad、To Do、Date Book、聯絡人同 Mail 直接同 PalmVellum 雲端同步 — 唔使電腦。仲可以將 `.prc`/`.pdb` 檔安裝落 Palm。背後係由零用 Kotlin 寫嘅 HotSync 協議堆疊（NetSync + DLP），喺 Sony CLIE 真機驗證過。
 
@@ -246,7 +246,7 @@ PalmVellum 由一位在香港生活的人，利用晚上與週末的時間，一
 1. **Palm 是信任的起点。** Palm 设备本身没有常驻无线连线。重要资料可以保留在设备内；是否同步至云端，始终由你决定。不是所有事情都要立刻上传，也不是所有记录都必须离开你的手中。
 2. **复古，是一种有意识的节奏。** 一台仍可正常使用的 Palm IIIe，在 1999 年被制造、被购买，如今仍能依靠两节 AAA 电池继续工作。它提醒我们：不是每一件工具，都必须很快被淘汰。有些东西之所以值得留下，不只是因为旧，而是因为它仍然忠实地完成它原本的工作。我们尊重那些还在抽屉里、仍然可以使用的物件。
 3. **基础设施应属于社区。** PalmVellum 的工具链、同步程序、数据结构、HotSync 引擎与同步 conduit，皆以 Apache 2.0 授权发布于 GitHub。这不是把旧设备带进另一个封闭服务，而是让任何有兴趣的人，都能理解、检视、修改与延续它。一个工具若真的值得被留下，它不应只属于某一间公司。
-4. **使用自己的密钥，或使用平台点数。** 你可以使用自己的 OpenAI、Anthropic 或 Google Gemini API 密钥；也可以通过 Airwallex 购买平台点数。两种方式皆可完整使用对应功能，不强制绑定任何一种使用方式。
+4. **使用自己的密钥，或使用平台点数。** 你可以使用自己的 OpenAI、Anthropic 或 Google Gemini API 密钥；也可以通过 Stripe 购买平台点数。两种方式皆可完整使用对应功能，不强制绑定任何一种使用方式。
 5. **没有社交墙，没有追踪，没有营销轰炸。** 你写下记录，你拥有记录。PalmVellum 不汇整、不贩售、不推荐，也不会把你的生活变成一张等待被分析的报表。不是每一个人，都需要成为内容；不是每一段生活，都需要被看见。
 6. **Palm 仍然是 Palm。** PalmVellum 不会推送自定义固件，也不会改写 Palm 的使用本质。平台通过既有的 HotSync 机制，与既有的 Palm OS 应用程序进行同步。目前的参考目标与界面设计，主要针对使用 AAA 电池的 Palm 系列设备；其他 Palm OS 设备同样可以使用相关同步功能，但不保证已完成兼容性测试。
 
@@ -281,7 +281,7 @@ PalmVellum 希望帮你留下的，是一份可以慢慢长大的个人记录：
 **Palm Organizers（Android，原生）。** 可原生运行于 Android 的个人整理工具，采本地优先设计，并提供可选的云端同步与 AI 功能。源码见 [`packages/android-native/`](packages/android-native/)。目前提供两个可并存安装的版本，以 APK 形式发布，尚未上架 Google Play：
 
 - **标准版** — 适用一般 Android 手机，竖向操作界面。
-- **Cosmo 版** — 适用 **Planet Cosmo Communicator**，支持横向界面（2160×1080）与实体 QWERTY 键盘；左侧图标 rail、两栏 master/detail、标题栏 inline 筛选/搜索。UI 规格见 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。设备仍在 firmware V19？另见 [**Cosmo V19→V23 升级＋待机省电指南**](https://github.com/tathome2025/cosmo-standby-battery-fix)。
+- **Cosmo 版** — 适用 **Planet Cosmo Communicator**，支持横向界面（2160×1080）与实体 QWERTY 键盘；左侧图标 rail、两栏 master/detail、标题栏 inline 筛选/搜索。UI 规格见 [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。设备仍在 firmware V19？另见 [**Cosmo V19→V23 升级＋待机省电指南**](https://github.com/TATLivingDEV/cosmo-standby-battery-fix)。
 
 **USB HotSync（Cosmo 版）。** 用 USB-OTG 线将旧 Palm/CLIE 接上 Cosmo 的 USB-C 口，在 Palm 按 HotSync，app 就会将 Memo Pad、To Do、Date Book、联系人和 Mail 直接与 PalmVellum 云端同步 — 不用电脑。还可以将 `.prc`/`.pdb` 文件安装到 Palm。背后是从零用 Kotlin 写的 HotSync 协议栈（NetSync + DLP），在 Sony CLIE 真机验证过。
 
@@ -318,7 +318,7 @@ Palm に書き込むのは、それが静かだからです。単 3 電池 2 本
 1. **Palm のハードウェアが信頼の根。** 無線なし。漏洩できません。重要なものはすべて端末上に留めておけます。クラウドに同期するものを選ぶのはあなたです。
 2. **レトロコンピューティングは意図的です。** 2026 年に動作する Palm IIIe は 1999 年製。一度買えば一生もので、年に 2 本の単 3 電池しか要求しません。私たちはあなたの引き出しにすでに眠っているものを尊重します。
 3. **基盤はコミュニティのもの。** ツールチェーン、daemon、スキーマ、HotSync エンジン、sync conduits — すべて GitHub 上の Apache 2.0。
-4. **BYOK かプラットフォームクレジットか — 選ぶのはあなた。** 自分の OpenAI、Anthropic、または Google Gemini キーを持ち込めば、プラットフォーム側の料金はゼロ。あるいは Airwallex 経由でプラットフォームクレジットを購入。どちらも同等で、強制されるものはありません。
+4. **BYOK かプラットフォームクレジットか — 選ぶのはあなた。** 自分の OpenAI、Anthropic、または Google Gemini キーを持ち込めば、プラットフォーム側の料金はゼロ。あるいは Stripe 経由でプラットフォームクレジットを購入。どちらも同等で、強制されるものはありません。
 5. **SNS なし、解析なし、メールマーケティングなし。** あなたが書いた記録はあなたのものです。私たちは集約も、販売も、推薦もしません。
 6. **Palm は Palm のまま。** カスタムファームウェアを配布することは絶対にありません。プラットフォームは既存の HotSync プロトコルで既存の Palm OS アプリと話します。私たちの参照ターゲットおよび設計の中心は単 3 電池ファミリー (1996–2003) — それが私たちが信じ、実機テストするデバイスです。プラットフォーム自体は HotSync だけを話すので、ターゲット外の Palm OS デバイスでも使えますが、こちらでテストはしません。
 
@@ -353,7 +353,7 @@ Palm に書き込むのは、それが静かだからです。単 3 電池 2 本
 **Palm Organizers（Android、ネイティブ）。** Android でネイティブ動作する organizer（ローカル優先 + 任意のクラウド同期・AI）。ソースは [`packages/android-native/`](packages/android-native/)。2 つのビルドは共存インストール可能、サイドロード APK で配布 —— Play ストアにはありません：
 
 - **Standard** — 機種を問わず縦向き。
-- **Cosmo 版** — **Planet Cosmo Communicator**（横向き 2160×1080 + 物理 QWERTY）向け：横向き固定、左のアイコンレール、2 ペインのマスター/詳細、タイトルバーのインライン絞り込み/検索。UI 仕様は [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。Cosmo がファームウェア V19 のまま？ [**Cosmo V19→V23 アップグレード＋待機電力対策ガイド**](https://github.com/tathome2025/cosmo-standby-battery-fix) も参照。
+- **Cosmo 版** — **Planet Cosmo Communicator**（横向き 2160×1080 + 物理 QWERTY）向け：横向き固定、左のアイコンレール、2 ペインのマスター/詳細、タイトルバーのインライン絞り込み/検索。UI 仕様は [`docs/cosmo-ui-spec.md`](docs/cosmo-ui-spec.md)。Cosmo がファームウェア V19 のまま？ [**Cosmo V19→V23 アップグレード＋待機電力対策ガイド**](https://github.com/TATLivingDEV/cosmo-standby-battery-fix) も参照。
 
 **USB HotSync（Cosmo 版）。** USB-OTG アダプタで往年の Palm/CLIE を Cosmo の USB-C ポートに接続し、Palm で HotSync を押すと、Memo Pad・To Do・Date Book・アドレス・Mail を PalmVellum クラウドへ直接同期します — パソコン不要。さらに `.prc`/`.pdb` ファイルを Palm へインストールできます。ゼロから Kotlin で書いた HotSync スタック（NetSync + DLP）が駆動し、Sony CLIE 実機で検証済み。
 

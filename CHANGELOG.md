@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Credits top-up moved from Airwallex to Stripe (2026-09-16)
+
+The Airwallex account closed, so `create-topup` now opens a Stripe Checkout
+Session (hosted page, full redirect) and the new `stripe-webhook` credits
+the balance on `checkout.session.completed` — same `payment_intents` /
+`credit_ledger` / `apply_topup` spine, keyed on the `cs_…` session id.
+`airwallex-webhook` and `_shared/airwallex.ts` are removed. The PWA
+"Support the Research" link is now a Stripe payment link.
+
 ### packages/palm-app retired (2026-06-07)
 
 The on-device Palm OS C app workstream is dropped. We no longer plan
@@ -133,7 +142,7 @@ git history for guidance that no longer applies.
 ### Repo cleanup (2026-06-03)
 
 - Removed `website/` from this public repository. The landing page
-  source lives in the (separate) `tathome2025/tatlivingio` repo and
+  source lives in the (separate) `TATLivingDEV/tatlivingio` repo and
   is deployed at <https://tatliving.dev/palmvellum/>. Keeping a
   duplicate copy here added maintenance burden and exposed the same
   files in two public places. Added `website/` to `.gitignore` so
@@ -246,7 +255,7 @@ Smoke-tested:
 - `svelte.config.js`: `kit.paths.base = '/palmvellum/app'` so all
   asset URLs include the subdir prefix (overridable via
   `PUBLIC_BASE_PATH` env var for local dev or alternate deploys).
-- Build copied to the tathome2025/tatlivingio repo at
+- Build copied to the TATLivingDEV/tatlivingio repo at
   `palmvellum/app/` (16 files, ~432 KB).
 - tatlivingio `vercel.json` gains an SPA-fallback rewrite so deep
   links to `/palmvellum/app/<anything>` resolve to the SvelteKit

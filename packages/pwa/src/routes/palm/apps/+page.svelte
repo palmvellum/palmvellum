@@ -15,7 +15,7 @@
   const APK_COSMO = `${REL}/download/android-v0.1.0/PalmOrganizers-0.1.0-cosmo.apk`;
   const GUIDE = 'https://github.com/palmvellum/palmvellum/blob/main/docs/USAGE.md';
   // Donation link — same target as the landing page's "support the research".
-  const DONATE = 'https://pay.airwallex.com/hkhjmem9gpkz';
+  const DONATE = 'https://buy.stripe.com/eVqfZbfrRgKv6q0eCzbsc05';
 </script>
 
 <PalmAppShell title={t('apps.heading')} backHref="/palm">

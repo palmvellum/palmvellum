@@ -32,8 +32,8 @@
   ];
 
   // Donation link — same target as the landing page's "support the
-  // research" button (Airwallex hosted pay page).
-  const DONATE = 'https://pay.airwallex.com/hkhjmem9gpkz';
+  // research" button (Stripe hosted payment link; Airwallex closed 2026-09).
+  const DONATE = 'https://buy.stripe.com/eVqfZbfrRgKv6q0eCzbsc05';
 </script>
 
 {#if authState.phase !== 'ready'}

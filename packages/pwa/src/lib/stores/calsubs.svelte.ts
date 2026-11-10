@@ -16,7 +16,8 @@
  * id too. Browsers can't fetch most feeds cross-origin (no CORS), so the URL
  * fetch is proxied through the `fetch-ics` Supabase Edge Function; the .ics
  * FILE import is fully client-side. Read-only: events removed upstream are
- * NOT deleted locally — a deliberate simplification matching native.
+ * NOT deleted locally — a deliberate simplification matching native. Events the
+ * user deleted stay deleted: a refresh never resurrects them.
  */
 
 import { browser } from '$app/environment';
@@ -205,6 +206,8 @@ class CalSubsState {
     if (!uid) return 0;
     const id = icsEventId(url, e);
     const existing = await getEvent(id);
+    // The user deleted this feed event: keep it deleted, never resurrect it.
+    if (existing && existing.deleted_at !== null) return 0;
     if (
       existing &&
       existing.title === e.summary &&

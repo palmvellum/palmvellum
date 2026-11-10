@@ -82,6 +82,8 @@ public final class CalendarService {
                     let key = e.uid ?? (e.summary + e.startIso)
                     let id = DeterministicId.ics(url: sub.url, key: key)
                     let existing = try? repo.getEvent(id: id)
+                    // The user deleted this feed event: keep it deleted, never resurrect it.
+                    if let existing, existing.deletedAt != nil { continue }
                     if let existing,
                        existing.title == e.summary, existing.startAt == e.startIso,
                        existing.endAt == e.endIso, existing.allDay == e.allDay,

@@ -123,6 +123,8 @@ object CalendarSync {
                 val key = e.uid ?: (e.summary + e.startIso)
                 val id = "ics" + abs((sub.url + "|" + key).hashCode())
                 val existing = Graph.repo.getEvent(id)
+                // The user deleted this feed event: keep it deleted, never resurrect it.
+                if (existing != null && existing.deletedAt != null) continue
                 // Skip unchanged rows so re-fetching doesn't churn the sync queue.
                 if (existing != null &&
                     existing.title == e.summary &&
